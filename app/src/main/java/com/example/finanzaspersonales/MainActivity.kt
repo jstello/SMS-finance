@@ -44,6 +44,21 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.material3.MaterialTheme
 import java.util.Calendar
 import java.text.DateFormatSymbols
+import androidx.compose.material3.IconButton
+import androidx.compose.material3.Icon
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.ArrowBack
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.height
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.foundation.layout.size
+import androidx.compose.material.icons.filled.CalendarToday
+import androidx.compose.material.icons.filled.ArrowDropDown
+import androidx.compose.material.icons.filled.Close
+import androidx.compose.material3.AssistChip
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
+import androidx.compose.material.icons.filled.Analytics
 
 data class SmsMessage(
     val address: String,
@@ -56,7 +71,8 @@ data class SmsMessage(
 data class TransactionData(
     val date: java.util.Date,
     val amount: Float,
-    val isIncome: Boolean
+    val isIncome: Boolean,
+    val originalMessage: SmsMessage
 )
 
 class MainActivity : ComponentActivity() {
@@ -109,15 +125,23 @@ fun SMSReader(modifier: Modifier = Modifier) {
                 onBack = { showNumericData.value = false }
             )
         } else {
-            Button(
+            androidx.compose.material3.AssistChip(
                 onClick = {
                     transactions.value = extractTransactionData(smsMessages.value)
                     showNumericData.value = true
                 },
-                modifier = Modifier.padding(top = 8.dp)
-            ) {
-                Text("Show Transaction Data")
-            }
+                label = { Text("Show Transaction Data") },
+                leadingIcon = {
+                    Icon(
+                        Icons.Default.Analytics,
+                        contentDescription = null,
+                        modifier = Modifier.size(18.dp)
+                    )
+                },
+                modifier = Modifier
+                    .padding(top = 8.dp)
+                    .fillMaxWidth()
+            )
 
             // Add search text field
             androidx.compose.material3.TextField(
@@ -173,118 +197,303 @@ fun SMSReader(modifier: Modifier = Modifier) {
 
 @Composable
 fun NumericDataScreen(transactions: List<TransactionData>, onBack: () -> Unit) {
-    // Get current date values for fallback
-    val calendar = remember { Calendar.getInstance() }
-    val defaultYear = calendar.get(Calendar.YEAR)
-    val defaultMonth = calendar.get(Calendar.MONTH) + 1
-
-    // Initialize filters with null (show all data)
-    val filterState = remember { mutableStateOf("all") }
-    val selectedYear = remember { mutableStateOf<Int?>(null) }
-    val selectedMonth = remember { mutableStateOf<Int?>(null) }
-    val showYearFilter = remember { mutableStateOf(false) }
-    val showMonthFilter = remember { mutableStateOf(false) }
-
-    // Add years calculation back
-    val years = remember(transactions) {
-        if (transactions.isEmpty()) listOf(defaultYear)
-        else transactions.map {
-            val cal = Calendar.getInstance().apply { time = it.date }
-            cal.get(Calendar.YEAR)
-        }.distinct().sortedDescending()
-    }
-
-    // Update monthsInYear calculation to use defaultYear as fallback
-    val monthsInYear = remember(selectedYear.value) {
-        val year = selectedYear.value ?: defaultYear
-        transactions.mapNotNull {
-            val cal = Calendar.getInstance().apply { time = it.date }
-            if (cal.get(Calendar.YEAR) == year) {
-                cal.get(Calendar.MONTH) + 1
-            } else null
-        }.distinct().sortedDescending().ifEmpty { listOf(defaultMonth) }
-    }
-
-    // Safe filter with fallbacks for nulls
-    val filteredTransactions = remember(transactions, filterState.value, selectedYear.value, selectedMonth.value) {
-        transactions.filter { transaction ->
-            val matchesType = when (filterState.value) {
-                "income" -> transaction.isIncome
-                "expense" -> !transaction.isIncome
-                else -> true
-            }
-            
-            val cal = Calendar.getInstance().apply { time = transaction.date }
-            
-            // Modified section: Only check year/month if selection exists
-            val matchesYear = selectedYear.value?.let { cal.get(Calendar.YEAR) == it } ?: true
-            val matchesMonth = selectedMonth.value?.let { (cal.get(Calendar.MONTH) + 1) == it } ?: true
-            
-            matchesType && matchesYear && matchesMonth
-        }
-    }
-
-    // Add sorting state
-    val sortState = remember { mutableStateOf(Pair("date", false)) } // (column, ascending)
-
-    val sortedTransactions = remember(filteredTransactions, sortState.value) {
-        when (sortState.value.first) {
-            "amount" -> {
-                if (sortState.value.second) {
-                    filteredTransactions.sortedBy { it.amount }
-                } else {
-                    filteredTransactions.sortedByDescending { it.amount }
-                }
-            }
-            else -> { // date is default
-                if (sortState.value.second) {
-                    filteredTransactions.sortedBy { it.date }
-                } else {
-                    filteredTransactions.sortedByDescending { it.date }
-                }
-            }
-        }
-    }
-
-    // Calculate totals
-    val (totalIncome, totalExpense) = remember(filteredTransactions) {
-        var income = 0f
-        var expense = 0f
-        filteredTransactions.forEach {
-            if (it.isIncome) income += it.amount else expense += it.amount
-        }
-        Pair(income, expense)
-    }
+    val selectedTransaction = remember { mutableStateOf<TransactionData?>(null) }
     
-    val totalAmount = remember(filteredTransactions) {
-        totalIncome - totalExpense
-    }
+    if (selectedTransaction.value != null) {
+        MessageDetailScreen(
+            message = selectedTransaction.value!!.originalMessage,
+            onBack = { selectedTransaction.value = null }
+        )
+    } else {
+        // Get current date values for fallback
+        val calendar = remember { Calendar.getInstance() }
+        val defaultYear = calendar.get(Calendar.YEAR)
+        val defaultMonth = calendar.get(Calendar.MONTH) + 1
 
-    Column(modifier = Modifier.padding(16.dp)) {
-        Button(onClick = onBack) {
-            Text("Back to Messages")
+        // Initialize filters with null (show all data)
+        val filterState = remember { mutableStateOf("all") }
+        val selectedYear = remember { mutableStateOf<Int?>(null) }
+        val selectedMonth = remember { mutableStateOf<Int?>(null) }
+        val showYearFilter = remember { mutableStateOf(false) }
+        val showMonthFilter = remember { mutableStateOf(false) }
+
+        // Add years calculation back
+        val years = remember(transactions) {
+            if (transactions.isEmpty()) listOf(defaultYear)
+            else transactions.map {
+                val cal = Calendar.getInstance().apply { time = it.date }
+                cal.get(Calendar.YEAR)
+            }.distinct().sortedDescending()
         }
-        
-        // Year/Month filter row
-        Row(modifier = Modifier.padding(vertical = 8.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            // Year filter
-            Column {
-                androidx.compose.material3.Button(
-                    onClick = { showYearFilter.value = true }
-                ) {
-                    Text(selectedYear.value?.toString() ?: "Select Year")
+
+        // Update monthsInYear calculation to use defaultYear as fallback
+        val monthsInYear = remember(selectedYear.value) {
+            val year = selectedYear.value ?: defaultYear
+            transactions.mapNotNull {
+                val cal = Calendar.getInstance().apply { time = it.date }
+                if (cal.get(Calendar.YEAR) == year) {
+                    cal.get(Calendar.MONTH) + 1
+                } else null
+            }.distinct().sortedDescending().ifEmpty { listOf(defaultMonth) }
+        }
+
+        // Safe filter with fallbacks for nulls
+        val filteredTransactions = remember(transactions, filterState.value, selectedYear.value, selectedMonth.value) {
+            transactions.filter { transaction ->
+                val matchesType = when (filterState.value) {
+                    "income" -> transaction.isIncome
+                    "expense" -> !transaction.isIncome
+                    else -> true
                 }
                 
-                androidx.compose.material3.DropdownMenu(
+                val cal = Calendar.getInstance().apply { time = transaction.date }
+                
+                // Modified section: Only check year/month if selection exists
+                val matchesYear = selectedYear.value?.let { cal.get(Calendar.YEAR) == it } ?: true
+                val matchesMonth = selectedMonth.value?.let { (cal.get(Calendar.MONTH) + 1) == it } ?: true
+                
+                matchesType && matchesYear && matchesMonth
+            }
+        }
+
+        // Add sorting state
+        val sortState = remember { mutableStateOf(Pair("date", false)) } // (column, ascending)
+
+        val sortedTransactions = remember(filteredTransactions, sortState.value) {
+            when (sortState.value.first) {
+                "amount" -> {
+                    if (sortState.value.second) {
+                        filteredTransactions.sortedBy { it.amount }
+                    } else {
+                        filteredTransactions.sortedByDescending { it.amount }
+                    }
+                }
+                else -> { // date is default
+                    if (sortState.value.second) {
+                        filteredTransactions.sortedBy { it.date }
+                    } else {
+                        filteredTransactions.sortedByDescending { it.date }
+                    }
+                }
+            }
+        }
+
+        // Calculate totals
+        val (totalIncome, totalExpense) = remember(filteredTransactions) {
+            var income = 0f
+            var expense = 0f
+            filteredTransactions.forEach {
+                if (it.isIncome) income += it.amount else expense += it.amount
+            }
+            Pair(income, expense)
+        }
+        
+        val totalAmount = remember(filteredTransactions) {
+            totalIncome - totalExpense
+        }
+
+        Column(modifier = Modifier.padding(16.dp)) {
+            androidx.compose.material3.AssistChip(
+                onClick = onBack,
+                label = { Text("Back to Messages") },
+                leadingIcon = {
+                    Icon(
+                        Icons.Default.ArrowBack,
+                        contentDescription = null,
+                        modifier = Modifier.size(18.dp)
+                    )
+                },
+                modifier = Modifier.padding(bottom = 8.dp)
+            )
+            
+            // Year/Month filter row
+            Row(
+                modifier = Modifier
+                    .padding(vertical = 8.dp)
+                    .fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                // Combined filter chips
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    // Year filter
+                    androidx.compose.material3.AssistChip(
+                        onClick = { showYearFilter.value = true },
+                        label = { Text(selectedYear.value?.toString() ?: "Year") },
+                        leadingIcon = {
+                            Icon(
+                                Icons.Default.CalendarToday,
+                                contentDescription = null,
+                                modifier = Modifier.size(18.dp)
+                            )
+                        }
+                    )
+
+                    // Month filter
+                    androidx.compose.material3.AssistChip(
+                        onClick = { showMonthFilter.value = true },
+                        enabled = selectedYear.value != null,
+                        label = {
+                            Text(
+                                selectedMonth.value?.let { 
+                                    DateFormatSymbols().months[it - 1].take(3) 
+                                } ?: "Month"
+                            )
+                        },
+                        leadingIcon = {
+                            Icon(
+                                Icons.Default.ArrowDropDown,
+                                contentDescription = null,
+                                modifier = Modifier.size(18.dp)
+                            )
+                        }
+                    )
+                }
+
+                // Clear filters
+                androidx.compose.material3.IconButton(
+                    onClick = {
+                        selectedYear.value = null
+                        selectedMonth.value = null
+                    }
+                ) {
+                    Icon(Icons.Default.Close, contentDescription = "Clear filters")
+                }
+            }
+            
+            // Filter chips
+            Row(modifier = Modifier.padding(vertical = 8.dp)) {
+                listOf("All", "Income", "Expense").forEach { filter ->
+                    androidx.compose.material3.FilterChip(
+                        selected = filter.lowercase() == "all",
+                        onClick = { 
+                            selectedYear.value = null
+                            selectedMonth.value = null
+                        },
+                        modifier = Modifier.padding(end = 8.dp),
+                        label = { Text(filter) },
+                        colors = androidx.compose.material3.FilterChipDefaults.filterChipColors(
+                            selectedContainerColor = when (filter.lowercase()) {
+                                "income" -> Color(0xFF388E3C)
+                                "expense" -> Color.Red
+                                else -> Color.LightGray
+                            }
+                        )
+                    )
+                }
+            }
+
+            // Table header
+            Row(
+                modifier = Modifier
+                    .padding(8.dp)
+                    .fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween
+            ) {
+                Column(
+                    modifier = Modifier.clickable {
+                        sortState.value = if (sortState.value.first == "date") {
+                            Pair("date", !sortState.value.second)
+                        } else {
+                            Pair("date", false)
+                        }
+                    }
+                ) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Text("Date/Time", fontWeight = FontWeight.Bold)
+                        SortIndicator(
+                            visible = sortState.value.first == "date",
+                            ascending = sortState.value.second
+                        )
+                    }
+                }
+                
+                Column(
+                    modifier = Modifier.clickable {
+                        sortState.value = if (sortState.value.first == "amount") {
+                            Pair("amount", !sortState.value.second)
+                        } else {
+                            Pair("amount", false)
+                        }
+                    }
+                ) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Text("Amount (COP)", fontWeight = FontWeight.Bold)
+                        SortIndicator(
+                            visible = sortState.value.first == "amount",
+                            ascending = sortState.value.second
+                        )
+                    }
+                }
+            }
+            
+            Divider(color = Color.Gray, thickness = 1.dp)
+            
+            LazyColumn(modifier = Modifier
+                .padding(top = 8.dp)
+                .weight(1f)) {
+                itemsIndexed(sortedTransactions) { index, transaction ->
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(8.dp)
+                            .clickable { selectedTransaction.value = transaction },
+                        horizontalArrangement = Arrangement.SpaceBetween
+                    ) {
+                        Text(java.text.SimpleDateFormat("dd MMM yyyy HH:mm").format(transaction.date))
+                        Text(
+                            text = "$${"%,.2f".format(transaction.amount)}",
+                            color = when {
+                                "all" == "all" -> 
+                                    if (transaction.isIncome) MaterialTheme.colorScheme.primary 
+                                    else MaterialTheme.colorScheme.error
+                                else -> MaterialTheme.colorScheme.onSurface
+                            }
+                        )
+                    }
+                    if (index < sortedTransactions.size - 1) {
+                        Divider(color = MaterialTheme.colorScheme.outline)
+                    }
+                }
+            }
+
+            // Total display
+            Column(modifier = Modifier.padding(8.dp)) {
+                when {
+                    "all" == "all" -> {
+                        TotalRow(label = "Total Income:", amount = totalIncome, color = Color(0xFF388E3C))
+                        TotalRow(label = "Total Expense:", amount = totalExpense, color = Color.Red)
+                        TotalRow(label = "Net Total:", amount = totalIncome - totalExpense, color = Color.DarkGray)
+                    }
+                    "income" == "all" -> TotalRow(label = "Total Income:", amount = totalIncome, color = Color(0xFF388E3C))
+                    "expense" == "all" -> TotalRow(label = "Total Expense:", amount = totalExpense, color = Color.Red)
+                }
+            }
+
+            // Clear button functionality
+            Row(modifier = Modifier.padding(horizontal = 8.dp)) {
+                Button(
+                    onClick = {
+                        selectedYear.value = defaultYear
+                        selectedMonth.value = defaultMonth
+                    }
+                ) {
+                    Text("Reset to Current")
+                }
+            }
+
+            // Year filter dropdown
+            if (showYearFilter.value) {
+                DropdownMenu(
                     expanded = showYearFilter.value,
-                    onDismissRequest = { showYearFilter.value = false }
+                    onDismissRequest = { showYearFilter.value = false },
+                    modifier = Modifier.fillMaxWidth()
                 ) {
                     years.forEach { year ->
-                        androidx.compose.material3.DropdownMenuItem(
-                            text = { Text(year.toString()) },
-                            onClick = { 
+                        DropdownMenuItem(
+                            text = { Text(text = year.toString()) },
+                            onClick = {
                                 selectedYear.value = year
-                                selectedMonth.value = null
                                 showYearFilter.value = false
                             }
                         )
@@ -292,161 +501,23 @@ fun NumericDataScreen(transactions: List<TransactionData>, onBack: () -> Unit) {
                 }
             }
 
-            // Month filter
-            Column {
-                androidx.compose.material3.Button(
-                    onClick = { showMonthFilter.value = true },
-                    enabled = selectedYear.value != null
-                ) {
-                    Text(selectedMonth.value?.let { 
-                        DateFormatSymbols().months[it - 1].take(3)
-                    } ?: "Select Month")
-                }
-                
-                androidx.compose.material3.DropdownMenu(
+            // Month filter dropdown
+            if (showMonthFilter.value) {
+                DropdownMenu(
                     expanded = showMonthFilter.value,
-                    onDismissRequest = { showMonthFilter.value = false }
+                    onDismissRequest = { showMonthFilter.value = false },
+                    modifier = Modifier.fillMaxWidth()
                 ) {
                     monthsInYear.forEach { month ->
-                        androidx.compose.material3.DropdownMenuItem(
-                            text = { Text(DateFormatSymbols().months[month - 1].take(3)) },
-                            onClick = { 
+                        DropdownMenuItem(
+                            text = { Text(DateFormatSymbols().months[month - 1]) },
+                            onClick = {
                                 selectedMonth.value = month
                                 showMonthFilter.value = false
                             }
                         )
                     }
                 }
-            }
-
-            // Clear filters button
-            androidx.compose.material3.Button(
-                onClick = {
-                    selectedYear.value = null
-                    selectedMonth.value = null
-                }
-            ) {
-                Text("Clear")
-            }
-        }
-        
-        // Filter chips
-        Row(modifier = Modifier.padding(vertical = 8.dp)) {
-            listOf("All", "Income", "Expense").forEach { filter ->
-                androidx.compose.material3.FilterChip(
-                    selected = filter.lowercase() == "all",
-                    onClick = { 
-                        selectedYear.value = null
-                        selectedMonth.value = null
-                    },
-                    modifier = Modifier.padding(end = 8.dp),
-                    label = { Text(filter) },
-                    colors = androidx.compose.material3.FilterChipDefaults.filterChipColors(
-                        selectedContainerColor = when (filter.lowercase()) {
-                            "income" -> Color(0xFF388E3C)
-                            "expense" -> Color.Red
-                            else -> Color.LightGray
-                        }
-                    )
-                )
-            }
-        }
-
-        // Table header
-        Row(
-            modifier = Modifier
-                .padding(8.dp)
-                .fillMaxWidth(),
-            horizontalArrangement = Arrangement.SpaceBetween
-        ) {
-            Column(
-                modifier = Modifier.clickable {
-                    sortState.value = if (sortState.value.first == "date") {
-                        Pair("date", !sortState.value.second)
-                    } else {
-                        Pair("date", false)
-                    }
-                }
-            ) {
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Text("Date/Time", fontWeight = FontWeight.Bold)
-                    SortIndicator(
-                        visible = sortState.value.first == "date",
-                        ascending = sortState.value.second
-                    )
-                }
-            }
-            
-            Column(
-                modifier = Modifier.clickable {
-                    sortState.value = if (sortState.value.first == "amount") {
-                        Pair("amount", !sortState.value.second)
-                    } else {
-                        Pair("amount", false)
-                    }
-                }
-            ) {
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Text("Amount (COP)", fontWeight = FontWeight.Bold)
-                    SortIndicator(
-                        visible = sortState.value.first == "amount",
-                        ascending = sortState.value.second
-                    )
-                }
-            }
-        }
-        
-        Divider(color = Color.Gray, thickness = 1.dp)
-        
-        LazyColumn(modifier = Modifier
-            .padding(top = 8.dp)
-            .weight(1f)) {
-            itemsIndexed(sortedTransactions) { index, transaction ->
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(8.dp),
-                    horizontalArrangement = Arrangement.SpaceBetween
-                ) {
-                    Text(java.text.SimpleDateFormat("dd MMM yyyy HH:mm").format(transaction.date))
-                    Text(
-                        text = "%.2f".format(transaction.amount),
-                        color = when {
-                            "all" == "all" -> 
-                                if (transaction.isIncome) MaterialTheme.colorScheme.primary 
-                                else MaterialTheme.colorScheme.error
-                            else -> MaterialTheme.colorScheme.onSurface
-                        }
-                    )
-                }
-                if (index < sortedTransactions.size - 1) {
-                    Divider(color = MaterialTheme.colorScheme.outline)
-                }
-            }
-        }
-
-        // Total display
-        Column(modifier = Modifier.padding(8.dp)) {
-            when {
-                "all" == "all" -> {
-                    TotalRow(label = "Total Income:", amount = totalIncome, color = Color(0xFF388E3C))
-                    TotalRow(label = "Total Expense:", amount = totalExpense, color = Color.Red)
-                    TotalRow(label = "Net Total:", amount = totalIncome - totalExpense, color = Color.DarkGray)
-                }
-                "income" == "all" -> TotalRow(label = "Total Income:", amount = totalIncome, color = Color(0xFF388E3C))
-                "expense" == "all" -> TotalRow(label = "Total Expense:", amount = totalExpense, color = Color.Red)
-            }
-        }
-
-        // Clear button functionality
-        Row(modifier = Modifier.padding(horizontal = 8.dp)) {
-            Button(
-                onClick = {
-                    selectedYear.value = defaultYear
-                    selectedMonth.value = defaultMonth
-                }
-            ) {
-                Text("Reset to Current")
             }
         }
     }
@@ -578,7 +649,8 @@ private fun extractTransactionData(messages: List<SmsMessage>): List<Transaction
             TransactionData(
                 date = message.dateTime,
                 amount = message.numericAmount,
-                isIncome = message.body.contains(Regex("(recepc[ií]ón|recibiste)", RegexOption.IGNORE_CASE))
+                isIncome = message.body.contains(Regex("(recepc[ií]ón|recibiste)", RegexOption.IGNORE_CASE)),
+                originalMessage = message
             )
         } else null
     }
@@ -589,5 +661,37 @@ private fun extractTransactionData(messages: List<SmsMessage>): List<Transaction
 fun GreetingPreview() {
     FinanzasPersonalesTheme {
         SMSReader(Modifier.fillMaxSize())
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun MessageDetailScreen(message: SmsMessage, onBack: () -> Unit) {
+    Scaffold(topBar = {
+        androidx.compose.material3.TopAppBar(
+            title = { Text("Transaction Details") },
+            navigationIcon = {
+                IconButton(onClick = onBack) {
+                    Icon(Icons.Default.ArrowBack, contentDescription = "Back")
+                }
+            }
+        )
+    }) { innerPadding ->
+        Column(modifier = Modifier
+            .padding(innerPadding)
+            .padding(16.dp)) {
+            Text("From: ${message.address}", style = MaterialTheme.typography.titleMedium)
+            Spacer(modifier = Modifier.height(8.dp))
+            message.dateTime?.let {
+                Text("Date: ${java.text.SimpleDateFormat("dd MMM yyyy HH:mm").format(it)}")
+            }
+            Spacer(modifier = Modifier.height(8.dp))
+            message.amount?.let {
+                Text("Amount: $it", color = Color.Red, style = MaterialTheme.typography.titleLarge)
+            }
+            Spacer(modifier = Modifier.height(16.dp))
+            Text("Original Message:", style = MaterialTheme.typography.titleSmall)
+            Text(message.body, modifier = Modifier.padding(top = 8.dp))
+        }
     }
 }
