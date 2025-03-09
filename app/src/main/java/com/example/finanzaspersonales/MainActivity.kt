@@ -40,6 +40,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.unit.sp
 import androidx.compose.foundation.clickable
+import androidx.compose.runtime.LaunchedEffect
 
 data class SmsMessage(
     val address: String,
@@ -79,6 +80,7 @@ fun SMSReader(modifier: Modifier = Modifier) {
     val numericAmounts = remember { mutableStateOf<List<Float>>(emptyList()) }
     val transactions = remember { mutableStateOf<List<TransactionData>>(emptyList()) }
     val searchQuery = remember { mutableStateOf("") }
+    
     val permissionLauncher = rememberLauncherForActivityResult(
         ActivityResultContracts.RequestPermission()
     ) { isGranted ->
@@ -87,14 +89,13 @@ fun SMSReader(modifier: Modifier = Modifier) {
         }
     }
 
-    // Add filtered messages calculation
-    val filteredMessages = remember(smsMessages.value, searchQuery.value) {
-        smsMessages.value.filter { message ->
-            message.amount != null && (
-                message.body.contains(searchQuery.value, ignoreCase = true) ||
-                message.address.contains(searchQuery.value, ignoreCase = true) ||
-                message.amount.contains(searchQuery.value, ignoreCase = true)
-            )
+    // Auto-load messages on first composition
+    LaunchedEffect(Unit) {
+        if (context.checkSelfPermission(Manifest.permission.READ_SMS) == 
+            PackageManager.PERMISSION_GRANTED) {
+            smsMessages.value = readFilteredSMS(context)
+        } else {
+            permissionLauncher.launch(Manifest.permission.READ_SMS)
         }
     }
 
@@ -105,17 +106,6 @@ fun SMSReader(modifier: Modifier = Modifier) {
                 onBack = { showNumericData.value = false }
             )
         } else {
-            Button(onClick = {
-                if (context.checkSelfPermission(Manifest.permission.READ_SMS) == 
-                    PackageManager.PERMISSION_GRANTED) {
-                    smsMessages.value = readFilteredSMS(context)
-                } else {
-                    permissionLauncher.launch(Manifest.permission.READ_SMS)
-                }
-            }) {
-                Text("Load SMS Messages")
-            }
-
             Button(
                 onClick = {
                     transactions.value = extractTransactionData(smsMessages.value)
@@ -135,6 +125,14 @@ fun SMSReader(modifier: Modifier = Modifier) {
                     .fillMaxWidth()
                     .padding(8.dp)
             )
+
+            // Update filtered messages calculation
+            val filteredMessages = remember(smsMessages.value, searchQuery.value) {
+                smsMessages.value.filter { message ->
+                    searchQuery.value.isEmpty() || 
+                    message.body.contains(searchQuery.value, ignoreCase = true)
+                }
+            }
 
             LazyColumn {
                 itemsIndexed(filteredMessages) { index, message ->
