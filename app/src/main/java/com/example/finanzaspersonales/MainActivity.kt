@@ -59,6 +59,7 @@ import androidx.compose.material3.AssistChip
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material.icons.filled.Analytics
+import androidx.compose.foundation.layout.Box
 
 data class SmsMessage(
     val address: String,
@@ -316,38 +317,74 @@ fun NumericDataScreen(transactions: List<TransactionData>, onBack: () -> Unit) {
             ) {
                 // Combined filter chips
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    // Year filter
-                    androidx.compose.material3.AssistChip(
-                        onClick = { showYearFilter.value = true },
-                        label = { Text(selectedYear.value?.toString() ?: "Year") },
-                        leadingIcon = {
-                            Icon(
-                                Icons.Default.CalendarToday,
-                                contentDescription = null,
-                                modifier = Modifier.size(18.dp)
-                            )
+                    // Year filter with dropdown
+                    Box {
+                        androidx.compose.material3.AssistChip(
+                            onClick = { showYearFilter.value = true },
+                            label = { Text(selectedYear.value?.toString() ?: "Year") },
+                            leadingIcon = {
+                                Icon(
+                                    Icons.Default.CalendarToday,
+                                    contentDescription = null,
+                                    modifier = Modifier.size(18.dp)
+                                )
+                            }
+                        )
+                        
+                        // Year filter dropdown
+                        DropdownMenu(
+                            expanded = showYearFilter.value,
+                            onDismissRequest = { showYearFilter.value = false },
+                        ) {
+                            years.forEach { year ->
+                                DropdownMenuItem(
+                                    text = { Text(text = year.toString()) },
+                                    onClick = {
+                                        selectedYear.value = year
+                                        showYearFilter.value = false
+                                    }
+                                )
+                            }
                         }
-                    )
+                    }
 
-                    // Month filter
-                    androidx.compose.material3.AssistChip(
-                        onClick = { showMonthFilter.value = true },
-                        enabled = selectedYear.value != null,
-                        label = {
-                            Text(
-                                selectedMonth.value?.let { 
-                                    DateFormatSymbols().months[it - 1].take(3) 
-                                } ?: "Month"
-                            )
-                        },
-                        leadingIcon = {
-                            Icon(
-                                Icons.Default.ArrowDropDown,
-                                contentDescription = null,
-                                modifier = Modifier.size(18.dp)
-                            )
+                    // Month filter with dropdown
+                    Box {
+                        androidx.compose.material3.AssistChip(
+                            onClick = { showMonthFilter.value = true },
+                            enabled = selectedYear.value != null,
+                            label = {
+                                Text(
+                                    selectedMonth.value?.let { 
+                                        DateFormatSymbols().months[it - 1].take(3) 
+                                    } ?: "Month"
+                                )
+                            },
+                            leadingIcon = {
+                                Icon(
+                                    Icons.Default.ArrowDropDown,
+                                    contentDescription = null,
+                                    modifier = Modifier.size(18.dp)
+                                )
+                            }
+                        )
+                        
+                        // Month filter dropdown
+                        DropdownMenu(
+                            expanded = showMonthFilter.value,
+                            onDismissRequest = { showMonthFilter.value = false },
+                        ) {
+                            monthsInYear.forEach { month ->
+                                DropdownMenuItem(
+                                    text = { Text(DateFormatSymbols().months[month - 1]) },
+                                    onClick = {
+                                        selectedMonth.value = month
+                                        showMonthFilter.value = false
+                                    }
+                                )
+                            }
                         }
-                    )
+                    }
                 }
 
                 // Clear filters
@@ -364,19 +401,19 @@ fun NumericDataScreen(transactions: List<TransactionData>, onBack: () -> Unit) {
             // Filter chips
             Row(modifier = Modifier.padding(vertical = 8.dp)) {
                 listOf("All", "Income", "Expense").forEach { filter ->
+                    val filterKey = filter.lowercase()
                     androidx.compose.material3.FilterChip(
-                        selected = filter.lowercase() == "all",
+                        selected = filterKey == filterState.value,
                         onClick = { 
-                            selectedYear.value = null
-                            selectedMonth.value = null
+                            filterState.value = filterKey
                         },
                         modifier = Modifier.padding(end = 8.dp),
                         label = { Text(filter) },
                         colors = androidx.compose.material3.FilterChipDefaults.filterChipColors(
-                            selectedContainerColor = when (filter.lowercase()) {
-                                "income" -> Color(0xFF388E3C)
-                                "expense" -> Color.Red
-                                else -> Color.LightGray
+                            selectedContainerColor = when (filterKey) {
+                                "income" -> MaterialTheme.colorScheme.primary
+                                "expense" -> MaterialTheme.colorScheme.error
+                                else -> MaterialTheme.colorScheme.surfaceVariant
                             }
                         )
                     )
@@ -459,14 +496,18 @@ fun NumericDataScreen(transactions: List<TransactionData>, onBack: () -> Unit) {
 
             // Total display
             Column(modifier = Modifier.padding(8.dp)) {
-                when {
-                    "all" == "all" -> {
-                        TotalRow(label = "Total Income:", amount = totalIncome, color = Color(0xFF388E3C))
-                        TotalRow(label = "Total Expense:", amount = totalExpense, color = Color.Red)
+                when (filterState.value) {
+                    "income" -> {
+                        TotalRow(label = "Total Income:", amount = totalIncome, color = MaterialTheme.colorScheme.primary)
+                    }
+                    "expense" -> {
+                        TotalRow(label = "Total Expense:", amount = totalExpense, color = MaterialTheme.colorScheme.error)
+                    }
+                    else -> {
+                        TotalRow(label = "Total Income:", amount = totalIncome, color = MaterialTheme.colorScheme.primary)
+                        TotalRow(label = "Total Expense:", amount = totalExpense, color = MaterialTheme.colorScheme.error)
                         TotalRow(label = "Net Total:", amount = totalIncome - totalExpense, color = Color.DarkGray)
                     }
-                    "income" == "all" -> TotalRow(label = "Total Income:", amount = totalIncome, color = Color(0xFF388E3C))
-                    "expense" == "all" -> TotalRow(label = "Total Expense:", amount = totalExpense, color = Color.Red)
                 }
             }
 
@@ -479,44 +520,6 @@ fun NumericDataScreen(transactions: List<TransactionData>, onBack: () -> Unit) {
                     }
                 ) {
                     Text("Reset to Current")
-                }
-            }
-
-            // Year filter dropdown
-            if (showYearFilter.value) {
-                DropdownMenu(
-                    expanded = showYearFilter.value,
-                    onDismissRequest = { showYearFilter.value = false },
-                    modifier = Modifier.fillMaxWidth()
-                ) {
-                    years.forEach { year ->
-                        DropdownMenuItem(
-                            text = { Text(text = year.toString()) },
-                            onClick = {
-                                selectedYear.value = year
-                                showYearFilter.value = false
-                            }
-                        )
-                    }
-                }
-            }
-
-            // Month filter dropdown
-            if (showMonthFilter.value) {
-                DropdownMenu(
-                    expanded = showMonthFilter.value,
-                    onDismissRequest = { showMonthFilter.value = false },
-                    modifier = Modifier.fillMaxWidth()
-                ) {
-                    monthsInYear.forEach { month ->
-                        DropdownMenuItem(
-                            text = { Text(DateFormatSymbols().months[month - 1]) },
-                            onClick = {
-                                selectedMonth.value = month
-                                showMonthFilter.value = false
-                            }
-                        )
-                    }
                 }
             }
         }
