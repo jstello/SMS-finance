@@ -42,6 +42,8 @@ import androidx.compose.ui.unit.sp
 import androidx.compose.foundation.clickable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.material3.MaterialTheme
+import java.util.Calendar
+import java.text.DateFormatSymbols
 
 data class SmsMessage(
     val address: String,
@@ -171,32 +173,39 @@ fun SMSReader(modifier: Modifier = Modifier) {
 
 @Composable
 fun NumericDataScreen(transactions: List<TransactionData>, onBack: () -> Unit) {
-    val dateFormat = remember { java.text.SimpleDateFormat("MMM yyyy", java.util.Locale.getDefault()) }
+    // Get current date values for fallback
+    val calendar = remember { Calendar.getInstance() }
+    val defaultYear = calendar.get(Calendar.YEAR)
+    val defaultMonth = calendar.get(Calendar.MONTH) + 1
+
+    // Initialize filters with null (show all data)
     val filterState = remember { mutableStateOf("all") }
     val selectedYear = remember { mutableStateOf<Int?>(null) }
     val selectedMonth = remember { mutableStateOf<Int?>(null) }
     val showYearFilter = remember { mutableStateOf(false) }
     val showMonthFilter = remember { mutableStateOf(false) }
-    
-    // Get unique years and months
+
+    // Add years calculation back
     val years = remember(transactions) {
-        transactions.map {
-            val cal = java.util.Calendar.getInstance().apply { time = it.date }
-            cal.get(java.util.Calendar.YEAR)
+        if (transactions.isEmpty()) listOf(defaultYear)
+        else transactions.map {
+            val cal = Calendar.getInstance().apply { time = it.date }
+            cal.get(Calendar.YEAR)
         }.distinct().sortedDescending()
     }
 
+    // Update monthsInYear calculation to use defaultYear as fallback
     val monthsInYear = remember(selectedYear.value) {
-        selectedYear.value?.let { year ->
-            transactions.mapNotNull {
-                val cal = java.util.Calendar.getInstance().apply { time = it.date }
-                if (cal.get(java.util.Calendar.YEAR) == year) {
-                    cal.get(java.util.Calendar.MONTH) + 1
-                } else null
-            }.distinct().sortedDescending()
-        } ?: emptyList()
+        val year = selectedYear.value ?: defaultYear
+        transactions.mapNotNull {
+            val cal = Calendar.getInstance().apply { time = it.date }
+            if (cal.get(Calendar.YEAR) == year) {
+                cal.get(Calendar.MONTH) + 1
+            } else null
+        }.distinct().sortedDescending().ifEmpty { listOf(defaultMonth) }
     }
 
+    // Safe filter with fallbacks for nulls
     val filteredTransactions = remember(transactions, filterState.value, selectedYear.value, selectedMonth.value) {
         transactions.filter { transaction ->
             val matchesType = when (filterState.value) {
@@ -205,9 +214,11 @@ fun NumericDataScreen(transactions: List<TransactionData>, onBack: () -> Unit) {
                 else -> true
             }
             
-            val cal = java.util.Calendar.getInstance().apply { time = transaction.date }
-            val matchesYear = selectedYear.value?.let { cal.get(java.util.Calendar.YEAR) == it } ?: true
-            val matchesMonth = selectedMonth.value?.let { (cal.get(java.util.Calendar.MONTH) + 1) == it } ?: true
+            val cal = Calendar.getInstance().apply { time = transaction.date }
+            
+            // Modified section: Only check year/month if selection exists
+            val matchesYear = selectedYear.value?.let { cal.get(Calendar.YEAR) == it } ?: true
+            val matchesMonth = selectedMonth.value?.let { (cal.get(Calendar.MONTH) + 1) == it } ?: true
             
             matchesType && matchesYear && matchesMonth
         }
@@ -288,7 +299,7 @@ fun NumericDataScreen(transactions: List<TransactionData>, onBack: () -> Unit) {
                     enabled = selectedYear.value != null
                 ) {
                     Text(selectedMonth.value?.let { 
-                        java.text.DateFormatSymbols().months[it - 1] 
+                        DateFormatSymbols().months[it - 1].take(3)
                     } ?: "Select Month")
                 }
                 
@@ -298,7 +309,7 @@ fun NumericDataScreen(transactions: List<TransactionData>, onBack: () -> Unit) {
                 ) {
                     monthsInYear.forEach { month ->
                         androidx.compose.material3.DropdownMenuItem(
-                            text = { Text(java.text.DateFormatSymbols().months[month - 1]) },
+                            text = { Text(DateFormatSymbols().months[month - 1].take(3)) },
                             onClick = { 
                                 selectedMonth.value = month
                                 showMonthFilter.value = false
@@ -323,8 +334,11 @@ fun NumericDataScreen(transactions: List<TransactionData>, onBack: () -> Unit) {
         Row(modifier = Modifier.padding(vertical = 8.dp)) {
             listOf("All", "Income", "Expense").forEach { filter ->
                 androidx.compose.material3.FilterChip(
-                    selected = filterState.value == filter.lowercase(),
-                    onClick = { filterState.value = filter.lowercase() },
+                    selected = filter.lowercase() == "all",
+                    onClick = { 
+                        selectedYear.value = null
+                        selectedMonth.value = null
+                    },
                     modifier = Modifier.padding(end = 8.dp),
                     label = { Text(filter) },
                     colors = androidx.compose.material3.FilterChipDefaults.filterChipColors(
@@ -394,11 +408,11 @@ fun NumericDataScreen(transactions: List<TransactionData>, onBack: () -> Unit) {
                         .padding(8.dp),
                     horizontalArrangement = Arrangement.SpaceBetween
                 ) {
-                    Text(dateFormat.format(transaction.date))
+                    Text(java.text.SimpleDateFormat("dd MMM yyyy HH:mm").format(transaction.date))
                     Text(
                         text = "%.2f".format(transaction.amount),
                         color = when {
-                            filterState.value == "all" -> 
+                            "all" == "all" -> 
                                 if (transaction.isIncome) MaterialTheme.colorScheme.primary 
                                 else MaterialTheme.colorScheme.error
                             else -> MaterialTheme.colorScheme.onSurface
@@ -413,14 +427,26 @@ fun NumericDataScreen(transactions: List<TransactionData>, onBack: () -> Unit) {
 
         // Total display
         Column(modifier = Modifier.padding(8.dp)) {
-            when (filterState.value) {
-                "all" -> {
+            when {
+                "all" == "all" -> {
                     TotalRow(label = "Total Income:", amount = totalIncome, color = Color(0xFF388E3C))
                     TotalRow(label = "Total Expense:", amount = totalExpense, color = Color.Red)
                     TotalRow(label = "Net Total:", amount = totalIncome - totalExpense, color = Color.DarkGray)
                 }
-                "income" -> TotalRow(label = "Total Income:", amount = totalIncome, color = Color(0xFF388E3C))
-                "expense" -> TotalRow(label = "Total Expense:", amount = totalExpense, color = Color.Red)
+                "income" == "all" -> TotalRow(label = "Total Income:", amount = totalIncome, color = Color(0xFF388E3C))
+                "expense" == "all" -> TotalRow(label = "Total Expense:", amount = totalExpense, color = Color.Red)
+            }
+        }
+
+        // Clear button functionality
+        Row(modifier = Modifier.padding(horizontal = 8.dp)) {
+            Button(
+                onClick = {
+                    selectedYear.value = defaultYear
+                    selectedMonth.value = defaultMonth
+                }
+            ) {
+                Text("Reset to Current")
             }
         }
     }
