@@ -41,6 +41,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.unit.sp
 import androidx.compose.foundation.clickable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.material3.MaterialTheme
 
 data class SmsMessage(
     val address: String,
@@ -396,15 +397,16 @@ fun NumericDataScreen(transactions: List<TransactionData>, onBack: () -> Unit) {
                     Text(dateFormat.format(transaction.date))
                     Text(
                         text = "%.2f".format(transaction.amount),
-                        color = if (filterState.value == "all") {
-                            if (transaction.isIncome) Color(0xFF388E3C) else Color.Red
-                        } else {
-                            Color.White // White text when filtered
+                        color = when {
+                            filterState.value == "all" -> 
+                                if (transaction.isIncome) MaterialTheme.colorScheme.primary 
+                                else MaterialTheme.colorScheme.error
+                            else -> MaterialTheme.colorScheme.onSurface
                         }
                     )
                 }
                 if (index < sortedTransactions.size - 1) {
-                    Divider(color = Color.LightGray)
+                    Divider(color = MaterialTheme.colorScheme.outline)
                 }
             }
         }
