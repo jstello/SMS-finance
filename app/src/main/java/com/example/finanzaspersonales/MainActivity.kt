@@ -62,6 +62,7 @@ import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material.icons.filled.Analytics
 import androidx.compose.foundation.layout.Box
 import androidx.activity.compose.BackHandler
+import androidx.compose.material3.Surface
 
 data class SmsMessage(
     val address: String,
@@ -167,7 +168,7 @@ fun SMSReader(modifier: Modifier = Modifier) {
             matchesText && matchesYear && matchesMonth
         }
     }
-
+    
     val permissionLauncher = rememberLauncherForActivityResult(
         ActivityResultContracts.RequestPermission()
     ) { isGranted ->
@@ -336,22 +337,8 @@ fun SMSReader(modifier: Modifier = Modifier) {
 
             LazyColumn {
                 itemsIndexed(filteredMessages) { index, message ->
-                    Column(modifier = Modifier.padding(8.dp)) {
-                        Text("From: ${message.address}")
-                        message.dateTime?.let {
-                            Text("Date: ${java.text.SimpleDateFormat("dd MMM yyyy HH:mm").format(it)}")
-                        }
-                        message.amount?.let {
-                            Text("Amount: $it", color = Color.Red)
-                        }
-                        Text("Message: ${message.body}")
-                    }
-                    if (index < filteredMessages.size - 1) {
-                        Divider(
-                            modifier = Modifier.padding(vertical = 4.dp),
-                            thickness = 1.dp
-                        )
-                    }
+                    MessageBubble(message = message)
+                    Spacer(modifier = Modifier.height(8.dp))
                 }
                 
                 // Add empty state
@@ -414,78 +401,78 @@ fun NumericDataScreen(
         val defaultMonth = calendar.get(Calendar.MONTH) + 1
 
         // Add years calculation back
-        val years = remember(transactions) {
-            if (transactions.isEmpty()) listOf(defaultYear)
-            else transactions.map {
-                val cal = Calendar.getInstance().apply { time = it.date }
-                cal.get(Calendar.YEAR)
-            }.distinct().sortedDescending()
-        }
+    val years = remember(transactions) {
+        if (transactions.isEmpty()) listOf(defaultYear)
+        else transactions.map {
+            val cal = Calendar.getInstance().apply { time = it.date }
+            cal.get(Calendar.YEAR)
+        }.distinct().sortedDescending()
+    }
 
         // Update monthsInYear calculation to use defaultYear as fallback
-        val monthsInYear = remember(selectedYear.value) {
-            val year = selectedYear.value ?: defaultYear
-            transactions.mapNotNull {
-                val cal = Calendar.getInstance().apply { time = it.date }
-                if (cal.get(Calendar.YEAR) == year) {
-                    cal.get(Calendar.MONTH) + 1
-                } else null
-            }.distinct().sortedDescending().ifEmpty { listOf(defaultMonth) }
-        }
+    val monthsInYear = remember(selectedYear.value) {
+        val year = selectedYear.value ?: defaultYear
+        transactions.mapNotNull {
+            val cal = Calendar.getInstance().apply { time = it.date }
+            if (cal.get(Calendar.YEAR) == year) {
+                cal.get(Calendar.MONTH) + 1
+            } else null
+        }.distinct().sortedDescending().ifEmpty { listOf(defaultMonth) }
+    }
 
-        // Safe filter with fallbacks for nulls
-        val filteredTransactions = remember(transactions, filterState.value, selectedYear.value, selectedMonth.value) {
-            transactions.filter { transaction ->
-                val matchesType = when (filterState.value) {
-                    "income" -> transaction.isIncome
-                    "expense" -> !transaction.isIncome
-                    else -> true
-                }
-                
-                val cal = Calendar.getInstance().apply { time = transaction.date }
-                
+    // Safe filter with fallbacks for nulls
+    val filteredTransactions = remember(transactions, filterState.value, selectedYear.value, selectedMonth.value) {
+        transactions.filter { transaction ->
+            val matchesType = when (filterState.value) {
+                "income" -> transaction.isIncome
+                "expense" -> !transaction.isIncome
+                else -> true
+            }
+            
+            val cal = Calendar.getInstance().apply { time = transaction.date }
+            
                 // Modified section: Only check year/month if selection exists
                 val matchesYear = selectedYear.value?.let { cal.get(Calendar.YEAR) == it } ?: true
                 val matchesMonth = selectedMonth.value?.let { (cal.get(Calendar.MONTH) + 1) == it } ?: true
-                
-                matchesType && matchesYear && matchesMonth
-            }
+            
+            matchesType && matchesYear && matchesMonth
         }
+    }
 
-        val sortedTransactions = remember(filteredTransactions, sortState.value) {
-            when (sortState.value.first) {
-                "amount" -> {
-                    if (sortState.value.second) {
-                        filteredTransactions.sortedBy { it.amount }
-                    } else {
-                        filteredTransactions.sortedByDescending { it.amount }
-                    }
-                }
-                else -> { // date is default
-                    if (sortState.value.second) {
-                        filteredTransactions.sortedBy { it.date }
-                    } else {
-                        filteredTransactions.sortedByDescending { it.date }
-                    }
+    val sortedTransactions = remember(filteredTransactions, sortState.value) {
+        when (sortState.value.first) {
+            "amount" -> {
+                if (sortState.value.second) {
+                    filteredTransactions.sortedBy { it.amount }
+                } else {
+                    filteredTransactions.sortedByDescending { it.amount }
                 }
             }
-        }
-
-        // Calculate totals
-        val (totalIncome, totalExpense) = remember(filteredTransactions) {
-            var income = 0f
-            var expense = 0f
-            filteredTransactions.forEach {
-                if (it.isIncome) income += it.amount else expense += it.amount
+            else -> { // date is default
+                if (sortState.value.second) {
+                    filteredTransactions.sortedBy { it.date }
+                } else {
+                    filteredTransactions.sortedByDescending { it.date }
+                }
             }
-            Pair(income, expense)
         }
-        
-        val totalAmount = remember(filteredTransactions) {
-            totalIncome - totalExpense
-        }
+    }
 
-        Column(modifier = Modifier.padding(16.dp)) {
+    // Calculate totals
+    val (totalIncome, totalExpense) = remember(filteredTransactions) {
+        var income = 0f
+        var expense = 0f
+        filteredTransactions.forEach {
+            if (it.isIncome) income += it.amount else expense += it.amount
+        }
+        Pair(income, expense)
+    }
+    
+    val totalAmount = remember(filteredTransactions) {
+        totalIncome - totalExpense
+    }
+
+    Column(modifier = Modifier.padding(16.dp)) {
             androidx.compose.material3.AssistChip(
                 onClick = {
                     selectSound.seekTo(0)
@@ -502,8 +489,8 @@ fun NumericDataScreen(
                 },
                 modifier = Modifier.padding(bottom = 8.dp)
             )
-            
-            // Year/Month filter row
+        
+        // Year/Month filter row
             Row(
                 modifier = Modifier
                     .padding(vertical = 8.dp)
@@ -532,23 +519,23 @@ fun NumericDataScreen(
                         )
                         
                         DropdownMenu(
-                            expanded = showYearFilter.value,
-                            onDismissRequest = { showYearFilter.value = false }
-                        ) {
-                            years.forEach { year ->
+                    expanded = showYearFilter.value,
+                    onDismissRequest = { showYearFilter.value = false }
+                ) {
+                    years.forEach { year ->
                                 DropdownMenuItem(
-                                    text = { Text(year.toString()) },
-                                    onClick = {
+                            text = { Text(year.toString()) },
+                            onClick = { 
                                         selectSound.seekTo(0)
                                         selectSound.start()
-                                        selectedYear.value = year
-                                        selectedMonth.value = null
-                                        showYearFilter.value = false
-                                    }
-                                )
+                                selectedYear.value = year
+                                selectedMonth.value = null
+                                showYearFilter.value = false
                             }
-                        }
+                        )
                     }
+                }
+            }
 
                     // Month filter with dropdown
                     Box {
@@ -562,7 +549,7 @@ fun NumericDataScreen(
                             label = {
                                 Text(
                                     selectedMonth.value?.let { 
-                                        DateFormatSymbols().months[it - 1].take(3) 
+                        DateFormatSymbols().months[it - 1].take(3)
                                     } ?: "Month"
                                 )
                             },
@@ -576,145 +563,145 @@ fun NumericDataScreen(
                         )
                         
                         DropdownMenu(
-                            expanded = showMonthFilter.value,
-                            onDismissRequest = { showMonthFilter.value = false }
-                        ) {
-                            monthsInYear.forEach { month ->
+                    expanded = showMonthFilter.value,
+                    onDismissRequest = { showMonthFilter.value = false }
+                ) {
+                    monthsInYear.forEach { month ->
                                 DropdownMenuItem(
                                     text = { Text(DateFormatSymbols().months[month - 1]) },
-                                    onClick = {
+                            onClick = { 
                                         selectSound.seekTo(0)
                                         selectSound.start()
-                                        selectedMonth.value = month
-                                        showMonthFilter.value = false
-                                    }
-                                )
+                                selectedMonth.value = month
+                                showMonthFilter.value = false
                             }
-                        }
+                        )
+                            }
                     }
                 }
+            }
 
                 // Clear filters
                 androidx.compose.material3.IconButton(
-                    onClick = {
+                onClick = {
                         tapSound.seekTo(0)
                         tapSound.start()
-                        selectedYear.value = null
-                        selectedMonth.value = null
-                    }
-                ) {
+                    selectedYear.value = null
+                    selectedMonth.value = null
+                }
+            ) {
                     Icon(Icons.Default.Close, contentDescription = "Clear filters")
                 }
-            }
-            
-            // Filter chips
-            Row(modifier = Modifier.padding(vertical = 8.dp)) {
-                listOf("All", "Income", "Expense").forEach { filter ->
+        }
+        
+        // Filter chips
+        Row(modifier = Modifier.padding(vertical = 8.dp)) {
+            listOf("All", "Income", "Expense").forEach { filter ->
                     val filterKey = filter.lowercase()
-                    androidx.compose.material3.FilterChip(
+                androidx.compose.material3.FilterChip(
                         selected = filterKey == filterState.value,
-                        onClick = { 
+                    onClick = { 
                             tapSound.seekTo(0)
                             tapSound.start()
                             filterState.value = filterKey
-                        },
-                        modifier = Modifier.padding(end = 8.dp),
-                        label = { Text(filter) },
-                        colors = androidx.compose.material3.FilterChipDefaults.filterChipColors(
+                    },
+                    modifier = Modifier.padding(end = 8.dp),
+                    label = { Text(filter) },
+                    colors = androidx.compose.material3.FilterChipDefaults.filterChipColors(
                             selectedContainerColor = when (filterKey) {
                                 "income" -> MaterialTheme.colorScheme.primary
                                 "expense" -> MaterialTheme.colorScheme.error
                                 else -> MaterialTheme.colorScheme.surfaceVariant
-                            }
-                        )
+                        }
+                    )
+                )
+            }
+        }
+
+        // Table header
+        Row(
+            modifier = Modifier
+                .padding(8.dp)
+                .fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween
+        ) {
+            Column(
+                modifier = Modifier.clickable {
+                        tapSound.seekTo(0)
+                        tapSound.start()
+                    sortState.value = if (sortState.value.first == "date") {
+                        Pair("date", !sortState.value.second)
+                    } else {
+                        Pair("date", false)
+                    }
+                }
+            ) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Text("Date/Time", fontWeight = FontWeight.Bold)
+                    SortIndicator(
+                        visible = sortState.value.first == "date",
+                        ascending = sortState.value.second
                     )
                 }
             }
-
-            // Table header
-            Row(
-                modifier = Modifier
-                    .padding(8.dp)
-                    .fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween
-            ) {
-                Column(
-                    modifier = Modifier.clickable {
+            
+            Column(
+                modifier = Modifier.clickable {
                         tapSound.seekTo(0)
                         tapSound.start()
-                        sortState.value = if (sortState.value.first == "date") {
-                            Pair("date", !sortState.value.second)
-                        } else {
-                            Pair("date", false)
-                        }
-                    }
-                ) {
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Text("Date/Time", fontWeight = FontWeight.Bold)
-                        SortIndicator(
-                            visible = sortState.value.first == "date",
-                            ascending = sortState.value.second
-                        )
+                    sortState.value = if (sortState.value.first == "amount") {
+                        Pair("amount", !sortState.value.second)
+                    } else {
+                        Pair("amount", false)
                     }
                 }
-                
-                Column(
-                    modifier = Modifier.clickable {
-                        tapSound.seekTo(0)
-                        tapSound.start()
-                        sortState.value = if (sortState.value.first == "amount") {
-                            Pair("amount", !sortState.value.second)
-                        } else {
-                            Pair("amount", false)
-                        }
-                    }
-                ) {
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Text("Amount (COP)", fontWeight = FontWeight.Bold)
-                        SortIndicator(
-                            visible = sortState.value.first == "amount",
-                            ascending = sortState.value.second
-                        )
-                    }
+            ) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Text("Amount (COP)", fontWeight = FontWeight.Bold)
+                    SortIndicator(
+                        visible = sortState.value.first == "amount",
+                        ascending = sortState.value.second
+                    )
                 }
             }
-            
-            Divider(color = Color.Gray, thickness = 1.dp)
-            
-            LazyColumn(modifier = Modifier
-                .padding(top = 8.dp)
-                .weight(1f)) {
-                itemsIndexed(sortedTransactions) { index, transaction ->
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
+        }
+        
+        Divider(color = Color.Gray, thickness = 1.dp)
+        
+        LazyColumn(modifier = Modifier
+            .padding(top = 8.dp)
+            .weight(1f)) {
+            itemsIndexed(sortedTransactions) { index, transaction ->
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
                             .padding(8.dp)
                             .clickable { 
                                 selectSound.seekTo(0)
                                 selectSound.start()
                                 selectedTransaction.value = transaction 
                             },
-                        horizontalArrangement = Arrangement.SpaceBetween
-                    ) {
-                        Text(java.text.SimpleDateFormat("dd MMM yyyy HH:mm").format(transaction.date))
-                        Text(
+                    horizontalArrangement = Arrangement.SpaceBetween
+                ) {
+                    Text(java.text.SimpleDateFormat("dd MMM yyyy HH:mm").format(transaction.date))
+                    Text(
                             text = "$${"%,.2f".format(transaction.amount)}",
-                            color = when {
-                                "all" == "all" -> 
-                                    if (transaction.isIncome) MaterialTheme.colorScheme.primary 
-                                    else MaterialTheme.colorScheme.error
-                                else -> MaterialTheme.colorScheme.onSurface
-                            }
-                        )
-                    }
-                    if (index < sortedTransactions.size - 1) {
-                        Divider(color = MaterialTheme.colorScheme.outline)
-                    }
+                        color = when {
+                            "all" == "all" -> 
+                                if (transaction.isIncome) MaterialTheme.colorScheme.primary 
+                                else MaterialTheme.colorScheme.error
+                            else -> MaterialTheme.colorScheme.onSurface
+                        }
+                    )
+                }
+                if (index < sortedTransactions.size - 1) {
+                    Divider(color = MaterialTheme.colorScheme.outline)
                 }
             }
+        }
 
-            // Total display
-            Column(modifier = Modifier.padding(8.dp)) {
+        // Total display
+        Column(modifier = Modifier.padding(8.dp)) {
                 when (filterState.value) {
                     "income" -> {
                         TotalRow(label = "Total Income:", amount = totalIncome, color = MaterialTheme.colorScheme.primary)
@@ -725,22 +712,22 @@ fun NumericDataScreen(
                     else -> {
                         TotalRow(label = "Total Income:", amount = totalIncome, color = MaterialTheme.colorScheme.primary)
                         TotalRow(label = "Total Expense:", amount = totalExpense, color = MaterialTheme.colorScheme.error)
-                        TotalRow(label = "Net Total:", amount = totalIncome - totalExpense, color = Color.DarkGray)
+                    TotalRow(label = "Net Total:", amount = totalIncome - totalExpense, color = Color.DarkGray)
                     }
-                }
             }
+        }
 
-            // Clear button functionality
-            Row(modifier = Modifier.padding(horizontal = 8.dp)) {
-                Button(
-                    onClick = {
+        // Clear button functionality
+        Row(modifier = Modifier.padding(horizontal = 8.dp)) {
+            Button(
+                onClick = {
                         selectSound.seekTo(0)
                         selectSound.start()
-                        selectedYear.value = defaultYear
-                        selectedMonth.value = defaultMonth
-                    }
-                ) {
-                    Text("Reset to Current")
+                    selectedYear.value = defaultYear
+                    selectedMonth.value = defaultMonth
+                }
+            ) {
+                Text("Reset to Current")
                 }
             }
         }
@@ -873,7 +860,9 @@ private fun extractTransactionData(messages: List<SmsMessage>): List<Transaction
             TransactionData(
                 date = message.dateTime,
                 amount = message.numericAmount,
-                isIncome = message.body.contains(Regex("(recepci[óo]n|recibiste)", RegexOption.IGNORE_CASE)),
+                isIncome = message.body.contains(
+                    Regex("(recepci[óo]n|recibiste|n[óo]mina)", RegexOption.IGNORE_CASE)
+                ),
                 originalMessage = message
             )
         } else null
@@ -919,6 +908,80 @@ fun MessageDetailScreen(
             Spacer(modifier = Modifier.height(16.dp))
             Text("Original Message:", style = MaterialTheme.typography.titleSmall)
             Text(message.body, modifier = Modifier.padding(top = 8.dp))
+        }
+    }
+}
+
+@Composable
+private fun MessageBubble(message: SmsMessage) {
+    Column(
+        modifier = Modifier
+            .padding(horizontal = 8.dp, vertical = 4.dp)
+            .fillMaxWidth()
+    ) {
+        // Sender info with date in a row
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(bottom = 4.dp),
+            horizontalArrangement = Arrangement.SpaceBetween
+        ) {
+            Text(
+                text = message.address,
+                style = MaterialTheme.typography.labelMedium,
+                fontWeight = FontWeight.Bold,
+                color = MaterialTheme.colorScheme.primary
+            )
+            
+            message.dateTime?.let {
+                Text(
+                    text = java.text.SimpleDateFormat("dd MMM yyyy HH:mm").format(it),
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.outline
+                )
+            }
+        }
+        
+        // Message bubble
+        Surface(
+            shape = MaterialTheme.shapes.medium,
+            color = MaterialTheme.colorScheme.surfaceVariant,
+            tonalElevation = 2.dp,
+            shadowElevation = 1.dp,
+            modifier = Modifier.fillMaxWidth()
+        ) {
+            Column(modifier = Modifier.padding(12.dp)) {
+                // Message body
+                Text(
+                    text = message.body,
+                    style = MaterialTheme.typography.bodyMedium,
+                    modifier = Modifier.padding(bottom = if (message.amount != null) 8.dp else 0.dp)
+                )
+                
+                // Amount if present
+                message.amount?.let {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(top = 4.dp),
+                        horizontalArrangement = Arrangement.End
+                    ) {
+                        Surface(
+                            shape = MaterialTheme.shapes.small,
+                            color = MaterialTheme.colorScheme.errorContainer,
+                            modifier = Modifier.padding(top = 4.dp)
+                        ) {
+                            Text(
+                                text = it,
+                                style = MaterialTheme.typography.titleSmall,
+                                fontWeight = FontWeight.Bold,
+                                color = MaterialTheme.colorScheme.error,
+                                modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
+                            )
+                        }
+                    }
+                }
+            }
         }
     }
 }
