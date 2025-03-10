@@ -3,6 +3,7 @@ package com.example.finanzaspersonales
 import android.Manifest
 import android.content.pm.PackageManager
 import android.database.Cursor
+import android.media.MediaPlayer
 import android.net.Uri
 import android.os.Bundle
 import android.provider.Telephony
@@ -60,6 +61,7 @@ import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material.icons.filled.Analytics
 import androidx.compose.foundation.layout.Box
+import androidx.activity.compose.BackHandler
 
 data class SmsMessage(
     val address: String,
@@ -99,6 +101,18 @@ fun SMSReader(modifier: Modifier = Modifier) {
     val showNumericData = remember { mutableStateOf(false) }
     val transactions = remember { mutableStateOf<List<TransactionData>>(emptyList()) }
     val searchQuery = remember { mutableStateOf("") }
+    
+    // Sound effects
+    val tapSound = remember { MediaPlayer.create(context, R.raw.tap_sound) }
+    val selectSound = remember { MediaPlayer.create(context, R.raw.select_sound) }
+    
+    // Clean up resources when composable is disposed
+    androidx.compose.runtime.DisposableEffect(Unit) {
+        onDispose {
+            tapSound.release()
+            selectSound.release()
+        }
+    }
     
     // Add message list filter states
     val messageListSelectedYear = remember { mutableStateOf<Int?>(null) }
@@ -176,7 +190,11 @@ fun SMSReader(modifier: Modifier = Modifier) {
         if (showNumericData.value) {
             NumericDataScreen(
                 transactions = transactions.value,
-                onBack = { showNumericData.value = false },
+                onBack = { 
+                    selectSound.seekTo(0)
+                    selectSound.start()
+                    showNumericData.value = false 
+                },
                 filterState = remember { mutableStateOf("all") },
                 selectedYear = messageListSelectedYear,
                 selectedMonth = messageListSelectedMonth,
@@ -185,6 +203,8 @@ fun SMSReader(modifier: Modifier = Modifier) {
         } else {
             androidx.compose.material3.AssistChip(
                 onClick = {
+                    selectSound.seekTo(0)
+                    selectSound.start()
                     transactions.value = extractTransactionData(smsMessages.value)
                     showNumericData.value = true
                 },
@@ -223,7 +243,11 @@ fun SMSReader(modifier: Modifier = Modifier) {
                     // Year filter
                     Box {
                         androidx.compose.material3.AssistChip(
-                            onClick = { showMessageListYearFilter.value = true },
+                            onClick = { 
+                                tapSound.seekTo(0)
+                                tapSound.start()
+                                showMessageListYearFilter.value = true 
+                            },
                             label = { Text(messageListSelectedYear.value?.toString() ?: "Year") },
                             leadingIcon = {
                                 Icon(
@@ -242,6 +266,8 @@ fun SMSReader(modifier: Modifier = Modifier) {
                                 DropdownMenuItem(
                                     text = { Text(year.toString()) },
                                     onClick = {
+                                        selectSound.seekTo(0)
+                                        selectSound.start()
                                         messageListSelectedYear.value = year
                                         messageListSelectedMonth.value = null
                                         showMessageListYearFilter.value = false
@@ -254,7 +280,11 @@ fun SMSReader(modifier: Modifier = Modifier) {
                     // Month filter
                     Box {
                         androidx.compose.material3.AssistChip(
-                            onClick = { showMessageListMonthFilter.value = true },
+                            onClick = { 
+                                tapSound.seekTo(0)
+                                tapSound.start()
+                                showMessageListMonthFilter.value = true 
+                            },
                             enabled = messageListSelectedYear.value != null,
                             label = {
                                 Text(
@@ -280,6 +310,8 @@ fun SMSReader(modifier: Modifier = Modifier) {
                                 DropdownMenuItem(
                                     text = { Text(DateFormatSymbols().months[month - 1]) },
                                     onClick = {
+                                        selectSound.seekTo(0)
+                                        selectSound.start()
                                         messageListSelectedMonth.value = month
                                         showMessageListMonthFilter.value = false
                                     }
@@ -292,6 +324,8 @@ fun SMSReader(modifier: Modifier = Modifier) {
                 // Clear filters
                 androidx.compose.material3.IconButton(
                     onClick = {
+                        tapSound.seekTo(0)
+                        tapSound.start()
                         messageListSelectedYear.value = null
                         messageListSelectedMonth.value = null
                     }
@@ -343,16 +377,36 @@ fun NumericDataScreen(
     selectedMonth: androidx.compose.runtime.MutableState<Int?>,
     sortState: androidx.compose.runtime.MutableState<Pair<String, Boolean>>
 ) {
+    // Add BackHandler at the top of the composable
+    androidx.activity.compose.BackHandler(onBack = onBack)
+
     val selectedTransaction = remember { mutableStateOf<TransactionData?>(null) }
     
     // Add local dropdown visibility states
     val showYearFilter = remember { mutableStateOf(false) }
     val showMonthFilter = remember { mutableStateOf(false) }
     
+    // Sound effects
+    val context = LocalContext.current
+    val tapSound = remember { MediaPlayer.create(context, R.raw.tap_sound) }
+    val selectSound = remember { MediaPlayer.create(context, R.raw.select_sound) }
+    
+    // Clean up resources when composable is disposed
+    androidx.compose.runtime.DisposableEffect(Unit) {
+        onDispose {
+            tapSound.release()
+            selectSound.release()
+        }
+    }
+    
     if (selectedTransaction.value != null) {
         MessageDetailScreen(
             message = selectedTransaction.value!!.originalMessage,
-            onBack = { selectedTransaction.value = null }
+            onBack = { 
+                tapSound.seekTo(0)
+                tapSound.start()
+                selectedTransaction.value = null 
+            }
         )
     } else {
         val calendar = remember { Calendar.getInstance() }
@@ -433,7 +487,11 @@ fun NumericDataScreen(
 
         Column(modifier = Modifier.padding(16.dp)) {
             androidx.compose.material3.AssistChip(
-                onClick = onBack,
+                onClick = {
+                    selectSound.seekTo(0)
+                    selectSound.start()
+                    onBack()
+                },
                 label = { Text("Back to Messages") },
                 leadingIcon = {
                     Icon(
@@ -458,7 +516,11 @@ fun NumericDataScreen(
                     // Year filter with dropdown
                     Box {
                         androidx.compose.material3.AssistChip(
-                            onClick = { showYearFilter.value = true },
+                            onClick = { 
+                                tapSound.seekTo(0)
+                                tapSound.start()
+                                showYearFilter.value = true 
+                            },
                             label = { Text(selectedYear.value?.toString() ?: "Year") },
                             leadingIcon = {
                                 Icon(
@@ -477,6 +539,8 @@ fun NumericDataScreen(
                                 DropdownMenuItem(
                                     text = { Text(year.toString()) },
                                     onClick = {
+                                        selectSound.seekTo(0)
+                                        selectSound.start()
                                         selectedYear.value = year
                                         selectedMonth.value = null
                                         showYearFilter.value = false
@@ -489,7 +553,11 @@ fun NumericDataScreen(
                     // Month filter with dropdown
                     Box {
                         androidx.compose.material3.AssistChip(
-                            onClick = { showMonthFilter.value = true },
+                            onClick = { 
+                                tapSound.seekTo(0)
+                                tapSound.start()
+                                showMonthFilter.value = true 
+                            },
                             enabled = selectedYear.value != null,
                             label = {
                                 Text(
@@ -515,6 +583,8 @@ fun NumericDataScreen(
                                 DropdownMenuItem(
                                     text = { Text(DateFormatSymbols().months[month - 1]) },
                                     onClick = {
+                                        selectSound.seekTo(0)
+                                        selectSound.start()
                                         selectedMonth.value = month
                                         showMonthFilter.value = false
                                     }
@@ -527,6 +597,8 @@ fun NumericDataScreen(
                 // Clear filters
                 androidx.compose.material3.IconButton(
                     onClick = {
+                        tapSound.seekTo(0)
+                        tapSound.start()
                         selectedYear.value = null
                         selectedMonth.value = null
                     }
@@ -542,6 +614,8 @@ fun NumericDataScreen(
                     androidx.compose.material3.FilterChip(
                         selected = filterKey == filterState.value,
                         onClick = { 
+                            tapSound.seekTo(0)
+                            tapSound.start()
                             filterState.value = filterKey
                         },
                         modifier = Modifier.padding(end = 8.dp),
@@ -566,6 +640,8 @@ fun NumericDataScreen(
             ) {
                 Column(
                     modifier = Modifier.clickable {
+                        tapSound.seekTo(0)
+                        tapSound.start()
                         sortState.value = if (sortState.value.first == "date") {
                             Pair("date", !sortState.value.second)
                         } else {
@@ -584,6 +660,8 @@ fun NumericDataScreen(
                 
                 Column(
                     modifier = Modifier.clickable {
+                        tapSound.seekTo(0)
+                        tapSound.start()
                         sortState.value = if (sortState.value.first == "amount") {
                             Pair("amount", !sortState.value.second)
                         } else {
@@ -611,7 +689,11 @@ fun NumericDataScreen(
                         modifier = Modifier
                             .fillMaxWidth()
                             .padding(8.dp)
-                            .clickable { selectedTransaction.value = transaction },
+                            .clickable { 
+                                selectSound.seekTo(0)
+                                selectSound.start()
+                                selectedTransaction.value = transaction 
+                            },
                         horizontalArrangement = Arrangement.SpaceBetween
                     ) {
                         Text(java.text.SimpleDateFormat("dd MMM yyyy HH:mm").format(transaction.date))
@@ -652,6 +734,8 @@ fun NumericDataScreen(
             Row(modifier = Modifier.padding(horizontal = 8.dp)) {
                 Button(
                     onClick = {
+                        selectSound.seekTo(0)
+                        selectSound.start()
                         selectedYear.value = defaultYear
                         selectedMonth.value = defaultMonth
                     }
@@ -789,7 +873,7 @@ private fun extractTransactionData(messages: List<SmsMessage>): List<Transaction
             TransactionData(
                 date = message.dateTime,
                 amount = message.numericAmount,
-                isIncome = message.body.contains(Regex("(recepc[ií]ón|recibiste)", RegexOption.IGNORE_CASE)),
+                isIncome = message.body.contains(Regex("(recepci[óo]n|recibiste)", RegexOption.IGNORE_CASE)),
                 originalMessage = message
             )
         } else null
@@ -806,7 +890,10 @@ fun GreetingPreview() {
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun MessageDetailScreen(message: SmsMessage, onBack: () -> Unit) {
+fun MessageDetailScreen(
+    message: SmsMessage, 
+    onBack: () -> Unit
+) {
     Scaffold(topBar = {
         androidx.compose.material3.TopAppBar(
             title = { Text("Transaction Details") },
