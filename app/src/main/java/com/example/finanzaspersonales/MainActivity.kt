@@ -97,10 +97,63 @@ fun SMSReader(modifier: Modifier = Modifier) {
     val context = LocalContext.current
     val smsMessages = remember { mutableStateOf<List<SmsMessage>>(emptyList()) }
     val showNumericData = remember { mutableStateOf(false) }
-    val numericAmounts = remember { mutableStateOf<List<Float>>(emptyList()) }
     val transactions = remember { mutableStateOf<List<TransactionData>>(emptyList()) }
     val searchQuery = remember { mutableStateOf("") }
     
+    // Add message list filter states
+    val messageListSelectedYear = remember { mutableStateOf<Int?>(null) }
+    val messageListSelectedMonth = remember { mutableStateOf<Int?>(null) }
+    val showMessageListYearFilter = remember { mutableStateOf(false) }
+    val showMessageListMonthFilter = remember { mutableStateOf(false) }
+
+    // Calculate years from messages
+    val years = remember(smsMessages.value) {
+        smsMessages.value.mapNotNull { 
+            it.dateTime?.let { date ->
+                val cal = Calendar.getInstance().apply { time = date }
+                cal.get(Calendar.YEAR)
+            }
+        }.distinct().sortedDescending()
+    }
+
+    // Calculate months for selected year
+    val monthsInYear = remember(messageListSelectedYear.value) {
+        messageListSelectedYear.value?.let { year ->
+            smsMessages.value.mapNotNull { 
+                it.dateTime?.let { date ->
+                    val cal = Calendar.getInstance().apply { time = date }
+                    if (cal.get(Calendar.YEAR) == year) {
+                        cal.get(Calendar.MONTH) + 1
+                    } else null
+                }
+            }.distinct().sortedDescending()
+        } ?: emptyList()
+    }
+
+    // Update filtered messages calculation with date filters
+    val filteredMessages = remember(smsMessages.value, searchQuery.value, messageListSelectedYear.value, messageListSelectedMonth.value) {
+        smsMessages.value.filter { message ->
+            val matchesText = searchQuery.value.isEmpty() || 
+                message.body.contains(searchQuery.value, ignoreCase = true)
+            
+            val matchesYear = messageListSelectedYear.value?.let { year ->
+                message.dateTime?.let {
+                    val cal = Calendar.getInstance().apply { time = it }
+                    cal.get(Calendar.YEAR) == year
+                } ?: false
+            } ?: true
+            
+            val matchesMonth = messageListSelectedMonth.value?.let { month ->
+                message.dateTime?.let {
+                    val cal = Calendar.getInstance().apply { time = it }
+                    (cal.get(Calendar.MONTH) + 1) == month
+                } ?: false
+            } ?: true
+            
+            matchesText && matchesYear && matchesMonth
+        }
+    }
+
     val permissionLauncher = rememberLauncherForActivityResult(
         ActivityResultContracts.RequestPermission()
     ) { isGranted ->
@@ -123,7 +176,11 @@ fun SMSReader(modifier: Modifier = Modifier) {
         if (showNumericData.value) {
             NumericDataScreen(
                 transactions = transactions.value,
-                onBack = { showNumericData.value = false }
+                onBack = { showNumericData.value = false },
+                filterState = remember { mutableStateOf("all") },
+                selectedYear = messageListSelectedYear,
+                selectedMonth = messageListSelectedMonth,
+                sortState = remember { mutableStateOf(Pair("date", false)) }
             )
         } else {
             androidx.compose.material3.AssistChip(
@@ -154,11 +211,92 @@ fun SMSReader(modifier: Modifier = Modifier) {
                     .padding(8.dp)
             )
 
-            // Update filtered messages calculation
-            val filteredMessages = remember(smsMessages.value, searchQuery.value) {
-                smsMessages.value.filter { message ->
-                    searchQuery.value.isEmpty() || 
-                    message.body.contains(searchQuery.value, ignoreCase = true)
+            // Add filter row before the message list
+            Row(
+                modifier = Modifier
+                    .padding(vertical = 8.dp)
+                    .fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    // Year filter
+                    Box {
+                        androidx.compose.material3.AssistChip(
+                            onClick = { showMessageListYearFilter.value = true },
+                            label = { Text(messageListSelectedYear.value?.toString() ?: "Year") },
+                            leadingIcon = {
+                                Icon(
+                                    Icons.Default.CalendarToday,
+                                    contentDescription = null,
+                                    modifier = Modifier.size(18.dp)
+                                )
+                            }
+                        )
+                        
+                        DropdownMenu(
+                            expanded = showMessageListYearFilter.value,
+                            onDismissRequest = { showMessageListYearFilter.value = false }
+                        ) {
+                            years.forEach { year ->
+                                DropdownMenuItem(
+                                    text = { Text(year.toString()) },
+                                    onClick = {
+                                        messageListSelectedYear.value = year
+                                        messageListSelectedMonth.value = null
+                                        showMessageListYearFilter.value = false
+                                    }
+                                )
+                            }
+                        }
+                    }
+
+                    // Month filter
+                    Box {
+                        androidx.compose.material3.AssistChip(
+                            onClick = { showMessageListMonthFilter.value = true },
+                            enabled = messageListSelectedYear.value != null,
+                            label = {
+                                Text(
+                                    messageListSelectedMonth.value?.let { 
+                                        DateFormatSymbols().months[it - 1].take(3) 
+                                    } ?: "Month"
+                                )
+                            },
+                            leadingIcon = {
+                                Icon(
+                                    Icons.Default.ArrowDropDown,
+                                    contentDescription = null,
+                                    modifier = Modifier.size(18.dp)
+                                )
+                            }
+                        )
+                        
+                        DropdownMenu(
+                            expanded = showMessageListMonthFilter.value,
+                            onDismissRequest = { showMessageListMonthFilter.value = false }
+                        ) {
+                            monthsInYear.forEach { month ->
+                                DropdownMenuItem(
+                                    text = { Text(DateFormatSymbols().months[month - 1]) },
+                                    onClick = {
+                                        messageListSelectedMonth.value = month
+                                        showMessageListMonthFilter.value = false
+                                    }
+                                )
+                            }
+                        }
+                    }
+                }
+
+                // Clear filters
+                androidx.compose.material3.IconButton(
+                    onClick = {
+                        messageListSelectedYear.value = null
+                        messageListSelectedMonth.value = null
+                    }
+                ) {
+                    Icon(Icons.Default.Close, contentDescription = "Clear filters")
                 }
             }
 
@@ -197,8 +335,19 @@ fun SMSReader(modifier: Modifier = Modifier) {
 }
 
 @Composable
-fun NumericDataScreen(transactions: List<TransactionData>, onBack: () -> Unit) {
+fun NumericDataScreen(
+    transactions: List<TransactionData>,
+    onBack: () -> Unit,
+    filterState: androidx.compose.runtime.MutableState<String>,
+    selectedYear: androidx.compose.runtime.MutableState<Int?>,
+    selectedMonth: androidx.compose.runtime.MutableState<Int?>,
+    sortState: androidx.compose.runtime.MutableState<Pair<String, Boolean>>
+) {
     val selectedTransaction = remember { mutableStateOf<TransactionData?>(null) }
+    
+    // Add local dropdown visibility states
+    val showYearFilter = remember { mutableStateOf(false) }
+    val showMonthFilter = remember { mutableStateOf(false) }
     
     if (selectedTransaction.value != null) {
         MessageDetailScreen(
@@ -206,17 +355,9 @@ fun NumericDataScreen(transactions: List<TransactionData>, onBack: () -> Unit) {
             onBack = { selectedTransaction.value = null }
         )
     } else {
-        // Get current date values for fallback
         val calendar = remember { Calendar.getInstance() }
         val defaultYear = calendar.get(Calendar.YEAR)
         val defaultMonth = calendar.get(Calendar.MONTH) + 1
-
-        // Initialize filters with null (show all data)
-        val filterState = remember { mutableStateOf("all") }
-        val selectedYear = remember { mutableStateOf<Int?>(null) }
-        val selectedMonth = remember { mutableStateOf<Int?>(null) }
-        val showYearFilter = remember { mutableStateOf(false) }
-        val showMonthFilter = remember { mutableStateOf(false) }
 
         // Add years calculation back
         val years = remember(transactions) {
@@ -256,9 +397,6 @@ fun NumericDataScreen(transactions: List<TransactionData>, onBack: () -> Unit) {
                 matchesType && matchesYear && matchesMonth
             }
         }
-
-        // Add sorting state
-        val sortState = remember { mutableStateOf(Pair("date", false)) } // (column, ascending)
 
         val sortedTransactions = remember(filteredTransactions, sortState.value) {
             when (sortState.value.first) {
@@ -331,16 +469,16 @@ fun NumericDataScreen(transactions: List<TransactionData>, onBack: () -> Unit) {
                             }
                         )
                         
-                        // Year filter dropdown
                         DropdownMenu(
                             expanded = showYearFilter.value,
-                            onDismissRequest = { showYearFilter.value = false },
+                            onDismissRequest = { showYearFilter.value = false }
                         ) {
                             years.forEach { year ->
                                 DropdownMenuItem(
-                                    text = { Text(text = year.toString()) },
+                                    text = { Text(year.toString()) },
                                     onClick = {
                                         selectedYear.value = year
+                                        selectedMonth.value = null
                                         showYearFilter.value = false
                                     }
                                 )
@@ -369,10 +507,9 @@ fun NumericDataScreen(transactions: List<TransactionData>, onBack: () -> Unit) {
                             }
                         )
                         
-                        // Month filter dropdown
                         DropdownMenu(
                             expanded = showMonthFilter.value,
-                            onDismissRequest = { showMonthFilter.value = false },
+                            onDismissRequest = { showMonthFilter.value = false }
                         ) {
                             monthsInYear.forEach { month ->
                                 DropdownMenuItem(
