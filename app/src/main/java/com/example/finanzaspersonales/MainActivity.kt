@@ -683,9 +683,9 @@ fun NumericDataScreen(
                             },
                     horizontalArrangement = Arrangement.SpaceBetween
                 ) {
-                    Text(java.text.SimpleDateFormat("dd MMM yyyy HH:mm").format(transaction.date))
+                    Text(java.text.SimpleDateFormat("dd/MM/yy").format(transaction.date))
                     Text(
-                            text = "$${"%,.2f".format(transaction.amount)}",
+                            text = "$${formatAmount(transaction.amount)}",
                         color = when {
                             "all" == "all" -> 
                                 if (transaction.isIncome) MaterialTheme.colorScheme.primary 
@@ -744,7 +744,7 @@ private fun TotalRow(label: String, amount: Float, color: Color) {
     ) {
         Text(label, fontWeight = FontWeight.Bold)
         Text(
-            text = "COP ${"%,.2f".format(amount)}",
+            text = "COP ${formatAmount(amount)}",
             fontWeight = FontWeight.Bold,
             color = color
         )
@@ -899,7 +899,7 @@ fun MessageDetailScreen(
             Text("From: ${message.address}", style = MaterialTheme.typography.titleMedium)
             Spacer(modifier = Modifier.height(8.dp))
             message.dateTime?.let {
-                Text("Date: ${java.text.SimpleDateFormat("dd MMM yyyy HH:mm").format(it)}")
+                Text("Date: ${java.text.SimpleDateFormat("dd/MM/yy").format(it)}")
             }
             Spacer(modifier = Modifier.height(8.dp))
             message.amount?.let {
@@ -935,7 +935,7 @@ private fun MessageBubble(message: SmsMessage) {
             
             message.dateTime?.let {
                 Text(
-                    text = java.text.SimpleDateFormat("dd MMM yyyy HH:mm").format(it),
+                    text = java.text.SimpleDateFormat("dd/MM/yy").format(it),
                     style = MaterialTheme.typography.labelSmall,
                     color = MaterialTheme.colorScheme.outline
                 )
@@ -984,4 +984,9 @@ private fun MessageBubble(message: SmsMessage) {
             }
         }
     }
+}
+
+private fun formatAmount(amount: Float): String {
+    val formatter = java.text.DecimalFormat("#,###")
+    return formatter.format(amount)
 }
