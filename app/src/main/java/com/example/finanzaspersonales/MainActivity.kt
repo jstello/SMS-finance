@@ -63,6 +63,10 @@ import androidx.compose.material.icons.filled.Analytics
 import androidx.compose.foundation.layout.Box
 import androidx.activity.compose.BackHandler
 import androidx.compose.material3.Surface
+import com.google.gson.Gson
+import androidx.compose.runtime.MutableState
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.TextField
 
 data class SmsMessage(
     val address: String,
@@ -77,6 +81,13 @@ data class TransactionData(
     val amount: Float,
     val isIncome: Boolean,
     val originalMessage: SmsMessage
+)
+
+data class AccountInfo(
+    val contactName: String,
+    val phoneNumber: String,
+    val accountNumber: String,
+    val bankName: String
 )
 
 class MainActivity : ComponentActivity() {
@@ -187,6 +198,9 @@ fun SMSReader(modifier: Modifier = Modifier) {
         }
     }
 
+    val showAccountDirectory = remember { mutableStateOf(false) }
+    val accounts = remember { mutableStateOf(loadAccounts(context)) }
+
     Column(modifier = modifier) {
         if (showNumericData.value) {
             NumericDataScreen(
@@ -203,7 +217,7 @@ fun SMSReader(modifier: Modifier = Modifier) {
             )
         } else {
             androidx.compose.material3.AssistChip(
-                onClick = {
+                onClick = { 
                     selectSound.seekTo(0)
                     selectSound.start()
                     transactions.value = extractTransactionData(smsMessages.value)
@@ -351,6 +365,33 @@ fun SMSReader(modifier: Modifier = Modifier) {
                     }
                 }
             }
+        }
+
+        if (showAccountDirectory.value) {
+            AccountDirectoryScreen(
+                onBack = { showAccountDirectory.value = false },
+                accounts = accounts,
+                context = context
+            )
+        } else {
+            androidx.compose.material3.AssistChip(
+                onClick = { 
+                    selectSound.seekTo(0)
+                    selectSound.start()
+                    showAccountDirectory.value = true 
+                },
+                label = { Text("Manage Accounts") },
+                leadingIcon = {
+                    Icon(
+                        Icons.Default.CalendarToday,
+                        contentDescription = null,
+                        modifier = Modifier.size(18.dp)
+                    )
+                },
+                modifier = Modifier
+                    .padding(top = 8.dp)
+                    .fillMaxWidth()
+            )
         }
     }
 }
@@ -883,6 +924,12 @@ fun MessageDetailScreen(
     message: SmsMessage, 
     onBack: () -> Unit
 ) {
+    val context = LocalContext.current
+    val accounts = remember { mutableStateOf(loadAccounts(context)) }
+    val matchedAccount = remember(message.address) {
+        accounts.value.firstOrNull { it.phoneNumber == message.address }
+    }
+
     Scaffold(topBar = {
         androidx.compose.material3.TopAppBar(
             title = { Text("Transaction Details") },
@@ -896,6 +943,24 @@ fun MessageDetailScreen(
         Column(modifier = Modifier
             .padding(innerPadding)
             .padding(16.dp)) {
+            
+            if (matchedAccount != null) {
+                Surface(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(bottom = 16.dp),
+                    color = MaterialTheme.colorScheme.surfaceVariant,
+                    shape = MaterialTheme.shapes.medium
+                ) {
+                    Column(modifier = Modifier.padding(16.dp)) {
+                        Text("Linked Account:", style = MaterialTheme.typography.labelSmall)
+                        Text(matchedAccount.contactName, style = MaterialTheme.typography.titleMedium)
+                        Text("Account: ${matchedAccount.accountNumber}", style = MaterialTheme.typography.bodyMedium)
+                        Text("Bank: ${matchedAccount.bankName}", style = MaterialTheme.typography.bodyMedium)
+                    }
+                }
+            }
+
             Text("From: ${message.address}", style = MaterialTheme.typography.titleMedium)
             Spacer(modifier = Modifier.height(8.dp))
             message.dateTime?.let {
@@ -989,4 +1054,173 @@ private fun MessageBubble(message: SmsMessage) {
 private fun formatAmount(amount: Float): String {
     val formatter = java.text.DecimalFormat("#,###")
     return formatter.format(amount)
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun AccountDirectoryScreen(
+    onBack: () -> Unit,
+    accounts: MutableState<List<AccountInfo>>,
+    context: android.content.Context
+) {
+    val showDialog = remember { mutableStateOf(false) }
+    val editingAccount = remember { mutableStateOf<AccountInfo?>(null) }
+    
+    val name = remember { mutableStateOf("") }
+    val phone = remember { mutableStateOf("") }
+    val account = remember { mutableStateOf("") }
+    val bank = remember { mutableStateOf("") }
+
+    Scaffold(
+        topBar = {
+            androidx.compose.material3.TopAppBar(
+                title = { Text("Account Directory") },
+                navigationIcon = {
+                    IconButton(onClick = onBack) {
+                        Icon(Icons.Default.ArrowBack, contentDescription = "Back")
+                    }
+                },
+                actions = {
+                    IconButton(onClick = { 
+                        editingAccount.value = null
+                        name.value = ""
+                        phone.value = ""
+                        account.value = ""
+                        bank.value = ""
+                        showDialog.value = true 
+                    }) {
+                        Icon(Icons.Default.CalendarToday, contentDescription = "Add Account")
+                    }
+                }
+            )
+        }
+    ) { innerPadding ->
+        Column(modifier = Modifier.padding(innerPadding)) {
+            LazyColumn(modifier = Modifier.weight(1f)) {
+                itemsIndexed<AccountInfo>(accounts.value) { index, acc ->
+                    AccountListItem(
+                        account = acc,
+                        onEdit = {
+                            editingAccount.value = acc
+                            name.value = acc.contactName
+                            phone.value = acc.phoneNumber
+                            account.value = acc.accountNumber
+                            bank.value = acc.bankName
+                            showDialog.value = true
+                        },
+                        onDelete = {
+                            accounts.value = accounts.value.toMutableList().apply { removeAt(index) }
+                            saveAccounts(context, accounts.value)
+                        }
+                    )
+                    Divider()
+                }
+            }
+            
+            if (showDialog.value) {
+                AlertDialog(
+                    onDismissRequest = { showDialog.value = false },
+                    title = { Text(if (editingAccount.value == null) "Add Account" else "Edit Account") },
+                    text = {
+                        Column {
+                            TextField(
+                                value = name.value,
+                                onValueChange = { name.value = it },
+                                label = { Text("Contact Name") }
+                            )
+                            TextField(
+                                value = phone.value,
+                                onValueChange = { phone.value = it },
+                                label = { Text("Phone Number") }
+                            )
+                            TextField(
+                                value = account.value,
+                                onValueChange = { account.value = it },
+                                label = { Text("Account Number") }
+                            )
+                            TextField(
+                                value = bank.value,
+                                onValueChange = { bank.value = it },
+                                label = { Text("Bank Name") }
+                            )
+                        }
+                    },
+                    confirmButton = {
+                        Button(onClick = {
+                            val newAccount = AccountInfo(
+                                name.value,
+                                phone.value,
+                                account.value,
+                                bank.value
+                            )
+                            
+                            accounts.value = accounts.value.toMutableList().apply {
+                                if (editingAccount.value != null) {
+                                    val index = indexOfFirst { it == editingAccount.value }
+                                    if (index != -1) this[index] = newAccount
+                                } else {
+                                    add(newAccount)
+                                }
+                            }
+                            saveAccounts(context, accounts.value)
+                            showDialog.value = false
+                        }) {
+                            Text("Save")
+                        }
+                    },
+                    dismissButton = {
+                        Button(onClick = { showDialog.value = false }) {
+                            Text("Cancel")
+                        }
+                    }
+                )
+            }
+        }
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun AccountListItem(
+    account: AccountInfo,
+    onEdit: () -> Unit,
+    onDelete: () -> Unit
+) {
+    Surface(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable { onEdit() }
+    ) {
+        Row(
+            modifier = Modifier.padding(16.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.SpaceBetween
+        ) {
+            Column(modifier = Modifier.weight(1f)) {
+                Text(account.contactName, style = MaterialTheme.typography.titleMedium)
+                Text("Phone: ${account.phoneNumber}", style = MaterialTheme.typography.bodySmall)
+                Text("Account: ${account.accountNumber}", style = MaterialTheme.typography.bodySmall)
+                Text("Bank: ${account.bankName}", style = MaterialTheme.typography.bodySmall)
+            }
+            IconButton(onClick = onDelete) {
+                Icon(Icons.Default.Close, contentDescription = "Delete")
+            }
+        }
+    }
+}
+
+private fun saveAccounts(context: android.content.Context, accounts: List<AccountInfo>) {
+    val prefs = context.getSharedPreferences("account_prefs", android.content.Context.MODE_PRIVATE)
+    val json = Gson().toJson(accounts)
+    prefs.edit().putString("accounts", json).apply()
+}
+
+private fun loadAccounts(context: android.content.Context): List<AccountInfo> {
+    val prefs = context.getSharedPreferences("account_prefs", android.content.Context.MODE_PRIVATE)
+    val json = prefs.getString("accounts", null)
+    return if (json != null) {
+        Gson().fromJson(json, Array<AccountInfo>::class.java).toList()
+    } else {
+        emptyList()
+    }
 }
