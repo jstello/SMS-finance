@@ -69,7 +69,6 @@ import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.TextField
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
-import androidx.navigation.compose.rememberNavController
 import androidx.compose.material3.NavigationBar
 import androidx.compose.material3.NavigationBarItem
 import androidx.compose.material.icons.filled.Home
@@ -82,13 +81,33 @@ import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.foundation.layout.systemBarsPadding
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.ui.unit.Dp
-import androidx.compose.ui.unit.dp
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.statusBarsPadding
-import androidx.compose.foundation.layout.navigationBarsPadding
 import com.google.accompanist.systemuicontroller.rememberSystemUiController
 import androidx.compose.runtime.SideEffect
 import java.util.Date
+import androidx.navigation.NavType
+import androidx.navigation.navArgument
+import androidx.compose.foundation.layout.width
+import androidx.navigation.compose.rememberNavController
+import androidx.navigation.NavController
+import androidx.compose.material3.Card
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.graphics.toArgb
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.TopAppBar
+import androidx.compose.material3.TopAppBarDefaults
+import androidx.compose.ui.text.style.TextOverflow
+
+// Simplified Vico imports
+import com.patrykandpatrick.vico.compose.chart.Chart
+import com.patrykandpatrick.vico.compose.chart.column.columnChart
+import com.patrykandpatrick.vico.compose.axis.horizontal.rememberBottomAxis
+import com.patrykandpatrick.vico.compose.axis.vertical.rememberStartAxis
+import com.patrykandpatrick.vico.core.entry.FloatEntry
+import com.patrykandpatrick.vico.core.entry.entryModelOf
 
 data class SmsMessage(
     val address: String,
@@ -249,94 +268,108 @@ fun AccountDirectoryScreen(
 }
 
 @Composable
-private fun MessageBubble(message: SmsMessage) {
-    Column(
+private fun WhatsAppStyleMessageItem(
+    message: SmsMessage,
+    onClick: () -> Unit
+) {
+    Row(
         modifier = Modifier
-            .padding(horizontal = 8.dp, vertical = 4.dp)
             .fillMaxWidth()
+            .clickable(onClick = onClick)
+            .padding(horizontal = 16.dp, vertical = 8.dp),
+        verticalAlignment = Alignment.CenterVertically
     ) {
-        // Sender info with date in a row
-        Row(
+        // Profile Image
+        Box(
             modifier = Modifier
-                .fillMaxWidth()
-                .padding(bottom = 4.dp),
-            horizontalArrangement = Arrangement.SpaceBetween
+                .size(48.dp)
+                .clip(CircleShape)
+                .background(MaterialTheme.colorScheme.surfaceVariant),
+            contentAlignment = Alignment.Center
         ) {
+            // First letter of address as avatar
             Text(
-                text = message.address,
-                style = MaterialTheme.typography.labelMedium,
+                text = message.address.take(1).uppercase(),
+                style = MaterialTheme.typography.titleMedium,
                 fontWeight = FontWeight.Bold,
-                color = MaterialTheme.colorScheme.primary
+                color = MaterialTheme.colorScheme.onSurfaceVariant
             )
-            
-            message.dateTime?.let {
-                Text(
-                    text = java.text.SimpleDateFormat("dd/MM/yy").format(it),
-                    style = MaterialTheme.typography.labelSmall,
-                    color = MaterialTheme.colorScheme.outline
-                )
-            }
         }
         
-        // Message bubble
-        Surface(
-            shape = MaterialTheme.shapes.medium,
-            color = androidx.compose.ui.graphics.Color(0xFF282C34).copy(alpha = 0.8f), // Darker background like WhatsApp
-            tonalElevation = 2.dp,
-            shadowElevation = 1.dp,
-            modifier = Modifier.fillMaxWidth()
+        Spacer(modifier = Modifier.width(16.dp))
+        
+        // Content Column
+        Column(
+            modifier = Modifier
+                .weight(1f)
+                .padding(end = 8.dp)
         ) {
-            Column(modifier = Modifier.padding(16.dp)) {
-                // Add account info if detected
-                message.detectedAccount?.let { account ->
+            // Top Row (Title + Date)
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                // Title with amount if present
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    modifier = Modifier.weight(1f)
+                ) {
                     Text(
-                        text = "Account: $account",
-                        color = MaterialTheme.colorScheme.primary,
-                        style = MaterialTheme.typography.labelSmall
+                        text = if (message.amount != null) "${message.amount}" else message.address,
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.Bold,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
                     )
-                }
-                message.sourceAccount?.let { source ->
-                    Text(
-                        text = "From: $source",
-                        color = MaterialTheme.colorScheme.secondary,
-                        style = MaterialTheme.typography.labelSmall
-                    )
-                }
-                
-                // Message body
-                Text(
-                    text = message.body,
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = androidx.compose.ui.graphics.Color.LightGray, // Lighter text on dark background
-                    modifier = Modifier.padding(bottom = if (message.amount != null) 12.dp else 0.dp)
-                )
-                
-                // Amount if present
-                message.amount?.let {
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(top = 4.dp),
-                        horizontalArrangement = Arrangement.End
-                    ) {
-                        Surface(
-                            shape = MaterialTheme.shapes.medium,
-                            color = androidx.compose.ui.graphics.Color(0xFFBF2E34), // Red background for amount
-                            modifier = Modifier.padding(top = 4.dp)
+                    
+                    if (message.amount != null) {
+                        Box(
+                            modifier = Modifier
+                                .padding(start = 8.dp)
+                                .background(
+                                    color = MaterialTheme.colorScheme.errorContainer,
+                                    shape = RoundedCornerShape(4.dp)
+                                )
+                                .padding(horizontal = 4.dp, vertical = 2.dp)
                         ) {
                             Text(
-                                text = it,
-                                style = MaterialTheme.typography.titleMedium,
-                                fontWeight = FontWeight.Bold,
-                                color = androidx.compose.ui.graphics.Color.White,
-                                modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp)
+                                text = message.address,
+                                style = MaterialTheme.typography.labelSmall,
+                                color = MaterialTheme.colorScheme.onErrorContainer
                             )
                         }
                     }
                 }
+                
+                // Date
+                message.dateTime?.let {
+                    Text(
+                        text = java.text.SimpleDateFormat("HH:mm").format(it),
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.outline
+                    )
+                }
             }
+            
+            Spacer(modifier = Modifier.height(4.dp))
+            
+            // Message Preview
+            Text(
+                text = message.body,
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis
+            )
         }
     }
+    
+    Divider(
+        modifier = Modifier.padding(start = 80.dp),
+        thickness = 0.5.dp,
+        color = MaterialTheme.colorScheme.outlineVariant
+    )
 }
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -651,6 +684,9 @@ fun SMSReader(modifier: Modifier = Modifier) {
     val messageListSelectedMonth = remember { mutableStateOf<Int?>(null) }
     val showMessageListYearFilter = remember { mutableStateOf(false) }
     val showMessageListMonthFilter = remember { mutableStateOf(false) }
+    
+    // Selected message for detail view
+    val selectedMessage = remember { mutableStateOf<SmsMessage?>(null) }
 
     // Restore original message loading logic
     val permissionLauncher = rememberLauncherForActivityResult(
@@ -791,25 +827,45 @@ fun SMSReader(modifier: Modifier = Modifier) {
             modifier = Modifier.padding(innerPadding)
         ) {
             composable(Screen.Home.route) {
-                // Restore original message list rendering
-                Column(modifier = Modifier.padding(16.dp)) {
-                    // Search and filter controls
-                    SearchBar(searchQuery)
-                    YearMonthFilters(
-                        messageListSelectedYear,
-                        messageListSelectedMonth,
-                        filteredMessages,
-                        smsMessages.value
+                if (selectedMessage.value != null) {
+                    // Show message detail
+                    MessageDetailScreen(
+                        message = selectedMessage.value!!,
+                        onBack = { selectedMessage.value = null }
                     )
-                    
-                    LazyColumn {
-                        itemsIndexed(filteredMessages) { index, message ->
-                            MessageBubble(message = message)
-                            Spacer(modifier = Modifier.height(8.dp))
-                        }
+                } else {
+                    // Show WhatsApp-style list
+                    Column(modifier = Modifier.fillMaxSize()) {
+                        // App bar with title
+                        @OptIn(ExperimentalMaterial3Api::class)
+                        TopAppBar(
+                            title = { Text("Financial Messages") },
+                            colors = TopAppBarDefaults.topAppBarColors(
+                                containerColor = MaterialTheme.colorScheme.surface,
+                                titleContentColor = MaterialTheme.colorScheme.onSurface
+                            )
+                        )
                         
-                        if (filteredMessages.isEmpty()) {
-                            item { EmptyState() }
+                        // Search and filter controls
+                        SearchBar(searchQuery)
+                        YearMonthFilters(
+                            messageListSelectedYear,
+                            messageListSelectedMonth,
+                            filteredMessages,
+                            smsMessages.value
+                        )
+                        
+                        LazyColumn {
+                            itemsIndexed(filteredMessages) { index, message ->
+                                WhatsAppStyleMessageItem(
+                                    message = message,
+                                    onClick = { selectedMessage.value = message }
+                                )
+                            }
+                            
+                            if (filteredMessages.isEmpty()) {
+                                item { EmptyState() }
+                            }
                         }
                     }
                 }
@@ -832,14 +888,32 @@ fun SMSReader(modifier: Modifier = Modifier) {
                     filterState = remember { mutableStateOf("all") },
                     selectedYear = remember { mutableStateOf<Int?>(null) },
                     selectedMonth = remember { mutableStateOf<Int?>(null) },
-                    sortState = remember { mutableStateOf(Pair("date", false)) }
+                    sortState = remember { mutableStateOf(Pair("date", false)) },
+                    navController = navController
+                )
+            }
+            composable(
+                "dashboard/{year}/{month}",
+                arguments = listOf(
+                    navArgument("year") { type = NavType.IntType },
+                    navArgument("month") { type = NavType.IntType }
+                )
+            ) { backStackEntry ->
+                val year = backStackEntry.arguments?.getInt("year") ?: 0
+                val month = backStackEntry.arguments?.getInt("month") ?: 0
+                
+                DashboardScreen(
+                    year = year,
+                    month = month,
+                    transactions = transactions.value,
+                    onBack = { navController.popBackStack() },
+                    navController = navController
                 )
             }
         }
     }
 }
 
-// Restore original filter controls
 @Composable
 private fun YearMonthFilters(
     selectedYear: MutableState<Int?>,
@@ -859,27 +933,94 @@ private fun YearMonthFilters(
         } ?: emptyList()
     }
 
-    // Original filter row implementation
+    val showYearPicker = remember { mutableStateOf(false) }
+    val showMonthPicker = remember { mutableStateOf(false) }
+
     Row(
         modifier = Modifier
             .padding(vertical = 8.dp)
             .fillMaxWidth(),
         horizontalArrangement = Arrangement.SpaceBetween
     ) {
-        // Year and month filter chips
-        // ... original filter chip implementation
+        // Year filter chip
+        Box {
+            AssistChip(
+                onClick = { showYearPicker.value = true },
+                label = {
+                    Text(selectedYear.value?.toString() ?: "Select Year")
+                },
+                leadingIcon = {
+                    Icon(
+                        Icons.Filled.CalendarToday,
+                        contentDescription = "Select Year",
+                        modifier = Modifier.size(20.dp)
+                    )
+                }
+            )
+            
+            DropdownMenu(
+                expanded = showYearPicker.value,
+                onDismissRequest = { showYearPicker.value = false }
+            ) {
+                years.forEach { year ->
+                    DropdownMenuItem(
+                        text = { Text(year.toString()) },
+                        onClick = {
+                            selectedYear.value = year
+                            selectedMonth.value = null
+                            showYearPicker.value = false
+                        }
+                    )
+                }
+            }
+        }
+
+        // Month filter chip
+        Box {
+            AssistChip(
+                onClick = { showMonthPicker.value = true },
+                enabled = selectedYear.value != null,
+                label = {
+                    Text(
+                        selectedMonth.value?.let {
+                            DateFormatSymbols().months[it - 1]
+                        } ?: "Select Month"
+                    )
+                },
+                leadingIcon = {
+                    Icon(
+                        Icons.Filled.ArrowDropDown,
+                        contentDescription = "Select Month",
+                        modifier = Modifier.size(20.dp)
+                    )
+                }
+            )
+            
+            DropdownMenu(
+                expanded = showMonthPicker.value,
+                onDismissRequest = { showMonthPicker.value = false }
+            ) {
+                monthsInYear.forEach { month ->
+                    DropdownMenuItem(
+                        text = { Text(DateFormatSymbols().months[month - 1]) },
+                        onClick = {
+                            selectedMonth.value = month
+                            showMonthPicker.value = false
+                        }
+                    )
+                }
+            }
+        }
     }
 }
 
 // Restore helper extensions
 private fun Date.toYear(): Int {
-    val calendar = Calendar.getInstance().apply { time = this@toYear }
-    return calendar.get(Calendar.YEAR)
+    return Calendar.getInstance().apply { time = this@toYear }.get(Calendar.YEAR)
 }
 
 private fun Date.toMonth(): Int {
-    val calendar = Calendar.getInstance().apply { time = this@toMonth }
-    return calendar.get(Calendar.MONTH) + 1
+    return Calendar.getInstance().apply { time = this@toMonth }.get(Calendar.MONTH) + 1
 }
 
 @Composable
@@ -889,11 +1030,9 @@ fun NumericDataScreen(
     filterState: MutableState<String>,
     selectedYear: MutableState<Int?>,
     selectedMonth: MutableState<Int?>,
-    sortState: MutableState<Pair<String, Boolean>>
+    sortState: MutableState<Pair<String, Boolean>>,
+    navController: NavController
 ) {
-    // Add BackHandler at the top of the composable
-    androidx.activity.compose.BackHandler(onBack = onBack)
-
     val selectedTransaction = remember { mutableStateOf<TransactionData?>(null) }
 
     // Add local dropdown visibility states
@@ -1272,13 +1411,31 @@ fun NumericDataScreen(
                     }
                 }
             }
+
+            Row {
+                androidx.compose.material3.AssistChip(
+                    onClick = {
+                        if (selectedYear.value != null && selectedMonth.value != null) {
+                            navController.navigate("dashboard/${selectedYear.value}/${selectedMonth.value}")
+                        }
+                    },
+                    enabled = selectedYear.value != null && selectedMonth.value != null,
+                    label = { Text("View Dashboard") },
+                    leadingIcon = {
+                        Icon(
+                            Icons.Filled.Analytics,
+                            contentDescription = "Dashboard",
+                            modifier = Modifier.size(18.dp)
+                        )
+                    }
+                )
+            }
         }
     }
 }
 
 @Composable
 private fun SearchBar(searchQuery: MutableState<String>) {
-    val context = LocalContext.current
     Box(
         modifier = Modifier
             .fillMaxWidth()
@@ -1288,22 +1445,22 @@ private fun SearchBar(searchQuery: MutableState<String>) {
             modifier = Modifier
                 .fillMaxWidth()
                 .height(36.dp)
-                .clip(MaterialTheme.shapes.medium)
+                .clip(androidx.compose.foundation.shape.RoundedCornerShape(50))
                 .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.7f))
                 .padding(horizontal = 12.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
             Icon(
-                imageVector = Icons.Default.Search,
+                imageVector = Icons.Filled.Search,
                 contentDescription = "Search",
                 tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f),
-                modifier = Modifier.size(18.dp)
+                modifier = Modifier.size(16.dp)
             )
             
             BasicTextField(
                 value = searchQuery.value,
                 onValueChange = { searchQuery.value = it },
-                textStyle = MaterialTheme.typography.bodyMedium.copy(
+                textStyle = MaterialTheme.typography.bodySmall.copy(
                     color = MaterialTheme.colorScheme.onSurface
                 ),
                 singleLine = true,
@@ -1318,10 +1475,10 @@ private fun SearchBar(searchQuery: MutableState<String>) {
                     modifier = Modifier.size(24.dp)
                 ) {
                     Icon(
-                        imageVector = Icons.Default.Close,
+                        imageVector = Icons.Filled.Close,
                         contentDescription = "Clear search",
                         tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f),
-                        modifier = Modifier.size(18.dp)
+                        modifier = Modifier.size(16.dp)
                     )
                 }
             }
@@ -1333,8 +1490,211 @@ private fun SearchBar(searchQuery: MutableState<String>) {
 private fun EmptyState() {
     Text(
         "No messages found",
-        modifier = Modifier.padding(16.dp),
-        style = MaterialTheme.typography.bodyMedium,
-        color = MaterialTheme.colorScheme.onSurfaceVariant
+        modifier = Modifier.padding(16.dp)
     )
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun DashboardScreen(
+    year: Int,
+    month: Int,
+    transactions: List<TransactionData>,
+    onBack: () -> Unit,
+    navController: NavController
+) {
+    val monthlyData = remember(transactions) {
+        transactions.filter {
+            val cal = Calendar.getInstance().apply { time = it.date }
+            cal.get(Calendar.YEAR) == year && (cal.get(Calendar.MONTH) + 1) == month
+        }
+    }
+
+    val (totalIncome, totalExpense) = remember(monthlyData) {
+        var income = 0f
+        var expense = 0f
+        monthlyData.forEach {
+            if (it.isIncome) income += it.amount else expense += it.amount
+        }
+        Pair(income, expense)
+    }
+
+    Scaffold(
+        topBar = {
+            androidx.compose.material3.TopAppBar(
+                title = { Text("$month/$year Dashboard") },
+                navigationIcon = {
+                    IconButton(onClick = onBack) {
+                        Icon(Icons.Filled.ArrowBack, contentDescription = "Back")
+                    }
+                }
+            )
+        }
+    ) { padding ->
+        Column(modifier = Modifier.padding(padding)) {
+            // Income/Expense Ratio Pie Chart
+            Card(modifier = Modifier.padding(16.dp)) {
+                Column(modifier = Modifier.padding(16.dp)) {
+                    Text("Income vs Expenses", style = MaterialTheme.typography.titleMedium)
+                    Spacer(modifier = Modifier.height(16.dp))
+                    PieChart(
+                        entries = listOf(
+                            totalIncome to MaterialTheme.colorScheme.primary,
+                            totalExpense to MaterialTheme.colorScheme.error
+                        ),
+                        modifier = Modifier.height(200.dp)
+                    )
+                    Spacer(modifier = Modifier.height(16.dp))
+                    Legend(items = listOf(
+                        "Income" to MaterialTheme.colorScheme.primary,
+                        "Expenses" to MaterialTheme.colorScheme.error
+                    ))
+                }
+            }
+
+            // Monthly Trend Bar Chart
+            Card(modifier = Modifier.padding(16.dp)) {
+                Column(modifier = Modifier.padding(16.dp)) {
+                    Text("Monthly Trend", style = MaterialTheme.typography.titleMedium)
+                    Spacer(modifier = Modifier.height(16.dp))
+                    BarChart(
+                        data = calculateDailyTrend(monthlyData, year, month),
+                        modifier = Modifier.height(200.dp)
+                    )
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun PieChart(
+    entries: List<Pair<Float, Color>>,
+    modifier: Modifier = Modifier
+) {
+    // Instead of using a pie chart (which is causing issues), let's display the data in a simpler way
+    Column(
+        modifier = modifier
+            .padding(16.dp)
+            .fillMaxWidth(),
+        horizontalAlignment = Alignment.CenterHorizontally
+    ) {
+        entries.forEach { (value, color) ->
+            if (value > 0) {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(vertical = 8.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Box(
+                        modifier = Modifier
+                            .size(16.dp)
+                            .background(color)
+                    )
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text(
+                        text = if (color == MaterialTheme.colorScheme.primary) "Income" else "Expense",
+                        modifier = Modifier.weight(1f)
+                    )
+                    Text(
+                        text = "COP ${formatAmount(value)}",
+                        color = color,
+                        fontWeight = FontWeight.Bold
+                    )
+                }
+            }
+        }
+        
+        // Add total if we have both values
+        if (entries.size == 2 && entries[0].first > 0 && entries[1].first > 0) {
+            Divider(modifier = Modifier.padding(vertical = 8.dp))
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween
+            ) {
+                Text("Net Total:", fontWeight = FontWeight.Bold)
+                val total = entries[0].first - entries[1].first
+                Text(
+                    text = "COP ${formatAmount(total)}",
+                    color = if (total >= 0) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.error,
+                    fontWeight = FontWeight.Bold
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun BarChart(
+    data: Map<Int, Pair<Float, Float>>,
+    modifier: Modifier = Modifier
+) {
+    // Only include days with actual data
+    val filteredData = data.filter { (_, values) -> 
+        values.first > 0f || values.second > 0f 
+    }
+    
+    if (filteredData.isNotEmpty()) {
+        // Convert day -> (income, expense) to list of FloatEntry for income
+        val entries = filteredData.map { (day, values) ->
+            FloatEntry(x = day.toFloat(), y = values.first) // Display income
+        }
+
+        // Create a simple column chart showing income by day
+        Chart(
+            chart = columnChart(),
+            model = entryModelOf(entries),
+            modifier = modifier,
+            startAxis = rememberStartAxis(),
+            bottomAxis = rememberBottomAxis()
+        )
+    } else {
+        // Fallback if no data
+        Text("No transaction data available", modifier = modifier.padding(16.dp))
+    }
+}
+
+@Composable
+private fun Legend(items: List<Pair<String, Color>>) {
+    Row(
+        horizontalArrangement = Arrangement.SpaceEvenly,
+        modifier = Modifier.fillMaxWidth()
+    ) {
+        items.forEach { (label, color) ->
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Box(
+                    modifier = Modifier
+                        .size(16.dp)
+                        .background(color)
+                )
+                Spacer(modifier = Modifier.width(8.dp))
+                Text(label)
+            }
+        }
+    }
+}
+
+private fun calculateDailyTrend(
+    transactions: List<TransactionData>,
+    year: Int,
+    month: Int
+): Map<Int, Pair<Float, Float>> {
+    val calendar = Calendar.getInstance().apply {
+        set(Calendar.YEAR, year)
+        set(Calendar.MONTH, month - 1)
+    }
+    val daysInMonth = calendar.getActualMaximum(Calendar.DAY_OF_MONTH)
+    
+    return (1..daysInMonth).associate { day ->
+        val dailyTransactions = transactions.filter {
+            val cal = Calendar.getInstance().apply { time = it.date }
+            cal.get(Calendar.DAY_OF_MONTH) == day
+        }
+        
+        val income = dailyTransactions.filter { it.isIncome }.sumOf { it.amount.toDouble() }.toFloat()
+        val expense = dailyTransactions.filter { !it.isIncome }.sumOf { it.amount.toDouble() }.toFloat()
+        
+        day to Pair(income, expense)
+    }
 }
