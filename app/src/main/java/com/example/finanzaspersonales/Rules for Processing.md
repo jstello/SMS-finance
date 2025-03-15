@@ -1,73 +1,133 @@
 # Rules for processing text messages
 
+## Data Structures
+```kotlin
+// Core data classes storing processed information
+data class SmsMessage(
+    val address: String,
+    val body: String,
+    val amount: String?,         // Extracted currency string (e.g., "COP150000")
+    val numericAmount: Float?,   // Converted numeric value (e.g., 150000f)
+    val dateTime: java.util.Date?,
+    val detectedAccount: String? = null,  // Detected account info
+    val sourceAccount: String? = null
+)
+
+data class TransactionData(
+    val date: java.util.Date,    // Parsed transaction date
+    val amount: Float,           // Numeric amount
+    val isIncome: Boolean,       // Income/expense classification
+    val originalMessage: SmsMessage
+)
+```
+
 ## Date Parsing Logic
 
-### Extraction Patterns
-- Uses regex pattern: `(\d{2}/\d{2}/\d{4}).*?(\d{2}:\d{2}(?::\d{2})?)|(\d{2}:\d{2}(?::\d{2})?).*?(\d{2}/\d{2}/\d{4})`
-- Handles two main formats:
-  1. Date-first format: `dd/MM/yyyy` followed by time (`HH:mm:ss` or `HH:mm`)
-  2. Time-first format: `HH:mm:ss` or `HH:mm` followed by `dd/MM/yyyy`
+### Extraction Implementation
+```kotlin
+private fun extractDateTimeFromBody(body: String): Date? {
+    val pattern = Pattern.compile("""(\d{2}/\d{2}/\d{4}).*?(\d{2}:\d{2}(?::\d{2})?)|(\d{2}:\d{2}(?::\d{2})?).*?(\d{2}/\d{2}/\d{4})""")
+    val matcher = pattern.matcher(body)
+    
+    return if (matcher.find()) {
+        when {
+            matcher.group(1) != null && matcher.group(2) != null -> 
+                parseDateTimeString("${matcher.group(1)} ${matcher.group(2)}")
+            matcher.group(3) != null && matcher.group(4) != null -> 
+                parseDateTimeString("${matcher.group(4)} ${matcher.group(3)}")
+            else -> null
+        }
+    } else null
+}
 
-### Parsing Rules
-1. **Date Formats**:
-   - Supported date format: `dd/MM/yyyy`
-   - Time formats: `HH:mm:ss` or `HH:mm`
-   - Uses `SimpleDateFormat` with locale defaults
-
-2. **Order Handling**:
-   - Matches date-time combinations in either order:
-     - Date first: "22/06/2023 14:30:45"
-     - Time first: "14:30 22/06/2023"
-
-3. **Fallback Strategy**:
-   - First attempts to parse with seconds (`HH:mm:ss`)
-   - Falls back to parsing without seconds (`HH:mm`)
-   - Returns null if both parsing attempts fail
-
-4. **Assumptions**:
-   - Date and time must appear in the same message body
-   - Uses day-month-year order consistently
-   - Requires at least hours and minutes in time component
-   - Assumes Colombian/Spanish date format conventions
-
-### Storage
-- Parsed dates are stored as `java.util.Date` objects
-- Used in both `SmsMessage` and `TransactionData` classes
-- Displayed in UI as `dd/MM/yy` format
+private fun parseDateTimeString(dateTimeStr: String): Date? {
+    return try {
+        SimpleDateFormat("dd/MM/yyyy HH:mm:ss", Locale.getDefault()).parse(dateTimeStr)
+    } catch (e: Exception) {
+        try {
+            SimpleDateFormat("dd/MM/yyyy HH:mm", Locale.getDefault()).parse(dateTimeStr)
+        } catch (e: Exception) {
+            null
+        }
+    }
+}
+```
 
 ## Amount Detection Logic
 
-### Extraction Patterns
-- Uses regex pattern: `(\$|COP)\s*((\d{1,3}(?:[.,]\d{3})*|\d+))(?:([.,])(\d{2}))?`
-- Handles formats:
-  1. Currency symbol ($ or COP) followed by:
-     - Whole numbers: "COP 1.000.000" or "$500,000"
-     - Decimal amounts: "COP 150.00" or "$1,250.50"
+### Core Extraction Function
+```kotlin
+private fun extractAmountFromBody(body: String): String? {
+    val pattern = Pattern.compile("""(\$|COP)\s*((\d{1,3}(?:[.,]\d{3})*|\d+))(?:([.,])(\d{2}))?""")
+    val matcher = pattern.matcher(body)
+    return if (matcher.find()) {
+        val currency = matcher.group(1)
+        val mainNumber = matcher.group(2).replace("[.,]".toRegex(), "")
+        val decimal = matcher.group(5)
+        
+        when {
+            decimal == null -> "$currency$mainNumber"
+            decimal == "00" -> "$currency$mainNumber"
+            else -> "$currency$mainNumber.$decimal"
+        }
+    } else null
+}
 
-### Processing Rules
-1. **Normalization**:
-   - Removes thousand separators: "1.000.000" → "1000000"
-   - Converts comma decimals to points: "150,00" → "150.00"
-   - Preserves 2 decimal places when present
+private fun parseToFloat(amount: String?): Float? {
+    return amount?.replace("^(\\\$|COP)".toRegex(), "")
+        ?.replace(",", ".")
+        ?.toFloatOrNull()
+}
+```
 
-2. **Validation**:
-   - Ignores ".00" endings (treats as whole numbers)
-   - Requires currency indicator ($/COP) for detection
-   - Prioritizes first match in message body
+## Transaction Classification
+```kotlin
+private fun extractTransactionData(messages: List<SmsMessage>): List<TransactionData> {
+    return messages.mapNotNull { message ->
+        if (message.dateTime != null && message.numericAmount != null) {
+            TransactionData(
+                date = message.dateTime,
+                amount = message.numericAmount,
+                isIncome = message.body.contains(
+                    Regex("(recepci[óo]n|recibiste|n[óo]mina)", RegexOption.IGNORE_CASE)
+                ),
+                originalMessage = message
+            )
+        } else null
+    }
+}
+```
 
-3. **Conversion**:
-   - Uses `parseToFloat` to convert string to numeric value
-   - Handles both comma and period decimal separators
-   - Returns null for non-numeric values after cleaning
+## Account Detection
+```kotlin
+private fun detectAccountInfo(body: String): Pair<String?, String?> {
+    val bancolombiaPattern = Pattern.compile(
+        "a\\s(.+?)\\sdesde\\sproducto\\s([*]\\d+)"
+    )
+    val bcMatcher = bancolombiaPattern.matcher(body)
+    if (bcMatcher.find()) {
+        return Pair(bcMatcher.group(1), bcMatcher.group(2))
+    }
+    // ... other detection patterns
+    return Pair(null, null)
+}
+```
 
-### Assumptions
-- Colombian peso (COP) amounts only
-- Decimal portion (if present) must be 2 digits
-- Thousand separators can be periods or commas
-- Currency symbol may be separated by whitespace
-- First valid amount in message is considered primary
+## SMS Processing Pipeline
+```kotlin
+private fun readFilteredSMS(context: Context): List<SmsMessage> {
+    // ... content resolver setup
+    messages.add(SmsMessage(
+        address = address,
+        body = body,
+        amount = extractAmountFromBody(body),
+        numericAmount = parseToFloat(amount),
+        dateTime = extractDateTimeFromBody(body),
+        detectedAccount = detectedAccount,
+        sourceAccount = sourceAccount
+    ))
+    return messages
+}
+```
 
-### Storage
-- Original string stored as `amount` property
-- Numeric value stored as `numericAmount` property
-- Used in `TransactionData` for calculations
+Each section now shows the actual implementation code alongside the processing rules, making it easier to correlate the documentation with the codebase. The code snippets are taken directly from the current implementation in `MainActivity.kt` and show the complete processing flow from raw SMS data to structured financial information.

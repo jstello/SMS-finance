@@ -1053,14 +1053,33 @@ fun NumericDataScreen(
     }
 
     if (selectedTransaction.value != null) {
-        MessageDetailScreen(
-            message = selectedTransaction.value!!.originalMessage,
-            onBack = {
-                tapSound.seekTo(0)
-                tapSound.start()
-                selectedTransaction.value = null
-            }
-        )
+        if (!selectedTransaction.value!!.isIncome) {
+            // For expense transactions, show the new ExpenseDetailScreen with category editing
+            ExpenseDetailScreen(
+                transaction = selectedTransaction.value!!,
+                onBack = {
+                    tapSound.seekTo(0)
+                    tapSound.start()
+                    selectedTransaction.value = null
+                },
+                onCategoryChange = { newCategory ->
+                    saveTransactionCategory(context, generateTransactionKey(selectedTransaction.value!!), newCategory)
+                    tapSound.seekTo(0)
+                    tapSound.start()
+                    selectedTransaction.value = null
+                }
+            )
+        } else {
+            // For income transactions, show the original detail screen.
+            MessageDetailScreen(
+                message = selectedTransaction.value!!.originalMessage,
+                onBack = {
+                    tapSound.seekTo(0)
+                    tapSound.start()
+                    selectedTransaction.value = null
+                }
+            )
+        }
     } else {
         val calendar = remember { Calendar.getInstance() }
         val defaultYear = calendar.get(Calendar.YEAR)
@@ -1697,4 +1716,187 @@ private fun calculateDailyTrend(
         
         day to Pair(income, expense)
     }
+}
+
+// New composable to display and edit expense transaction details with a category dropdown.
+@Composable
+fun ExpenseDetailScreen(
+    transaction: TransactionData,
+    onBack: () -> Unit,
+    onCategoryChange: (String) -> Unit
+) {
+    val context = LocalContext.current
+    var selectedCategory by remember { mutableStateOf("Uncategorized") }
+    val key = generateTransactionKey(transaction)
+    LaunchedEffect(key) {
+        val saved = loadTransactionCategory(context, key)
+        if (saved != null) {
+            selectedCategory = saved
+        }
+    }
+    
+    Scaffold(
+        topBar = {
+            TopAppBar(
+                title = { Text("Expense Details") },
+                navigationIcon = {
+                    IconButton(onClick = onBack) {
+                        Icon(Icons.Filled.ArrowBack, contentDescription = "Back")
+                    }
+                }
+            )
+        }
+    ) { innerPadding ->
+        Column(
+            modifier = Modifier
+                .padding(innerPadding)
+                .padding(16.dp)
+        ) {
+            Text("From: ${transaction.originalMessage.address}", style = MaterialTheme.typography.titleMedium)
+            Spacer(modifier = Modifier.height(8.dp))
+            transaction.originalMessage.dateTime?.let {
+                Text("Date: ${java.text.SimpleDateFormat("dd/MM/yy").format(it)}")
+            }
+            Spacer(modifier = Modifier.height(8.dp))
+            transaction.originalMessage.amount?.let {
+                Text("Amount: $it", color = Color.Red, style = MaterialTheme.typography.titleLarge)
+            }
+            Spacer(modifier = Modifier.height(16.dp))
+            Text("Category:", style = MaterialTheme.typography.titleSmall)
+            CategoryDropdown(selectedCategory = selectedCategory, onCategorySelected = { newCategory ->
+                selectedCategory = newCategory
+            })
+            Spacer(modifier = Modifier.height(16.dp))
+            Button(onClick = { onCategoryChange(selectedCategory) }) {
+                Text("Save Category")
+            }
+        }
+    }
+}
+
+// New helper functions for persistent expense categories:
+
+private fun loadExpenseCategories(context: android.content.Context): List<String> {
+    val prefs = context.getSharedPreferences("expense_categories", android.content.Context.MODE_PRIVATE)
+    val json = prefs.getString("expense_categories", null)
+    return if (json != null) {
+        Gson().fromJson(json, Array<String>::class.java).toList()
+    } else {
+        // Default list including Investments and Rent
+        listOf("Home", "Rent", "Pets", "Health", "Supermarket", "Restaurants", "Utilities", "Subscriptions", "Transportation", "Investments", "Other")
+    }
+}
+
+private fun saveExpenseCategories(context: android.content.Context, categories: List<String>) {
+    val prefs = context.getSharedPreferences("expense_categories", android.content.Context.MODE_PRIVATE)
+    val json = Gson().toJson(categories)
+    prefs.edit().putString("expense_categories", json).apply()
+}
+
+private fun addExpenseCategory(context: android.content.Context, newCategory: String, currentList: List<String>): List<String> {
+    if (currentList.contains(newCategory)) return currentList
+    val newList = currentList + newCategory
+    saveExpenseCategories(context, newList)
+    return newList
+}
+
+// New composable to add a category via a dialog.
+@Composable
+fun AddCategoryDialog(
+    onAdd: (String) -> Unit,
+    onDismiss: () -> Unit
+) {
+    var textFieldValue by remember { mutableStateOf("") }
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("Add New Category") },
+        text = {
+            TextField(
+                value = textFieldValue,
+                onValueChange = { textFieldValue = it },
+                label = { Text("Category Name") }
+            )
+        },
+        confirmButton = {
+            Button(
+                onClick = {
+                    if (textFieldValue.isNotBlank()) {
+                        onAdd(textFieldValue)
+                    }
+                    onDismiss()
+                }
+            ) {
+                Text("Add")
+            }
+        },
+        dismissButton = {
+            Button(onClick = onDismiss) {
+                Text("Cancel")
+            }
+        }
+    )
+}
+
+// Updated CategoryDropdown composable:
+@Composable
+fun CategoryDropdown(
+    selectedCategory: String,
+    onCategorySelected: (String) -> Unit
+) {
+    val context = LocalContext.current
+    var expenseCategories by remember { mutableStateOf(loadExpenseCategories(context)) }
+    var expanded by remember { mutableStateOf(false) }
+    var showAddDialog by remember { mutableStateOf(false) }
+    Box {
+        Button(onClick = { expanded = true }) {
+            Text(selectedCategory)
+            Icon(Icons.Filled.ArrowDropDown, contentDescription = null)
+        }
+        DropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
+            expenseCategories.forEach { category ->
+                DropdownMenuItem(
+                    onClick = {
+                        onCategorySelected(category)
+                        expanded = false
+                    },
+                    text = { Text(category) }
+                )
+            }
+            // Extra option to add a new category
+            DropdownMenuItem(
+                onClick = {
+                    expanded = false
+                    showAddDialog = true
+                },
+                text = { Text("Add New Category") }
+            )
+        }
+        if (showAddDialog) {
+            AddCategoryDialog(
+                onAdd = { newCategory ->
+                    // Update the persistent list and set the new category as selected.
+                    expenseCategories = addExpenseCategory(context, newCategory, expenseCategories)
+                    onCategorySelected(newCategory)
+                },
+                onDismiss = { showAddDialog = false }
+            )
+        }
+    }
+}
+
+// Utility function to generate a unique key for a transaction based on its date and message content.
+private fun generateTransactionKey(transaction: TransactionData): String {
+    return transaction.date.time.toString() + "_" + transaction.originalMessage.body.hashCode().toString()
+}
+
+// Utility function to save a selected category to the shared preferences.
+private fun saveTransactionCategory(context: android.content.Context, key: String, category: String) {
+    val prefs = context.getSharedPreferences("transaction_categories", android.content.Context.MODE_PRIVATE)
+    prefs.edit().putString(key, category).apply()
+}
+
+// Utility function to load a saved category from the shared preferences.
+private fun loadTransactionCategory(context: android.content.Context, key: String): String? {
+    val prefs = context.getSharedPreferences("transaction_categories", android.content.Context.MODE_PRIVATE)
+    return prefs.getString(key, null)
 }
