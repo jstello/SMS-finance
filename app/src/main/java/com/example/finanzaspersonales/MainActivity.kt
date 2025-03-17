@@ -109,6 +109,15 @@ import com.patrykandpatrick.vico.compose.axis.vertical.rememberStartAxis
 import com.patrykandpatrick.vico.core.entry.FloatEntry
 import com.patrykandpatrick.vico.core.entry.entryModelOf
 
+import androidx.compose.material.pullrefresh.pullRefresh
+import androidx.compose.material.pullrefresh.rememberPullRefreshState
+import androidx.compose.material.pullrefresh.PullRefreshIndicator
+import androidx.compose.foundation.layout.Box
+import kotlinx.coroutines.launch
+import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.material.ExperimentalMaterialApi
+import androidx.compose.material3.CardDefaults
+
 data class SmsMessage(
     val address: String,
     val body: String,
@@ -116,7 +125,10 @@ data class SmsMessage(
     val numericAmount: Float?,
     val dateTime: java.util.Date?,
     val detectedAccount: String? = null,
-    val sourceAccount: String? = null
+    val sourceAccount: String? = null,
+    val recipientContact: String? = null,
+    val recipientPhoneNumber: String? = null,
+    val provider: String? = null  // Add this new field for provider names
 )
 
 data class TransactionData(
@@ -263,14 +275,15 @@ fun AccountDirectoryScreen(
                     }
                 )
             }
-        }
+         }
     }
 }
 
 @Composable
 private fun WhatsAppStyleMessageItem(
     message: SmsMessage,
-    onClick: () -> Unit
+    onClick: () -> Unit,
+    onContactClick: ((String, String) -> Unit)? = null
 ) {
     Row(
         modifier = Modifier
@@ -287,9 +300,11 @@ private fun WhatsAppStyleMessageItem(
                 .background(MaterialTheme.colorScheme.surfaceVariant),
             contentAlignment = Alignment.Center
         ) {
-            // First letter of address as avatar
+            // Use first letter of contact name if available, otherwise address
+            val displayChar = message.recipientContact?.take(1)?.uppercase() 
+                            ?: message.address.take(1).uppercase()
             Text(
-                text = message.address.take(1).uppercase(),
+                text = displayChar,
                 style = MaterialTheme.typography.titleMedium,
                 fontWeight = FontWeight.Bold,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
@@ -310,34 +325,90 @@ private fun WhatsAppStyleMessageItem(
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                // Title with amount if present
+                // Title with amount if present and contact name if available
                 Row(
                     verticalAlignment = Alignment.CenterVertically,
                     modifier = Modifier.weight(1f)
                 ) {
-                    Text(
-                        text = if (message.amount != null) "${message.amount}" else message.address,
-                        style = MaterialTheme.typography.titleMedium,
-                        fontWeight = FontWeight.Bold,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis
-                    )
+                    if (message.recipientContact != null && message.recipientPhoneNumber != null && onContactClick != null) {
+                        // Make contact name clickable
+                        Text(
+                            text = message.recipientContact,
+                            style = MaterialTheme.typography.titleMedium,
+                            fontWeight = FontWeight.Bold,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis,
+                            color = MaterialTheme.colorScheme.primary,
+                            modifier = Modifier.clickable {
+                                onContactClick(message.recipientContact, message.recipientPhoneNumber)
+                            }
+                        )
+                    } else {
+                        Text(
+                            text = when {
+                                message.recipientContact != null -> "${message.recipientContact}"
+                                message.provider != null -> "${message.provider}"
+                                message.amount != null -> "${message.amount}"
+                                else -> message.address
+                            },
+                            style = MaterialTheme.typography.titleMedium,
+                            fontWeight = FontWeight.Bold,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
+                        )
+                    }
                     
-                    if (message.amount != null) {
+                    // If we have both contact and amount, show amount in a chip
+                    if (message.recipientContact != null && message.amount != null) {
                         Box(
                             modifier = Modifier
                                 .padding(start = 8.dp)
                                 .background(
-                                    color = MaterialTheme.colorScheme.errorContainer,
+                                    color = MaterialTheme.colorScheme.primaryContainer,
                                     shape = RoundedCornerShape(4.dp)
                                 )
                                 .padding(horizontal = 4.dp, vertical = 2.dp)
                         ) {
                             Text(
-                                text = message.address,
+                                text = message.amount,
                                 style = MaterialTheme.typography.labelSmall,
-                                color = MaterialTheme.colorScheme.onErrorContainer
+                                color = MaterialTheme.colorScheme.onPrimaryContainer
                             )
+                        }
+                    } else if (message.amount != null) {
+                        // Remove the address chip, instead display the provider or just the amount
+                        if (message.provider != null) {
+                            Box(
+                                modifier = Modifier
+                                    .padding(start = 8.dp)
+                                    .background(
+                                        color = MaterialTheme.colorScheme.secondaryContainer,
+                                        shape = RoundedCornerShape(4.dp)
+                                    )
+                                    .padding(horizontal = 4.dp, vertical = 2.dp)
+                            ) {
+                                Text(
+                                    text = message.provider,
+                                    style = MaterialTheme.typography.labelSmall,
+                                    color = MaterialTheme.colorScheme.onSecondaryContainer
+                                )
+                            }
+                        } else {
+                            Box(
+                                modifier = Modifier
+                                    .padding(start = 8.dp)
+                                    .background(
+                                        color = MaterialTheme.colorScheme.primaryContainer,
+                                        shape = RoundedCornerShape(4.dp)
+                                    )
+                                    .padding(horizontal = 4.dp, vertical = 2.dp)
+                            ) {
+                                Text(
+                                    text = message.amount,
+                                    style = MaterialTheme.typography.labelSmall,
+                                    color = MaterialTheme.colorScheme.onPrimaryContainer
+                                )
+                            }
                         }
                     }
                 }
@@ -353,6 +424,17 @@ private fun WhatsAppStyleMessageItem(
             }
             
             Spacer(modifier = Modifier.height(4.dp))
+            
+            // Show phone number if we matched a contact
+            if (message.recipientContact != null && message.recipientPhoneNumber != null) {
+                Text(
+                    text = "To: ${message.recipientPhoneNumber}",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.primary,
+                    maxLines = 1
+                )
+                Spacer(modifier = Modifier.height(2.dp))
+            }
             
             // Message Preview
             Text(
@@ -376,7 +458,8 @@ private fun WhatsAppStyleMessageItem(
 @Composable
 fun MessageDetailScreen(
     message: SmsMessage, 
-    onBack: () -> Unit
+    onBack: () -> Unit,
+    navController: NavController? = null
 ) {
     val context = LocalContext.current
     val accounts = remember { mutableStateOf(loadAccounts(context)) }
@@ -414,8 +497,97 @@ fun MessageDetailScreen(
                     }
                 }
             }
+            
+            // Display recipient contact information if available - MAKE CLICKABLE
+            if (message.recipientContact != null && navController != null) {
+                Surface(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(bottom = 16.dp)
+                        .clickable {
+                            message.recipientPhoneNumber?.let { phone ->
+                                navController.navigate("contact/${message.recipientContact}/${phone}")
+                            }
+                        },
+                    color = MaterialTheme.colorScheme.primaryContainer,
+                    shape = MaterialTheme.shapes.medium
+                ) {
+                    Column(modifier = Modifier.padding(16.dp)) {
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Column {
+                                Text("Recipient:", style = MaterialTheme.typography.labelSmall)
+                                Text(message.recipientContact, style = MaterialTheme.typography.titleMedium)
+                                message.recipientPhoneNumber?.let {
+                                    Text("Phone: $it", style = MaterialTheme.typography.bodyMedium)
+                                }
+                            }
+                            
+                            Icon(
+                                Icons.Filled.Analytics,
+                                contentDescription = "View Contact Transactions",
+                                tint = MaterialTheme.colorScheme.onPrimaryContainer
+                            )
+                        }
+                    }
+                }
+            } else if (message.recipientContact != null) {
+                // Non-clickable version when NavController is null
+                Surface(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(bottom = 16.dp),
+                    color = MaterialTheme.colorScheme.primaryContainer,
+                    shape = MaterialTheme.shapes.medium
+                ) {
+                    Column(modifier = Modifier.padding(16.dp)) {
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Column {
+                                Text("Recipient:", style = MaterialTheme.typography.labelSmall)
+                                Text(message.recipientContact, style = MaterialTheme.typography.titleMedium)
+                                message.recipientPhoneNumber?.let {
+                                    Text("Phone: $it", style = MaterialTheme.typography.bodyMedium)
+                                }
+                            }
+                            
+                            Icon(
+                                Icons.Filled.Analytics,
+                                contentDescription = "View Contact Transactions",
+                                tint = MaterialTheme.colorScheme.onPrimaryContainer
+                            )
+                        }
+                    }
+                }
+            } else if (message.provider != null) {
+                // Add provider information card
+                Surface(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(bottom = 16.dp),
+                    color = MaterialTheme.colorScheme.secondaryContainer,
+                    shape = MaterialTheme.shapes.medium
+                ) {
+                    Column(modifier = Modifier.padding(16.dp)) {
+                        Text("Provider:", style = MaterialTheme.typography.labelSmall)
+                        Text(message.provider, style = MaterialTheme.typography.titleMedium)
+                    }
+                }
+            }
 
-            Text("From: ${message.address}", style = MaterialTheme.typography.titleMedium)
+            // Replace the "From:" line with bank or institution if available
+            if (message.provider != null) {
+                Text("Bank/Institution: ${message.provider}", style = MaterialTheme.typography.titleMedium)
+            } else {
+                Text("Transaction Details", style = MaterialTheme.typography.titleMedium)
+            }
+            
             Spacer(modifier = Modifier.height(8.dp))
             message.dateTime?.let {
                 Text("Date: ${java.text.SimpleDateFormat("dd/MM/yy").format(it)}")
@@ -471,6 +643,19 @@ private fun readFilteredSMS(context: android.content.Context): List<SmsMessage> 
             val amount = extractAmountFromBody(body)
             val (detectedAccount, sourceAccount) = detectAccountInfo(body)
             
+            // Extract phone number from the account number if any
+            val phoneNumber = detectedAccount?.let { account -> 
+                extractPhoneNumberFromAccount(account) 
+            }
+            
+            // Look up contact name if phone number is available
+            val contactName = phoneNumber?.let { number ->
+                lookupContactName(context, number)
+            }
+            
+            // Extract provider name if no contact info is available
+            val providerName = if (contactName == null) extractProviderFromBody(body) else null
+            
             messages.add(SmsMessage(
                 address = address,
                 body = body,
@@ -478,7 +663,10 @@ private fun readFilteredSMS(context: android.content.Context): List<SmsMessage> 
                 numericAmount = parseToFloat(amount),
                 dateTime = extractDateTimeFromBody(body),
                 detectedAccount = detectedAccount,
-                sourceAccount = sourceAccount
+                sourceAccount = sourceAccount,
+                recipientContact = contactName,
+                recipientPhoneNumber = phoneNumber,
+                provider = providerName
             ))
         }
     }
@@ -671,6 +859,7 @@ class MainActivity : ComponentActivity() {
     }
 }
 
+@OptIn(ExperimentalMaterialApi::class)
 @Composable
 fun SMSReader(modifier: Modifier = Modifier) {
     val context = LocalContext.current
@@ -678,6 +867,20 @@ fun SMSReader(modifier: Modifier = Modifier) {
     val showNumericData = remember { mutableStateOf(false) }
     val transactions = remember { mutableStateOf<List<TransactionData>>(emptyList()) }
     val searchQuery = remember { mutableStateOf("") }
+    
+    // Add a refreshing state
+    val isRefreshing = remember { mutableStateOf(false) }
+    
+    val coroutineScope = rememberCoroutineScope()
+    
+    // Function to refresh messages
+    val refreshMessages = {
+        coroutineScope.launch {
+            isRefreshing.value = true
+            smsMessages.value = readFilteredSMS(context)
+            isRefreshing.value = false
+        }
+    }
     
     // Restore original filter states
     val messageListSelectedYear = remember { mutableStateOf<Int?>(null) }
@@ -690,30 +893,37 @@ fun SMSReader(modifier: Modifier = Modifier) {
 
     // Restore original message loading logic
     val permissionLauncher = rememberLauncherForActivityResult(
-        ActivityResultContracts.RequestPermission()
-    ) { isGranted ->
-        if (isGranted) {
+        ActivityResultContracts.RequestMultiplePermissions()
+    ) { permissions ->
+        if (permissions.all { it.value }) {
             smsMessages.value = readFilteredSMS(context)
         }
     }
 
     // Auto-load messages on first composition
     LaunchedEffect(Unit) {
-        if (context.checkSelfPermission(Manifest.permission.READ_SMS) == 
-            PackageManager.PERMISSION_GRANTED) {
+        val requiredPermissions = arrayOf(
+            Manifest.permission.READ_SMS,
+            Manifest.permission.READ_CONTACTS
+        )
+        
+        if (requiredPermissions.all { 
+            context.checkSelfPermission(it) == PackageManager.PERMISSION_GRANTED 
+        }) {
             smsMessages.value = readFilteredSMS(context)
         } else {
-            permissionLauncher.launch(Manifest.permission.READ_SMS)
+            permissionLauncher.launch(requiredPermissions)
         }
     }
 
-    // Restore original filtered messages calculation
+    // Update filtered messages to also search by contact
     val filteredMessages = remember(smsMessages.value, searchQuery.value, 
         messageListSelectedYear.value, messageListSelectedMonth.value) {
         
         smsMessages.value.filter { message ->
             val matchesText = searchQuery.value.isEmpty() || 
-                message.body.contains(searchQuery.value, ignoreCase = true)
+                message.body.contains(searchQuery.value, ignoreCase = true) ||
+                message.recipientContact?.contains(searchQuery.value, ignoreCase = true) == true
             
             val matchesYear = messageListSelectedYear.value?.let { year ->
                 message.dateTime?.let {
@@ -828,13 +1038,14 @@ fun SMSReader(modifier: Modifier = Modifier) {
         ) {
             composable(Screen.Home.route) {
                 if (selectedMessage.value != null) {
-                    // Show message detail
+                    // Show message detail, now with NavController
                     MessageDetailScreen(
                         message = selectedMessage.value!!,
-                        onBack = { selectedMessage.value = null }
+                        onBack = { selectedMessage.value = null },
+                        navController = navController
                     )
                 } else {
-                    // Show WhatsApp-style list
+                    // Show WhatsApp-style list with pull-to-refresh
                     Column(modifier = Modifier.fillMaxSize()) {
                         // App bar with title
                         @OptIn(ExperimentalMaterial3Api::class)
@@ -855,17 +1066,62 @@ fun SMSReader(modifier: Modifier = Modifier) {
                             smsMessages.value
                         )
                         
-                        LazyColumn {
-                            itemsIndexed(filteredMessages) { index, message ->
-                                WhatsAppStyleMessageItem(
-                                    message = message,
-                                    onClick = { selectedMessage.value = message }
-                                )
+                        // Wrap with SwipeRefresh
+                        androidx.compose.material.pullrefresh.PullRefreshIndicator(
+                            refreshing = isRefreshing.value,
+                            state = rememberPullRefreshState(
+                                refreshing = isRefreshing.value,
+                                onRefresh = {
+                                    refreshMessages()
+                                }
+                            ),
+                            modifier = Modifier.align(Alignment.CenterHorizontally),
+                            backgroundColor = MaterialTheme.colorScheme.surface,
+                            contentColor = MaterialTheme.colorScheme.primary
+                        )
+                        
+                        Box(
+                            modifier = Modifier.weight(1f)
+                        ) {
+                            LazyColumn(
+                                modifier = Modifier
+                                    .fillMaxSize()
+                                    .pullRefresh(
+                                        state = rememberPullRefreshState(
+                                            refreshing = isRefreshing.value,
+                                            onRefresh = {
+                                                refreshMessages()
+                                            }
+                                        )
+                                    )
+                            ) {
+                                itemsIndexed(filteredMessages) { index, message ->
+                                    WhatsAppStyleMessageItem(
+                                        message = message,
+                                        onClick = { selectedMessage.value = message },
+                                        onContactClick = { name, phone ->
+                                            navController.navigate("contact/$name/$phone")
+                                        }
+                                    )
+                                }
+                                
+                                if (filteredMessages.isEmpty()) {
+                                    item { EmptyState() }
+                                }
                             }
                             
-                            if (filteredMessages.isEmpty()) {
-                                item { EmptyState() }
-                            }
+                            androidx.compose.material.pullrefresh.PullRefreshIndicator(
+                                refreshing = isRefreshing.value,
+                                state = rememberPullRefreshState(
+                                    refreshing = isRefreshing.value,
+                                    onRefresh = {
+                                        refreshMessages()
+                                    }
+                                ),
+                                modifier = Modifier.align(Alignment.TopCenter),
+                                backgroundColor = MaterialTheme.colorScheme.surface,
+                                contentColor = MaterialTheme.colorScheme.primary
+                            )
                         }
                     }
                 }
@@ -893,7 +1149,7 @@ fun SMSReader(modifier: Modifier = Modifier) {
                 )
             }
             composable(
-                "dashboard/{year}/{month}",
+                route = "dashboard/{year}/{month}",
                 arguments = listOf(
                     navArgument("year") { type = NavType.IntType },
                     navArgument("month") { type = NavType.IntType }
@@ -909,6 +1165,43 @@ fun SMSReader(modifier: Modifier = Modifier) {
                     onBack = { navController.popBackStack() },
                     navController = navController
                 )
+            }
+            // Add contact detail route
+            composable(
+                route = "contact/{name}/{phone}",
+                arguments = listOf(
+                    navArgument("name") { type = NavType.StringType },
+                    navArgument("phone") { type = NavType.StringType }
+                )
+            ) { backStackEntry ->
+                val name = backStackEntry.arguments?.getString("name") ?: ""
+                val phone = backStackEntry.arguments?.getString("phone") ?: ""
+                
+                ContactTransactionSummary(
+                    contactName = name,
+                    phoneNumber = phone,
+                    allTransactions = extractTransactionData(smsMessages.value),  // Use all SMS to generate transactions
+                    onBack = { navController.popBackStack() },
+                    navController = navController
+                )
+            }
+            // Add transaction detail route
+            composable(
+                route = "transaction_detail/{key}",
+                arguments = listOf(
+                    navArgument("key") { type = NavType.StringType }
+                )
+            ) { backStackEntry ->
+                val key = backStackEntry.arguments?.getString("key") ?: ""
+                val transaction = transactions.value.find { generateTransactionKey(it) == key }
+                
+                if (transaction != null) {
+                    MessageDetailScreen(
+                        message = transaction.originalMessage,
+                        onBack = { navController.popBackStack() },
+                        navController = navController
+                    )
+                }
             }
         }
     }
@@ -964,11 +1257,18 @@ private fun YearMonthFilters(
             ) {
                 years.forEach { year ->
                     DropdownMenuItem(
-                        text = { Text(year.toString()) },
                         onClick = {
                             selectedYear.value = year
                             selectedMonth.value = null
                             showYearPicker.value = false
+                        },
+                        text = { Text(year.toString()) },
+                        leadingIcon = {
+                            Icon(
+                                Icons.Filled.ArrowDropDown,
+                                contentDescription = null,
+                                modifier = Modifier.size(18.dp)
+                            )
                         }
                     )
                 }
@@ -1000,13 +1300,21 @@ private fun YearMonthFilters(
                 expanded = showMonthPicker.value,
                 onDismissRequest = { showMonthPicker.value = false }
             ) {
+                DropdownMenuItem(
+                    onClick = {
+                        selectedMonth.value = null
+                        showMonthPicker.value = false
+                    },
+                    text = { Text("All Months") }
+                )
+                
                 monthsInYear.forEach { month ->
                     DropdownMenuItem(
-                        text = { Text(DateFormatSymbols().months[month - 1]) },
                         onClick = {
                             selectedMonth.value = month
                             showMonthPicker.value = false
-                        }
+                        },
+                        text = { Text(DateFormatSymbols().months[month - 1]) }
                     )
                 }
             }
@@ -1116,12 +1424,8 @@ fun NumericDataScreen(
                     }
 
                     val cal = Calendar.getInstance().apply { time = transaction.date }
-
-                    // Modified section: Only check year/month if selection exists
-                    val matchesYear =
-                        selectedYear.value?.let { cal.get(Calendar.YEAR) == it } ?: true
-                    val matchesMonth =
-                        selectedMonth.value?.let { (cal.get(Calendar.MONTH) + 1) == it } ?: true
+                    val matchesYear = selectedYear.value?.let { cal.get(Calendar.YEAR) == it } ?: true
+                    val matchesMonth = selectedMonth.value?.let { (cal.get(Calendar.MONTH) + 1) == it } ?: true
 
                     matchesType && matchesYear && matchesMonth
                 }
@@ -1130,65 +1434,92 @@ fun NumericDataScreen(
         val sortedTransactions = remember(filteredTransactions, sortState.value) {
             when (sortState.value.first) {
                 "amount" -> {
-                    if (sortState.value.second) {
-                        filteredTransactions.sortedBy { it.amount }
-                    } else {
-                        filteredTransactions.sortedByDescending { it.amount }
-                    }
+                    if (sortState.value.second) filteredTransactions.sortedBy { it.amount }
+                    else filteredTransactions.sortedByDescending { it.amount }
                 }
-
                 else -> { // date is default
-                    if (sortState.value.second) {
-                        filteredTransactions.sortedBy { it.date }
-                    } else {
-                        filteredTransactions.sortedByDescending { it.date }
-                    }
+                    if (sortState.value.second) filteredTransactions.sortedBy { it.date }
+                    else filteredTransactions.sortedByDescending { it.date }
                 }
             }
         }
 
-        // Calculate totals
+        // Calculate totals - Fix this part to ensure proper calculation
         val (totalIncome, totalExpense) = remember(filteredTransactions) {
             var income = 0f
             var expense = 0f
-            filteredTransactions.forEach {
-                if (it.isIncome) income += it.amount else expense += it.amount
+            
+            // Print debugging info to check transaction data
+            println("Number of filtered transactions: ${filteredTransactions.size}")
+            
+            filteredTransactions.forEach { transaction ->
+                println("Transaction: ${transaction.date}, Amount: ${transaction.amount}, IsIncome: ${transaction.isIncome}")
+                if (transaction.isIncome) {
+                    income += transaction.amount
+                    println("Added to income: $income")
+                } else {
+                    expense += transaction.amount
+                    println("Added to expense: $expense")
+                }
             }
             Pair(income, expense)
         }
 
-        val totalAmount = remember(filteredTransactions) {
-            totalIncome - totalExpense
-        }
-
-        Column(modifier = Modifier.padding(horizontal = 16.dp)) {
-            androidx.compose.material3.AssistChip(
-                onClick = {
-                    selectSound.seekTo(0)
-                    selectSound.start()
-                    onBack()
-                },
-                label = { Text("Back to Messages") },
-                leadingIcon = {
-                    Icon(
-                        Icons.Filled.ArrowBack,
-                        contentDescription = null,
-                        modifier = Modifier.size(18.dp)
-                    )
-                },
-                modifier = Modifier.padding(bottom = 8.dp)
-            )
-
-            // Year/Month filter row
-            Row(
+        // Fix layout issues - Wrap in a proper Column with Scaffold
+        Scaffold(
+            topBar = {
+                TopAppBar(
+                    title = { Text("Transactions") },
+                    navigationIcon = {
+                        IconButton(onClick = onBack) {
+                            Icon(Icons.Filled.ArrowBack, contentDescription = "Back")
+                        }
+                    }
+                )
+            }
+        ) { paddingValues ->
+            Column(
                 modifier = Modifier
-                    .padding(vertical = 8.dp)
-                    .fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
+                    .padding(paddingValues)
+                    .padding(horizontal = 16.dp)
+                    .fillMaxSize(),  // Use fillMaxSize to ensure content spans the entire screen
+                verticalArrangement = Arrangement.spacedBy(8.dp)  // Add spacing between elements
             ) {
-                // Combined filter chips
-                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                // Filter chips row
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(vertical = 8.dp),
+                    horizontalArrangement = Arrangement.SpaceEvenly
+                ) {
+                    listOf("all", "income", "expense").forEach { filter ->
+                        androidx.compose.material3.FilterChip(
+                            selected = filter == filterState.value,
+                            onClick = {
+                                tapSound.seekTo(0)
+                                tapSound.start()
+                                filterState.value = filter
+                            },
+                            label = { Text(filter.capitalize()) },
+                            colors = androidx.compose.material3.FilterChipDefaults.filterChipColors(
+                                selectedContainerColor = when (filter) {
+                                    "income" -> MaterialTheme.colorScheme.primary
+                                    "expense" -> MaterialTheme.colorScheme.error
+                                    else -> MaterialTheme.colorScheme.surfaceVariant
+                                }
+                            )
+                        )
+                    }
+                }
+
+                // Year/Month filter row
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(vertical = 8.dp),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
                     // Year filter with dropdown
                     Box {
                         androidx.compose.material3.AssistChip(
@@ -1211,16 +1542,23 @@ fun NumericDataScreen(
                             expanded = showYearFilter.value,
                             onDismissRequest = { showYearFilter.value = false }
                         ) {
+                            DropdownMenuItem(
+                                onClick = {
+                                    selectedYear.value = null
+                                    selectedMonth.value = null
+                                    showYearFilter.value = false
+                                },
+                                text = { Text("All Years") }
+                            )
+                            
                             years.forEach { year ->
                                 DropdownMenuItem(
-                                    text = { Text(year.toString()) },
                                     onClick = {
-                                        selectSound.seekTo(0)
-                                        selectSound.start()
                                         selectedYear.value = year
                                         selectedMonth.value = null
                                         showYearFilter.value = false
-                                    }
+                                    },
+                                    text = { Text(year.toString()) }
                                 )
                             }
                         }
@@ -1238,7 +1576,7 @@ fun NumericDataScreen(
                             label = {
                                 Text(
                                     selectedMonth.value?.let {
-                                        DateFormatSymbols().months[it - 1].take(3)
+                                        DateFormatSymbols().months[it - 1]
                                     } ?: "Month"
                                 )
                             },
@@ -1255,199 +1593,151 @@ fun NumericDataScreen(
                             expanded = showMonthFilter.value,
                             onDismissRequest = { showMonthFilter.value = false }
                         ) {
+                            DropdownMenuItem(
+                                onClick = {
+                                    selectedMonth.value = null
+                                    showMonthFilter.value = false
+                                },
+                                text = { Text("All Months") }
+                            )
+                            
                             monthsInYear.forEach { month ->
                                 DropdownMenuItem(
-                                    text = { Text(DateFormatSymbols().months[month - 1]) },
                                     onClick = {
-                                        selectSound.seekTo(0)
-                                        selectSound.start()
                                         selectedMonth.value = month
                                         showMonthFilter.value = false
-                                    }
+                                    },
+                                    text = { Text(DateFormatSymbols().months[month - 1]) }
                                 )
                             }
                         }
                     }
                 }
 
-                // Clear filters
-                androidx.compose.material3.IconButton(
-                    onClick = {
-                        tapSound.seekTo(0)
-                        tapSound.start()
-                        selectedYear.value = null
-                        selectedMonth.value = null
-                    }
+                // Table header
+                Card(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(vertical = 8.dp)
                 ) {
-                    Icon(Icons.Filled.Close, contentDescription = "Clear filters")
-                }
-            }
-
-            // Filter chips
-            Row(modifier = Modifier.padding(vertical = 8.dp)) {
-                listOf("All", "Income", "Expense").forEach { filter ->
-                    val filterKey = filter.lowercase()
-                    androidx.compose.material3.FilterChip(
-                        selected = filterKey == filterState.value,
-                        onClick = {
-                            tapSound.seekTo(0)
-                            tapSound.start()
-                            filterState.value = filterKey
-                        },
-                        modifier = Modifier.padding(end = 8.dp),
-                        label = { Text(filter) },
-                        colors = androidx.compose.material3.FilterChipDefaults.filterChipColors(
-                            selectedContainerColor = when (filterKey) {
-                                "income" -> MaterialTheme.colorScheme.primary
-                                "expense" -> MaterialTheme.colorScheme.error
-                                else -> MaterialTheme.colorScheme.surfaceVariant
-                            }
-                        )
-                    )
-                }
-            }
-
-            // Table header
-            Row(
-                modifier = Modifier
-                    .padding(8.dp)
-                    .fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween
-            ) {
-                Column(
-                    modifier = Modifier.clickable {
-                        tapSound.seekTo(0)
-                        tapSound.start()
-                        sortState.value = if (sortState.value.first == "date") {
-                            Pair("date", !sortState.value.second)
-                        } else {
-                            Pair("date", false)
-                        }
-                    }
-                ) {
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Text("Date/Time", fontWeight = FontWeight.Bold)
-                        SortIndicator(
-                            visible = sortState.value.first == "date",
-                            ascending = sortState.value.second
-                        )
-                    }
-                }
-
-                Column(
-                    modifier = Modifier.clickable {
-                        tapSound.seekTo(0)
-                        tapSound.start()
-                        sortState.value = if (sortState.value.first == "amount") {
-                            Pair("amount", !sortState.value.second)
-                        } else {
-                            Pair("amount", false)
-                        }
-                    }
-                ) {
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Text("Amount (COP)", fontWeight = FontWeight.Bold)
-                        SortIndicator(
-                            visible = sortState.value.first == "amount",
-                            ascending = sortState.value.second
-                        )
-                    }
-                }
-            }
-
-            Divider(color = Color.Gray, thickness = 1.dp)
-
-            LazyColumn(
-                modifier = Modifier
-                    .padding(top = 8.dp)
-                    .weight(1f)
-            ) {
-                itemsIndexed(sortedTransactions) { index, transaction ->
                     Row(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .padding(8.dp)
-                            .clickable {
-                                selectSound.seekTo(0)
-                                selectSound.start()
-                                selectedTransaction.value = transaction
-                            },
+                            .padding(8.dp),
                         horizontalArrangement = Arrangement.SpaceBetween
                     ) {
-                        Text(java.text.SimpleDateFormat("dd/MM/yy").format(transaction.date))
-                        Text(
-                            text = "$${formatAmount(transaction.amount)}",
-                            color = when {
-                                "all" == "all" ->
-                                    if (transaction.isIncome) MaterialTheme.colorScheme.primary
-                                    else MaterialTheme.colorScheme.error
+                        Text("Date/Time", fontWeight = FontWeight.Bold)
+                        Text("Amount (COP)", fontWeight = FontWeight.Bold)
+                    }
+                }
 
-                                else -> MaterialTheme.colorScheme.onSurface
+                // Transaction list
+                if (filteredTransactions.isEmpty()) {
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(16.dp),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Text("No transactions found", style = MaterialTheme.typography.bodyLarge)
+                    }
+                } else {
+                    LazyColumn(
+                        modifier = Modifier
+                            .weight(1f)  // Allow the list to take remaining space
+                            .fillMaxWidth()
+                    ) {
+                        itemsIndexed(sortedTransactions) { index, transaction ->
+                            Card(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(vertical = 4.dp)
+                                    .clickable {
+                                        selectSound.seekTo(0)
+                                        selectSound.start()
+                                        selectedTransaction.value = transaction
+                                    }
+                            ) {
+                                Row(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .padding(12.dp),
+                                    horizontalArrangement = Arrangement.SpaceBetween
+                                ) {
+                                    Text(java.text.SimpleDateFormat("dd/MM/yy").format(transaction.date))
+                                    Text(
+                                        text = "$${formatAmount(transaction.amount)}",
+                                        color = if (transaction.isIncome) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.error
+                                    )
+                                }
                             }
-                        )
-                    }
-                    if (index < sortedTransactions.size - 1) {
-                        Divider(color = MaterialTheme.colorScheme.outline)
-                    }
-                }
-            }
-
-            // Total display
-            Column(modifier = Modifier.padding(8.dp)) {
-                when (filterState.value) {
-                    "income" -> {
-                        TotalRow(
-                            label = "Total Income:",
-                            amount = totalIncome,
-                            color = MaterialTheme.colorScheme.primary
-                        )
-                    }
-
-                    "expense" -> {
-                        TotalRow(
-                            label = "Total Expense:",
-                            amount = totalExpense,
-                            color = MaterialTheme.colorScheme.error
-                        )
-                    }
-
-                    else -> {
-                        TotalRow(
-                            label = "Total Income:",
-                            amount = totalIncome,
-                            color = MaterialTheme.colorScheme.primary
-                        )
-                        TotalRow(
-                            label = "Total Expense:",
-                            amount = totalExpense,
-                            color = MaterialTheme.colorScheme.error
-                        )
-                        TotalRow(
-                            label = "Net Total:",
-                            amount = totalIncome - totalExpense,
-                            color = Color.DarkGray
-                        )
-                    }
-                }
-            }
-
-            Row {
-                androidx.compose.material3.AssistChip(
-                    onClick = {
-                        if (selectedYear.value != null && selectedMonth.value != null) {
-                            navController.navigate("dashboard/${selectedYear.value}/${selectedMonth.value}")
                         }
-                    },
-                    enabled = selectedYear.value != null && selectedMonth.value != null,
-                    label = { Text("View Dashboard") },
-                    leadingIcon = {
-                        Icon(
-                            Icons.Filled.Analytics,
-                            contentDescription = "Dashboard",
-                            modifier = Modifier.size(18.dp)
-                        )
                     }
-                )
+                }
+
+                // Total summary card at the bottom
+                Card(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(vertical = 8.dp)
+                ) {
+                    Column(modifier = Modifier.padding(16.dp)) {
+                        when (filterState.value) {
+                            "income" -> {
+                                TotalRow(
+                                    label = "Total Income:",
+                                    amount = totalIncome,
+                                    color = MaterialTheme.colorScheme.primary
+                                )
+                            }
+                            "expense" -> {
+                                TotalRow(
+                                    label = "Total Expense:",
+                                    amount = totalExpense,
+                                    color = MaterialTheme.colorScheme.error
+                                )
+                            }
+                            else -> {
+                                TotalRow(
+                                    label = "Total Income:",
+                                    amount = totalIncome,
+                                    color = MaterialTheme.colorScheme.primary
+                                )
+                                TotalRow(
+                                    label = "Total Expense:",
+                                    amount = totalExpense,
+                                    color = MaterialTheme.colorScheme.error
+                                )
+                                Divider(modifier = Modifier.padding(vertical = 4.dp))
+                                TotalRow(
+                                    label = "Net Total:",
+                                    amount = totalIncome - totalExpense,
+                                    color = if (totalIncome >= totalExpense) 
+                                               MaterialTheme.colorScheme.primary 
+                                           else 
+                                               MaterialTheme.colorScheme.error
+                                )
+                            }
+                        }
+                    }
+                }
+
+                // Dashboard button if applicable
+                if (selectedYear.value != null && selectedMonth.value != null) {
+                    androidx.compose.material3.AssistChip(
+                        onClick = {
+                            navController.navigate("dashboard/${selectedYear.value}/${selectedMonth.value}")
+                        },
+                        label = { Text("View Dashboard") },
+                        leadingIcon = {
+                            Icon(
+                                Icons.Filled.Analytics,
+                                contentDescription = "Dashboard",
+                                modifier = Modifier.size(18.dp)
+                            )
+                        }
+                    )
+                }
             }
         }
     }
@@ -1584,7 +1874,7 @@ fun DashboardScreen(
             }
         }
     }
-}
+} // Single closing bracket for the function
 
 @Composable
 private fun PieChart(
@@ -1752,11 +2042,21 @@ fun ExpenseDetailScreen(
                 .padding(innerPadding)
                 .padding(16.dp)
         ) {
-            Text("From: ${transaction.originalMessage.address}", style = MaterialTheme.typography.titleMedium)
+            // Replace sender address with provider or a generic title
+            if (transaction.originalMessage.provider != null) {
+                Text("Merchant: ${transaction.originalMessage.provider}", style = MaterialTheme.typography.titleMedium)
+            } else {
+                Text("Expense Transaction", style = MaterialTheme.typography.titleMedium)
+            }
+            
             Spacer(modifier = Modifier.height(8.dp))
+            
+            // Provider information is now merged into the title
+            
             transaction.originalMessage.dateTime?.let {
                 Text("Date: ${java.text.SimpleDateFormat("dd/MM/yy").format(it)}")
             }
+            
             Spacer(modifier = Modifier.height(8.dp))
             transaction.originalMessage.amount?.let {
                 Text("Amount: $it", color = Color.Red, style = MaterialTheme.typography.titleLarge)
@@ -1899,4 +2199,387 @@ private fun saveTransactionCategory(context: android.content.Context, key: Strin
 private fun loadTransactionCategory(context: android.content.Context, key: String): String? {
     val prefs = context.getSharedPreferences("transaction_categories", android.content.Context.MODE_PRIVATE)
     return prefs.getString(key, null)
+}
+
+// Add this function to look up contact names from phone numbers
+private fun lookupContactName(context: android.content.Context, phoneNumber: String): String? {
+    val uri = android.provider.ContactsContract.PhoneLookup.CONTENT_FILTER_URI
+        .buildUpon()
+        .appendPath(phoneNumber)
+        .build()
+    
+    val projection = arrayOf(
+        android.provider.ContactsContract.PhoneLookup.DISPLAY_NAME
+    )
+    
+    context.contentResolver.query(uri, projection, null, null, null)?.use { cursor ->
+        if (cursor.moveToFirst()) {
+            return cursor.getString(cursor.getColumnIndexOrThrow(
+                android.provider.ContactsContract.PhoneLookup.DISPLAY_NAME))
+        }
+    }
+    return null
+}
+
+// New function to extract recipient phone number from account strings with updated pattern
+private fun extractPhoneNumberFromAccount(accountNumber: String): String? {
+    // More general pattern: 
+    // - Looks for a number starting with "3" followed by 9 more digits (10 digits total)
+    // - The number must be preceded by at least 3 zeros
+    // - The whole thing might be prefixed with "*" (optional)
+    val pattern = Regex("""[*]?0{3,}(3\d{9})""")
+    val match = pattern.find(accountNumber)
+    
+    return match?.groupValues?.get(1)
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun ContactTransactionSummary(
+    contactName: String,
+    phoneNumber: String,
+    allTransactions: List<TransactionData>,
+    onBack: () -> Unit,
+    navController: NavController
+) {
+    val contactTransactions = remember(allTransactions, contactName, phoneNumber) {
+        allTransactions.filter { transaction ->
+            transaction.originalMessage.recipientContact == contactName &&
+            transaction.originalMessage.recipientPhoneNumber == phoneNumber
+        }
+    }
+    
+    val totalSent = remember(contactTransactions) {
+        contactTransactions.sumOf { it.amount.toDouble() }.toFloat()
+    }
+    
+    // Year/Month filters
+    val selectedYear = remember { mutableStateOf<Int?>(null) }
+    val selectedMonth = remember { mutableStateOf<Int?>(null) }
+    val showYearFilter = remember { mutableStateOf(false) }
+    val showMonthFilter = remember { mutableStateOf(false) }
+    
+    // Filtered transactions
+    val filteredTransactions = remember(contactTransactions, selectedYear.value, selectedMonth.value) {
+        contactTransactions.filter { transaction ->
+            val cal = Calendar.getInstance().apply { time = transaction.date }
+            
+            val matchesYear = selectedYear.value?.let { 
+                cal.get(Calendar.YEAR) == it 
+            } ?: true
+            
+            val matchesMonth = selectedMonth.value?.let { 
+                (cal.get(Calendar.MONTH) + 1) == it 
+            } ?: true
+            
+            matchesYear && matchesMonth
+        }
+    }
+    
+    // Calculate filtered total
+    val filteredTotal = remember(filteredTransactions) {
+        filteredTransactions.sumOf { it.amount.toDouble() }.toFloat()
+    }
+    
+    // Years available
+    val years = remember(contactTransactions) {
+        contactTransactions
+            .map { transaction ->
+                Calendar.getInstance().apply { time = transaction.date }
+                    .get(Calendar.YEAR)
+            }
+            .distinct()
+            .sorted()
+    }
+    
+    // Months available in selected year
+    val months = remember(contactTransactions, selectedYear.value) {
+        if (selectedYear.value == null) emptyList()
+        else {
+            contactTransactions
+                .filter { transaction ->
+                    val cal = Calendar.getInstance().apply { time = transaction.date }
+                    cal.get(Calendar.YEAR) == selectedYear.value
+                }
+                .map { transaction ->
+                    Calendar.getInstance().apply { time = transaction.date }
+                        .get(Calendar.MONTH) + 1
+                }
+                .distinct()
+                .sorted()
+        }
+    }
+    
+    Scaffold(
+        topBar = {
+            TopAppBar(
+                title = { Text(contactName) },
+                navigationIcon = {
+                    IconButton(onClick = onBack) {
+                        Icon(Icons.Filled.ArrowBack, contentDescription = "Back")
+                    }
+                }
+            )
+        }
+    ) { innerPadding ->
+        Column(
+            modifier = Modifier
+                .padding(innerPadding)
+                .padding(horizontal = 16.dp)
+        ) {
+            // Contact info card
+            Card(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(vertical = 8.dp)
+            ) {
+                Column(modifier = Modifier.padding(16.dp)) {
+                    Text(
+                        "Contact Summary",
+                        style = MaterialTheme.typography.titleMedium
+                    )
+                    Spacer(modifier = Modifier.height(8.dp))
+                    Text("Phone: $phoneNumber")
+                    Text("Total Transactions: ${contactTransactions.size}")
+                    Text(
+                        "Total Amount: $${formatAmount(totalSent)}",
+                        style = MaterialTheme.typography.titleSmall,
+                        color = MaterialTheme.colorScheme.error
+                    )
+                }
+            }
+            
+            // Filters
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(vertical = 8.dp),
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                // Year filter
+                Box {
+                    AssistChip(
+                        onClick = { showYearFilter.value = true },
+                        label = { Text(selectedYear.value?.toString() ?: "All Years") },
+                        leadingIcon = {
+                            Icon(
+                                Icons.Filled.CalendarToday,
+                                contentDescription = "Select Year",
+                                modifier = Modifier.size(18.dp)
+                            )
+                        }
+                    )
+                    
+                    DropdownMenu(
+                        expanded = showYearFilter.value,
+                        onDismissRequest = { showYearFilter.value = false }
+                    ) {
+                        DropdownMenuItem(
+                            onClick = {
+                                selectedYear.value = null
+                                selectedMonth.value = null
+                                showYearFilter.value = false
+                            },
+                            text = { Text("All Years") }
+                        )
+                        
+                        years.forEach { year ->
+                            DropdownMenuItem(
+                                onClick = {
+                                    selectedYear.value = year
+                                    selectedMonth.value = null
+                                    showYearFilter.value = false
+                                },
+                                text = { Text(year.toString()) }
+                            )
+                        }
+                    }
+                }
+                
+                // Month filter
+                Box {
+                    AssistChip(
+                        onClick = { 
+                            if (selectedYear.value != null) showMonthFilter.value = true 
+                        },
+                        enabled = selectedYear.value != null,
+                        label = { 
+                            Text(
+                                selectedMonth.value?.let { 
+                                    DateFormatSymbols().months[it - 1] 
+                                } ?: "All Months"
+                            )
+                        },
+                        leadingIcon = {
+                            Icon(
+                                Icons.Filled.ArrowDropDown,
+                                contentDescription = "Select Month",
+                                modifier = Modifier.size(18.dp)
+                            )
+                        }
+                    )
+                    
+                    DropdownMenu(
+                        expanded = showMonthFilter.value,
+                        onDismissRequest = { showMonthFilter.value = false }
+                    ) {
+                        DropdownMenuItem(
+                            onClick = {
+                                selectedMonth.value = null
+                                showMonthFilter.value = false
+                            },
+                            text = { Text("All Months") }
+                        )
+                        
+                        months.forEach { month ->
+                            DropdownMenuItem(
+                                onClick = {
+                                    selectedMonth.value = month
+                                    showMonthFilter.value = false
+                                },
+                                text = { Text(DateFormatSymbols().months[month - 1]) }
+                            )
+                        }
+                    }
+                }
+                
+                // Clear filters
+                if (selectedYear.value != null || selectedMonth.value != null) {
+                    IconButton(
+                        onClick = {
+                            selectedYear.value = null
+                            selectedMonth.value = null
+                        }
+                    ) {
+                        Icon(Icons.Filled.Close, contentDescription = "Clear Filters")
+                    }
+                }
+            }
+            
+            // Filtered total
+            if (selectedYear.value != null || selectedMonth.value != null) {
+                Card(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(vertical = 8.dp)
+                ) {
+                    Column(modifier = Modifier.padding(16.dp)) {
+                        Text(
+                            "Filtered Total: $${formatAmount(filteredTotal)}",
+                            style = MaterialTheme.typography.titleMedium,
+                            color = MaterialTheme.colorScheme.error
+                        )
+                    }
+                }
+            }
+            
+            // Transaction list
+            Text(
+                "Transactions",
+                style = MaterialTheme.typography.titleMedium,
+                modifier = Modifier.padding(vertical = 8.dp)
+            )
+            
+            // Use fillMaxSize instead of weight
+            LazyColumn(
+                modifier = Modifier.fillMaxSize()
+            ) {
+                itemsIndexed(filteredTransactions) { index, transaction ->
+                    TransactionListItem(
+                        transaction = transaction,
+                        onClick = {
+                            navController.navigate("transaction_detail/${generateTransactionKey(transaction)}")
+                        }
+                    )
+                    
+                    if (index < filteredTransactions.size - 1) {
+                        Divider()
+                    }
+                }
+                
+                if (filteredTransactions.isEmpty()) {
+                    item {
+                        Text(
+                            "No transactions found for the selected filters",
+                            modifier = Modifier.padding(vertical = 16.dp)
+                        )
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun TransactionListItem(
+    transaction: TransactionData,
+    onClick: () -> Unit
+) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable(onClick = onClick)
+            .padding(vertical = 12.dp, horizontal = 8.dp),
+        horizontalArrangement = Arrangement.SpaceBetween,
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Column {
+            Text(
+                java.text.SimpleDateFormat("dd/MM/yyyy").format(transaction.date),
+                style = MaterialTheme.typography.bodyMedium
+            )
+            
+            Spacer(modifier = Modifier.height(4.dp))
+            
+            Text(
+                transaction.originalMessage.body,
+                style = MaterialTheme.typography.bodySmall,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+                modifier = Modifier.width(240.dp) // Use width instead of widthIn
+            )
+        }
+        
+        Text(
+            "$${formatAmount(transaction.amount)}",
+            style = MaterialTheme.typography.titleMedium,
+            color = MaterialTheme.colorScheme.error
+        )
+    }
+}
+
+// Add this extension function at the top level
+private fun String.capitalize(): String {
+    return this.replaceFirstChar { 
+        if (it.isLowerCase()) it.titlecase(java.util.Locale.getDefault()) else it.toString() 
+    }
+}
+
+private fun extractProviderFromBody(body: String): String? {
+    // First, try to extract the provider using the common Bancolombia pattern
+    val bancolombiaPattern = Pattern.compile("""(?:Compraste|pagaste)(?:\s[\$\w,.]+\s|\s)en\s((?:[A-Z0-9]|[*])+(?:\s[A-Z0-9]+)*)""")
+    val matcher = bancolombiaPattern.matcher(body)
+    
+    if (matcher.find()) {
+        return matcher.group(1)
+    }
+    
+    // Fallback to finding any words in ALL CAPS with at least 3 characters
+    val allCapsPattern = Pattern.compile("""(?<!\w)([A-Z0-9][A-Z0-9*]+(?:\s[A-Z0-9]+)*)(?!\w)""")
+    val allCapsMatcher = allCapsPattern.matcher(body)
+    
+    // Find the longest all-caps match that's likely to be a provider
+    var bestMatch: String? = null
+    var maxLength = 0
+    
+    while (allCapsMatcher.find()) {
+        val match = allCapsMatcher.group(1)
+        // Skip known non-provider words often in ALL CAPS (add more as needed)
+        if (match != "COP" && match != "USD" && match.length > 3 && match.length > maxLength) {
+            maxLength = match.length
+            bestMatch = match
+        }
+    }
+    
+    return bestMatch
 }

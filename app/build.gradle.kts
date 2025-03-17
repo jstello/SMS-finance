@@ -1,6 +1,6 @@
 plugins {
     alias(libs.plugins.android.application)
-    alias(libs.plugins.kotlin.android)
+    alias(libs.plugins.kotlin.android) version "2.0.0"
     alias(libs.plugins.kotlin.compose)
 }
 
@@ -34,7 +34,8 @@ android {
     kotlinOptions {
         jvmTarget = "11"
         freeCompilerArgs += listOf(
-            "-opt-in=androidx.compose.material3.ExperimentalMaterial3Api"
+            "-opt-in=androidx.compose.material3.ExperimentalMaterial3Api",
+            "-opt-in=androidx.compose.material.ExperimentalMaterialApi"
         )
     }
     buildFeatures {
@@ -79,4 +80,7 @@ dependencies {
     implementation(libs.vico.compose)
     implementation(libs.vico.compose.m3)
     implementation(libs.vico.core)
+
+    // Add Material Compose for pull-to-refresh
+    implementation("androidx.compose.material:material:1.4.3")
 }

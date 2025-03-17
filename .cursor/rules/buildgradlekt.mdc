@@ -1,0 +1,9 @@
+---
+description: 
+globs: 
+alwaysApply: true
+---
+
+# No build.gradle
+
+- We do not have a build.gradle file, only a @build.gradle.kts located in our app folder.
