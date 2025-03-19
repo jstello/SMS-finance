@@ -118,6 +118,12 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.material.ExperimentalMaterialApi
 import androidx.compose.material3.CardDefaults
 
+// Add this import with the other imports
+import androidx.compose.material.icons.filled.Edit
+
+// Add this import at the top of the file with your other imports
+import androidx.compose.foundation.layout.WindowInsets
+
 data class SmsMessage(
     val address: String,
     val body: String,
@@ -325,41 +331,46 @@ private fun WhatsAppStyleMessageItem(
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                // Title with amount if present and contact name if available
+                // Title Row - MODIFIED to prioritize display elements
                 Row(
                     verticalAlignment = Alignment.CenterVertically,
                     modifier = Modifier.weight(1f)
                 ) {
+                    // Determine primary display text - prioritize contact name
+                    val primaryDisplayText = when {
+                        message.recipientContact != null -> message.recipientContact
+                        message.provider != null -> message.provider
+                        else -> message.address
+                    }
+                    
+                    // Show primary text as clickable if it's a contact
                     if (message.recipientContact != null && message.recipientPhoneNumber != null && onContactClick != null) {
-                        // Make contact name clickable
                         Text(
-                            text = message.recipientContact,
+                            text = primaryDisplayText,
                             style = MaterialTheme.typography.titleMedium,
                             fontWeight = FontWeight.Bold,
                             maxLines = 1,
                             overflow = TextOverflow.Ellipsis,
                             color = MaterialTheme.colorScheme.primary,
-                            modifier = Modifier.clickable {
-                                onContactClick(message.recipientContact, message.recipientPhoneNumber)
-                            }
+                            modifier = Modifier
+                                .weight(1f, fill = false)
+                                .clickable {
+                                    onContactClick(message.recipientContact, message.recipientPhoneNumber)
+                                }
                         )
                     } else {
                         Text(
-                            text = when {
-                                message.recipientContact != null -> "${message.recipientContact}"
-                                message.provider != null -> "${message.provider}"
-                                message.amount != null -> "${message.amount}"
-                                else -> message.address
-                            },
+                            text = primaryDisplayText,
                             style = MaterialTheme.typography.titleMedium,
                             fontWeight = FontWeight.Bold,
                             maxLines = 1,
-                            overflow = TextOverflow.Ellipsis
+                            overflow = TextOverflow.Ellipsis,
+                            modifier = Modifier.weight(1f, fill = false)
                         )
                     }
                     
-                    // If we have both contact and amount, show amount in a chip
-                    if (message.recipientContact != null && message.amount != null) {
+                    // Always prioritize showing amount if available
+                    if (message.amount != null) {
                         Box(
                             modifier = Modifier
                                 .padding(start = 8.dp)
@@ -374,41 +385,6 @@ private fun WhatsAppStyleMessageItem(
                                 style = MaterialTheme.typography.labelSmall,
                                 color = MaterialTheme.colorScheme.onPrimaryContainer
                             )
-                        }
-                    } else if (message.amount != null) {
-                        // Remove the address chip, instead display the provider or just the amount
-                        if (message.provider != null) {
-                            Box(
-                                modifier = Modifier
-                                    .padding(start = 8.dp)
-                                    .background(
-                                        color = MaterialTheme.colorScheme.secondaryContainer,
-                                        shape = RoundedCornerShape(4.dp)
-                                    )
-                                    .padding(horizontal = 4.dp, vertical = 2.dp)
-                            ) {
-                                Text(
-                                    text = message.provider,
-                                    style = MaterialTheme.typography.labelSmall,
-                                    color = MaterialTheme.colorScheme.onSecondaryContainer
-                                )
-                            }
-                        } else {
-                            Box(
-                                modifier = Modifier
-                                    .padding(start = 8.dp)
-                                    .background(
-                                        color = MaterialTheme.colorScheme.primaryContainer,
-                                        shape = RoundedCornerShape(4.dp)
-                                    )
-                                    .padding(horizontal = 4.dp, vertical = 2.dp)
-                            ) {
-                                Text(
-                                    text = message.amount,
-                                    style = MaterialTheme.typography.labelSmall,
-                                    color = MaterialTheme.colorScheme.onPrimaryContainer
-                                )
-                            }
                         }
                     }
                 }
@@ -425,18 +401,19 @@ private fun WhatsAppStyleMessageItem(
             
             Spacer(modifier = Modifier.height(4.dp))
             
-            // Show phone number if we matched a contact
+            // Show phone number or account info - TRIMMED to prevent overflow
             if (message.recipientContact != null && message.recipientPhoneNumber != null) {
                 Text(
                     text = "To: ${message.recipientPhoneNumber}",
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.primary,
-                    maxLines = 1
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
                 )
                 Spacer(modifier = Modifier.height(2.dp))
             }
             
-            // Message Preview
+            // Message Preview - truncated to prevent layout issues
             Text(
                 text = message.body,
                 style = MaterialTheme.typography.bodySmall,
@@ -465,6 +442,20 @@ fun MessageDetailScreen(
     val accounts = remember { mutableStateOf(loadAccounts(context)) }
     val matchedAccount = remember(message.address) {
         accounts.value.firstOrNull { it.phoneNumber == message.address }
+    }
+    
+    // Add state for editing the provider name
+    var isEditingProvider = remember { mutableStateOf(false) }
+    var editedProvider = remember { mutableStateOf(message.provider ?: "") }
+    var displayProvider = remember { mutableStateOf(message.provider) }
+    
+    // Load any previously saved custom provider name
+    LaunchedEffect(message) {
+        val savedProvider = loadCustomProviderName(context, generateMessageKey(message))
+        if (savedProvider != null) {
+            displayProvider.value = savedProvider
+            editedProvider.value = savedProvider
+        }
     }
 
     Scaffold(topBar = {
@@ -565,8 +556,8 @@ fun MessageDetailScreen(
                         }
                     }
                 }
-            } else if (message.provider != null) {
-                // Add provider information card
+            } else if (displayProvider.value != null) {
+                // Add provider information card with edit button
                 Surface(
                     modifier = Modifier
                         .fillMaxWidth()
@@ -575,15 +566,36 @@ fun MessageDetailScreen(
                     shape = MaterialTheme.shapes.medium
                 ) {
                     Column(modifier = Modifier.padding(16.dp)) {
-                        Text("Provider:", style = MaterialTheme.typography.labelSmall)
-                        Text(message.provider, style = MaterialTheme.typography.titleMedium)
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Text("Provider:", style = MaterialTheme.typography.labelSmall)
+                            
+                            // Add edit button
+                            IconButton(
+                                onClick = { isEditingProvider.value = true },
+                                modifier = Modifier.size(24.dp)
+                            ) {
+                                Icon(
+                                    Icons.Filled.Edit,
+                                    contentDescription = "Edit Provider",
+                                    tint = MaterialTheme.colorScheme.onSecondaryContainer
+                                )
+                            }
+                        }
+                        Text(
+                            displayProvider.value!!, 
+                            style = MaterialTheme.typography.titleMedium
+                        )
                     }
                 }
             }
 
             // Replace the "From:" line with bank or institution if available
-            if (message.provider != null) {
-                Text("Bank/Institution: ${message.provider}", style = MaterialTheme.typography.titleMedium)
+            if (displayProvider.value != null) {
+                Text("Bank/Institution: ${displayProvider.value}", style = MaterialTheme.typography.titleMedium)
             } else {
                 Text("Transaction Details", style = MaterialTheme.typography.titleMedium)
             }
@@ -601,6 +613,59 @@ fun MessageDetailScreen(
             Text(message.body, modifier = Modifier.padding(top = 8.dp))
         }
     }
+    
+    // Show edit dialog when isEditingProvider is true
+    if (isEditingProvider.value) {
+        AlertDialog(
+            onDismissRequest = { isEditingProvider.value = false },
+            title = { Text("Edit Provider Name") },
+            text = {
+                TextField(
+                    value = editedProvider.value,
+                    onValueChange = { editedProvider.value = it },
+                    label = { Text("Provider Name") },
+                    singleLine = true,
+                    modifier = Modifier.fillMaxWidth()
+                )
+            },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        displayProvider.value = editedProvider.value
+                        saveCustomProviderName(context, generateMessageKey(message), editedProvider.value)
+                        isEditingProvider.value = false
+                    }
+                ) {
+                    Text("Save")
+                }
+            },
+            dismissButton = {
+                Button(onClick = { isEditingProvider.value = false }) {
+                    Text("Cancel")
+                }
+            }
+        )
+    }
+}
+
+// Add these utility functions
+
+// Generate a unique key for a message
+private fun generateMessageKey(message: SmsMessage): String {
+    return message.body.hashCode().toString() + "_" + 
+           (message.dateTime?.time?.toString() ?: "0")
+}
+
+// Save custom provider name
+private fun saveCustomProviderName(context: android.content.Context, key: String, providerName: String) {
+    val prefs = context.getSharedPreferences("custom_provider_names", android.content.Context.MODE_PRIVATE)
+    prefs.edit().putString(key, providerName).apply()
+}
+
+// Load custom provider name if exists
+private fun loadCustomProviderName(context: android.content.Context, key: String): String? {
+    val prefs = context.getSharedPreferences("custom_provider_names", android.content.Context.MODE_PRIVATE)
+    return prefs.getString(key, null)
 }
 
 private fun extractAmountFromBody(body: String): String? {
@@ -849,10 +914,12 @@ class MainActivity : ComponentActivity() {
         enableEdgeToEdge()
         setContent {
             FinanzasPersonalesTheme(darkTheme = true) {
+                // Remove the statusBarsPadding that's causing the white space
                 SMSReader(
                     modifier = Modifier
                         .fillMaxSize()
-                        .statusBarsPadding()
+                        // Remove this line that's creating the extra padding
+                        // .statusBarsPadding()
                 )
             }
         }
@@ -868,13 +935,25 @@ fun SMSReader(modifier: Modifier = Modifier) {
     val transactions = remember { mutableStateOf<List<TransactionData>>(emptyList()) }
     val searchQuery = remember { mutableStateOf("") }
     
+    // Make status bar fully transparent and improve insets handling
+    val systemUiController = rememberSystemUiController()
+    val isDarkTheme = true
+    
+    SideEffect {
+        // Make status bar fully transparent with improved contrast
+        systemUiController.setStatusBarColor(
+            color = Color.Transparent,
+            darkIcons = !isDarkTheme
+        )
+    }
+    
     // Add a refreshing state
     val isRefreshing = remember { mutableStateOf(false) }
     
     val coroutineScope = rememberCoroutineScope()
     
-    // Function to refresh messages
-    val refreshMessages = {
+    // Function to refresh messages - fix return type issue
+    val refreshMessages: () -> Unit = {
         coroutineScope.launch {
             isRefreshing.value = true
             smsMessages.value = readFilteredSMS(context)
@@ -969,6 +1048,7 @@ fun SMSReader(modifier: Modifier = Modifier) {
                     selected = navController.currentDestination?.route == Screen.Home.route,
                     onClick = { navController.navigate(Screen.Home.route) }
                 )
+                // Move transaction processing to this navigation item instead of FAB
                 NavigationBarItem(
                     icon = { 
                         Icon(
@@ -980,7 +1060,11 @@ fun SMSReader(modifier: Modifier = Modifier) {
                     label = { },
                     alwaysShowLabel = false,
                     selected = navController.currentDestination?.route == "transactions_data",
-                    onClick = { navController.navigate("transactions_data") }
+                    onClick = {
+                        // Process messages first, then navigate - same as what the FAB did before
+                        transactions.value = extractTransactionData(filteredMessages)
+                        navController.navigate("transactions_data")
+                    }
                 )
                 NavigationBarItem(
                     icon = { 
@@ -1010,31 +1094,17 @@ fun SMSReader(modifier: Modifier = Modifier) {
                 )
             }
         },
-        floatingActionButton = {
-            if (navController.currentDestination?.route == Screen.Home.route) {
-                androidx.compose.material3.FloatingActionButton(
-                    onClick = {
-                        transactions.value = extractTransactionData(filteredMessages)
-                        navController.navigate("transactions_data")
-                    },
-                    containerColor = androidx.compose.ui.graphics.Color(0xFF25D366), // WhatsApp green
-                    contentColor = androidx.compose.ui.graphics.Color.White,
-                    modifier = Modifier.size(56.dp) // Larger size for better visibility
-                ) {
-                    Icon(
-                        imageVector = Icons.Filled.Analytics,
-                        contentDescription = "Show Transactions",
-                        modifier = Modifier.size(26.dp) // Larger icon
-                    )
-                }
-            }
-        },
-        floatingActionButtonPosition = androidx.compose.material3.FabPosition.End
+        // Remove the floating action button completely
+        // floatingActionButton = { ... },
+        // floatingActionButtonPosition = androidx.compose.material3.FabPosition.End
     ) { innerPadding ->
         NavHost(
             navController = navController,
             startDestination = Screen.Home.route,
-            modifier = Modifier.padding(innerPadding)
+            // Simplified padding approach
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(bottom = innerPadding.calculateBottomPadding())
         ) {
             composable(Screen.Home.route) {
                 if (selectedMessage.value != null) {
@@ -1045,41 +1115,34 @@ fun SMSReader(modifier: Modifier = Modifier) {
                         navController = navController
                     )
                 } else {
-                    // Show WhatsApp-style list with pull-to-refresh
+                    // Show WhatsApp-style list with optimized spacing
                     Column(modifier = Modifier.fillMaxSize()) {
-                        // App bar with title
-                        @OptIn(ExperimentalMaterial3Api::class)
+                        // Make TopAppBar more compact
                         TopAppBar(
                             title = { Text("Financial Messages") },
                             colors = TopAppBarDefaults.topAppBarColors(
                                 containerColor = MaterialTheme.colorScheme.surface,
                                 titleContentColor = MaterialTheme.colorScheme.onSurface
-                            )
-                        )
-                        
-                        // Search and filter controls
-                        SearchBar(searchQuery)
-                        YearMonthFilters(
-                            messageListSelectedYear,
-                            messageListSelectedMonth,
-                            filteredMessages,
-                            smsMessages.value
-                        )
-                        
-                        // Wrap with SwipeRefresh
-                        androidx.compose.material.pullrefresh.PullRefreshIndicator(
-                            refreshing = isRefreshing.value,
-                            state = rememberPullRefreshState(
-                                refreshing = isRefreshing.value,
-                                onRefresh = {
-                                    refreshMessages()
-                                }
                             ),
-                            modifier = Modifier.align(Alignment.CenterHorizontally),
-                            backgroundColor = MaterialTheme.colorScheme.surface,
-                            contentColor = MaterialTheme.colorScheme.primary
+                            modifier = Modifier.height(48.dp)
                         )
                         
+                        // More compact search bar
+                        SearchBar(
+                            searchQuery = searchQuery,
+                            modifier = Modifier.padding(vertical = 2.dp)
+                        )
+                        
+                        // More compact year/month filters - fix parameter names
+                        YearMonthFilters(
+                            selectedYear = messageListSelectedYear,
+                            selectedMonth = messageListSelectedMonth,
+                            filteredMessages = filteredMessages,
+                            allMessages = smsMessages.value,
+                            modifier = Modifier.padding(vertical = 2.dp, horizontal = 8.dp)
+                        )
+                        
+                        // Use a more efficient way to integrate pull-to-refresh
                         Box(
                             modifier = Modifier.weight(1f)
                         ) {
@@ -1089,11 +1152,10 @@ fun SMSReader(modifier: Modifier = Modifier) {
                                     .pullRefresh(
                                         state = rememberPullRefreshState(
                                             refreshing = isRefreshing.value,
-                                            onRefresh = {
-                                                refreshMessages()
-                                            }
+                                            onRefresh = { refreshMessages() } // Call as function
                                         )
-                                    )
+                                    ),
+                                contentPadding = PaddingValues(top = 0.dp)
                             ) {
                                 itemsIndexed(filteredMessages) { index, message ->
                                     WhatsAppStyleMessageItem(
@@ -1110,17 +1172,16 @@ fun SMSReader(modifier: Modifier = Modifier) {
                                 }
                             }
                             
-                            androidx.compose.material.pullrefresh.PullRefreshIndicator(
+                            PullRefreshIndicator(
                                 refreshing = isRefreshing.value,
                                 state = rememberPullRefreshState(
                                     refreshing = isRefreshing.value,
-                                    onRefresh = {
-                                        refreshMessages()
-                                    }
+                                    onRefresh = { refreshMessages() } // Call as function
                                 ),
                                 modifier = Modifier.align(Alignment.TopCenter),
                                 backgroundColor = MaterialTheme.colorScheme.surface,
-                                contentColor = MaterialTheme.colorScheme.primary
+                                contentColor = MaterialTheme.colorScheme.primary,
+                                scale = true
                             )
                         }
                     }
@@ -1212,7 +1273,8 @@ private fun YearMonthFilters(
     selectedYear: MutableState<Int?>,
     selectedMonth: MutableState<Int?>,
     filteredMessages: List<SmsMessage>,
-    allMessages: List<SmsMessage>
+    allMessages: List<SmsMessage>,
+    modifier: Modifier = Modifier
 ) {
     val years = remember(allMessages) {
         allMessages.mapNotNull { it.dateTime?.toYear() }.distinct().sortedDescending()
@@ -1230,23 +1292,28 @@ private fun YearMonthFilters(
     val showMonthPicker = remember { mutableStateOf(false) }
 
     Row(
-        modifier = Modifier
-            .padding(vertical = 8.dp)
+        modifier = modifier
             .fillMaxWidth(),
-        horizontalArrangement = Arrangement.SpaceBetween
+        horizontalArrangement = Arrangement.SpaceBetween,
+        verticalAlignment = Alignment.CenterVertically
     ) {
-        // Year filter chip
+        // Year filter - more compact
         Box {
             AssistChip(
                 onClick = { showYearPicker.value = true },
                 label = {
-                    Text(selectedYear.value?.toString() ?: "Select Year")
+                    Text(
+                        selectedYear.value?.toString() ?: "Select Year",
+                        // Use smaller text to save space
+                        style = MaterialTheme.typography.bodySmall
+                    )
                 },
                 leadingIcon = {
                     Icon(
                         Icons.Filled.CalendarToday,
                         contentDescription = "Select Year",
-                        modifier = Modifier.size(20.dp)
+                        // Smaller icon
+                        modifier = Modifier.size(16.dp)
                     )
                 }
             )
@@ -1275,7 +1342,7 @@ private fun YearMonthFilters(
             }
         }
 
-        // Month filter chip
+        // Month filter - more compact
         Box {
             AssistChip(
                 onClick = { showMonthPicker.value = true },
@@ -1284,14 +1351,17 @@ private fun YearMonthFilters(
                     Text(
                         selectedMonth.value?.let {
                             DateFormatSymbols().months[it - 1]
-                        } ?: "Select Month"
+                        } ?: "Select Month",
+                        // Use smaller text to save space
+                        style = MaterialTheme.typography.bodySmall
                     )
                 },
                 leadingIcon = {
                     Icon(
                         Icons.Filled.ArrowDropDown,
                         contentDescription = "Select Month",
-                        modifier = Modifier.size(20.dp)
+                        // Smaller icon
+                        modifier = Modifier.size(16.dp)
                     )
                 }
             )
@@ -1444,28 +1514,22 @@ fun NumericDataScreen(
             }
         }
 
-        // Calculate totals - Fix this part to ensure proper calculation
+        // Calculate totals
         val (totalIncome, totalExpense) = remember(filteredTransactions) {
             var income = 0f
             var expense = 0f
             
-            // Print debugging info to check transaction data
-            println("Number of filtered transactions: ${filteredTransactions.size}")
-            
             filteredTransactions.forEach { transaction ->
-                println("Transaction: ${transaction.date}, Amount: ${transaction.amount}, IsIncome: ${transaction.isIncome}")
                 if (transaction.isIncome) {
                     income += transaction.amount
-                    println("Added to income: $income")
                 } else {
                     expense += transaction.amount
-                    println("Added to expense: $expense")
                 }
             }
             Pair(income, expense)
         }
 
-        // Fix layout issues - Wrap in a proper Column with Scaffold
+        // Use a more compact Scaffold with minimal padding
         Scaffold(
             topBar = {
                 TopAppBar(
@@ -1474,22 +1538,29 @@ fun NumericDataScreen(
                         IconButton(onClick = onBack) {
                             Icon(Icons.Filled.ArrowBack, contentDescription = "Back")
                         }
-                    }
+                    },
+                    // Reduce the top app bar height to save space
+                    modifier = Modifier.height(48.dp)
                 )
-            }
+            },
+            // Add this to reduce bottom padding
+            contentWindowInsets = WindowInsets(0, 0, 0, 0)
         ) { paddingValues ->
             Column(
                 modifier = Modifier
                     .padding(paddingValues)
-                    .padding(horizontal = 16.dp)
-                    .fillMaxSize(),  // Use fillMaxSize to ensure content spans the entire screen
-                verticalArrangement = Arrangement.spacedBy(8.dp)  // Add spacing between elements
+                    // Reduce horizontal padding to give more space
+                    .padding(horizontal = 8.dp)
+                    .fillMaxSize(),
+                // Remove spacing between elements to save space
+                verticalArrangement = Arrangement.Top
             ) {
-                // Filter chips row
+                // Make filter chips more compact
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(vertical = 8.dp),
+                        // Reduce vertical padding
+                        .padding(vertical = 4.dp),
                     horizontalArrangement = Arrangement.SpaceEvenly
                 ) {
                     listOf("all", "income", "expense").forEach { filter ->
@@ -1512,15 +1583,16 @@ fun NumericDataScreen(
                     }
                 }
 
-                // Year/Month filter row
+                // More compact year/month filter row
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(vertical = 8.dp),
+                        // Reduce vertical padding
+                        .padding(vertical = 4.dp),
                     horizontalArrangement = Arrangement.SpaceBetween,
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    // Year filter with dropdown
+                    // Year filter with dropdown - more compact
                     Box {
                         androidx.compose.material3.AssistChip(
                             onClick = {
@@ -1533,7 +1605,7 @@ fun NumericDataScreen(
                                 Icon(
                                     Icons.Filled.CalendarToday,
                                     contentDescription = null,
-                                    modifier = Modifier.size(18.dp)
+                                    modifier = Modifier.size(16.dp) // smaller icon
                                 )
                             }
                         )
@@ -1564,7 +1636,7 @@ fun NumericDataScreen(
                         }
                     }
 
-                    // Month filter with dropdown
+                    // Month filter with dropdown - more compact
                     Box {
                         androidx.compose.material3.AssistChip(
                             onClick = {
@@ -1584,7 +1656,7 @@ fun NumericDataScreen(
                                 Icon(
                                     Icons.Filled.ArrowDropDown,
                                     contentDescription = null,
-                                    modifier = Modifier.size(18.dp)
+                                    modifier = Modifier.size(16.dp) // smaller icon
                                 )
                             }
                         )
@@ -1614,74 +1686,145 @@ fun NumericDataScreen(
                     }
                 }
 
-                // Table header
-                Card(
+                // Table header - more compact
+                Surface(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(vertical = 8.dp)
+                        .background(MaterialTheme.colorScheme.surfaceVariant),
+                    tonalElevation = 2.dp
                 ) {
                     Row(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .padding(8.dp),
-                        horizontalArrangement = Arrangement.SpaceBetween
+                            // Reduce vertical padding
+                            .padding(vertical = 8.dp, horizontal = 12.dp),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
                     ) {
-                        Text("Date/Time", fontWeight = FontWeight.Bold)
-                        Text("Amount (COP)", fontWeight = FontWeight.Bold)
+                        // Date/Time column header
+                        Row(
+                            modifier = Modifier
+                                .weight(1f)
+                                .clickable {
+                                    tapSound.seekTo(0)
+                                    tapSound.start()
+                                    sortState.value = if (sortState.value.first == "date") {
+                                        Pair("date", !sortState.value.second)
+                                    } else {
+                                        Pair("date", false) // Default to descending (newest first)
+                                    }
+                                },
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Text(
+                                "Date/Time", 
+                                fontWeight = FontWeight.Bold,
+                                color = if (sortState.value.first == "date") 
+                                    MaterialTheme.colorScheme.primary
+                                else
+                                    MaterialTheme.colorScheme.onSurface
+                            )
+                            if (sortState.value.first == "date") {
+                                SortIndicator(
+                                    visible = true, 
+                                    ascending = sortState.value.second
+                                )
+                            }
+                        }
+                        
+                        // Amount column header
+                        Row(
+                            modifier = Modifier
+                                .clickable {
+                                    tapSound.seekTo(0)
+                                    tapSound.start()
+                                    sortState.value = if (sortState.value.first == "amount") {
+                                        Pair("amount", !sortState.value.second)
+                                    } else {
+                                        Pair("amount", false) // Default to descending (highest first)
+                                    }
+                                },
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Text(
+                                "Amount (COP)", 
+                                fontWeight = FontWeight.Bold,
+                                color = if (sortState.value.first == "amount") 
+                                    MaterialTheme.colorScheme.primary
+                                else
+                                    MaterialTheme.colorScheme.onSurface
+                            )
+                            if (sortState.value.first == "amount") {
+                                SortIndicator(
+                                    visible = true, 
+                                    ascending = sortState.value.second
+                                )
+                            }
+                        }
                     }
                 }
 
-                // Transaction list
-                if (filteredTransactions.isEmpty()) {
-                    Box(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(16.dp),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Text("No transactions found", style = MaterialTheme.typography.bodyLarge)
-                    }
-                } else {
-                    LazyColumn(
-                        modifier = Modifier
-                            .weight(1f)  // Allow the list to take remaining space
-                            .fillMaxWidth()
-                    ) {
-                        itemsIndexed(sortedTransactions) { index, transaction ->
-                            Card(
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .padding(vertical = 4.dp)
-                                    .clickable {
-                                        selectSound.seekTo(0)
-                                        selectSound.start()
-                                        selectedTransaction.value = transaction
-                                    }
-                            ) {
+                // Give the transaction list more space by using weight
+                Box(
+                    modifier = Modifier
+                        .weight(1f, fill = true)
+                        .fillMaxWidth()
+                ) {
+                    if (filteredTransactions.isEmpty()) {
+                        Box(
+                            modifier = Modifier
+                                .fillMaxSize(),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Text("No transactions found", style = MaterialTheme.typography.bodyLarge)
+                        }
+                    } else {
+                        LazyColumn(
+                            modifier = Modifier.fillMaxSize()
+                        ) {
+                            itemsIndexed(sortedTransactions) { index, transaction ->
+                                // Table row - make it slightly more compact
                                 Row(
                                     modifier = Modifier
                                         .fillMaxWidth()
-                                        .padding(12.dp),
-                                    horizontalArrangement = Arrangement.SpaceBetween
+                                        .clickable {
+                                            selectSound.seekTo(0)
+                                            selectSound.start()
+                                            selectedTransaction.value = transaction
+                                        }
+                                        // Reduce vertical padding
+                                        .padding(vertical = 10.dp, horizontal = 12.dp),
+                                    horizontalArrangement = Arrangement.SpaceBetween,
+                                    verticalAlignment = Alignment.CenterVertically
                                 ) {
-                                    Text(java.text.SimpleDateFormat("dd/MM/yy").format(transaction.date))
+                                    Text(
+                                        text = java.text.SimpleDateFormat("dd/MM/yy").format(transaction.date),
+                                        modifier = Modifier.weight(1f)
+                                    )
                                     Text(
                                         text = "$${formatAmount(transaction.amount)}",
                                         color = if (transaction.isIncome) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.error
                                     )
+                                }
+                                // Add thinner divider between rows
+                                if (index < sortedTransactions.size - 1) {
+                                    Divider(thickness = 0.5.dp)
                                 }
                             }
                         }
                     }
                 }
 
-                // Total summary card at the bottom
+                // Make the summary card more compact
                 Card(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(vertical = 8.dp)
+                        // Reduce vertical padding
+                        .padding(vertical = 4.dp),
+                    // Use a smaller elevation to make it less prominent
+                    elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)
                 ) {
-                    Column(modifier = Modifier.padding(16.dp)) {
+                    Column(modifier = Modifier.padding(8.dp)) {
                         when (filterState.value) {
                             "income" -> {
                                 TotalRow(
@@ -1708,7 +1851,7 @@ fun NumericDataScreen(
                                     amount = totalExpense,
                                     color = MaterialTheme.colorScheme.error
                                 )
-                                Divider(modifier = Modifier.padding(vertical = 4.dp))
+                                Divider(modifier = Modifier.padding(vertical = 2.dp))
                                 TotalRow(
                                     label = "Net Total:",
                                     amount = totalIncome - totalExpense,
@@ -1722,7 +1865,7 @@ fun NumericDataScreen(
                     }
                 }
 
-                // Dashboard button if applicable
+                // Only show dashboard button if absolutely necessary
                 if (selectedYear.value != null && selectedMonth.value != null) {
                     androidx.compose.material3.AssistChip(
                         onClick = {
@@ -1733,9 +1876,11 @@ fun NumericDataScreen(
                             Icon(
                                 Icons.Filled.Analytics,
                                 contentDescription = "Dashboard",
-                                modifier = Modifier.size(18.dp)
+                                modifier = Modifier.size(16.dp)
                             )
-                        }
+                        },
+                        // Make it smaller
+                        modifier = Modifier.padding(vertical = 4.dp)
                     )
                 }
             }
@@ -1744,19 +1889,24 @@ fun NumericDataScreen(
 }
 
 @Composable
-private fun SearchBar(searchQuery: MutableState<String>) {
+private fun SearchBar(
+    searchQuery: MutableState<String>,
+    modifier: Modifier = Modifier
+) {
     Box(
-        modifier = Modifier
+        modifier = modifier
             .fillMaxWidth()
-            .padding(vertical = 4.dp)
+            // Reduce padding to save space
+            .padding(vertical = 2.dp, horizontal = 8.dp)
     ) {
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .height(36.dp)
-                .clip(androidx.compose.foundation.shape.RoundedCornerShape(50))
+                // Use smaller height
+                .height(32.dp)
+                .clip(RoundedCornerShape(16.dp))
                 .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.7f))
-                .padding(horizontal = 12.dp),
+                .padding(horizontal = 8.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
             Icon(
