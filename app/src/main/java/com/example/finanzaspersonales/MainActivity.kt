@@ -343,8 +343,22 @@ private fun WhatsAppStyleMessageItem(
                         else -> message.address
                     }
                     
-                    // Show primary text as clickable if it's a contact
-                    if (message.recipientContact != null && message.recipientPhoneNumber != null && onContactClick != null) {
+                    // Provider click handler
+                    if (message.provider != null && message.recipientContact == null) {
+                        Text(
+                            text = primaryDisplayText,
+                            style = MaterialTheme.typography.titleMedium,
+                            fontWeight = FontWeight.Bold,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis,
+                            color = MaterialTheme.colorScheme.primary,
+                            modifier = Modifier
+                                .weight(1f, fill = false)
+                                .clickable {
+                                    onContactClick?.invoke(message.provider, "")
+                                }
+                        )
+                    } else if (message.recipientContact != null && message.recipientPhoneNumber != null && onContactClick != null) {
                         Text(
                             text = primaryDisplayText,
                             style = MaterialTheme.typography.titleMedium,
@@ -1162,7 +1176,11 @@ fun SMSReader(modifier: Modifier = Modifier) {
                                         message = message,
                                         onClick = { selectedMessage.value = message },
                                         onContactClick = { name, phone ->
-                                            navController.navigate("contact/$name/$phone")
+                                            if (phone.isNotEmpty()) {
+                                                navController.navigate("contact/$name/$phone")
+                                            } else {
+                                                navController.navigate("provider/$name")
+                                            }
                                         }
                                     )
                                 }
@@ -1263,6 +1281,22 @@ fun SMSReader(modifier: Modifier = Modifier) {
                         navController = navController
                     )
                 }
+            }
+            // Inside the NavHost declaration in SMSReader composable:
+            composable(
+                route = "provider/{name}",
+                arguments = listOf(
+                    navArgument("name") { type = NavType.StringType }
+                )
+            ) { backStackEntry ->
+                val name = backStackEntry.arguments?.getString("name") ?: ""
+                
+                ProviderTransactionSummary(
+                    providerName = name,
+                    allTransactions = extractTransactionData(smsMessages.value),
+                    onBack = { navController.popBackStack() },
+                    navController = navController
+                )
             }
         }
     }
@@ -2192,16 +2226,26 @@ fun ExpenseDetailScreen(
                 .padding(innerPadding)
                 .padding(16.dp)
         ) {
-            // Replace sender address with provider or a generic title
-            if (transaction.originalMessage.provider != null) {
-                Text("Merchant: ${transaction.originalMessage.provider}", style = MaterialTheme.typography.titleMedium)
-            } else {
-                Text("Expense Transaction", style = MaterialTheme.typography.titleMedium)
+            // Add a prominent provider card at the top of the screen
+            Card(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(bottom = 16.dp),
+                colors = CardDefaults.cardColors(
+                    containerColor = MaterialTheme.colorScheme.secondaryContainer
+                )
+            ) {
+                Column(modifier = Modifier.padding(16.dp)) {
+                    Text("Merchant:", style = MaterialTheme.typography.labelSmall)
+                    Text(
+                        transaction.originalMessage.provider ?: "Unknown",
+                        style = MaterialTheme.typography.titleLarge,
+                        fontWeight = FontWeight.Bold
+                    )
+                }
             }
             
             Spacer(modifier = Modifier.height(8.dp))
-            
-            // Provider information is now merged into the title
             
             transaction.originalMessage.dateTime?.let {
                 Text("Date: ${java.text.SimpleDateFormat("dd/MM/yy").format(it)}")
@@ -2673,7 +2717,10 @@ private fun TransactionListItem(
         horizontalArrangement = Arrangement.SpaceBetween,
         verticalAlignment = Alignment.CenterVertically
     ) {
-        Column {
+        Column(
+            modifier = Modifier
+                .weight(0.6f) // Reduced from fixed width to proportional width
+        ) {
             Text(
                 java.text.SimpleDateFormat("dd/MM/yyyy").format(transaction.date),
                 style = MaterialTheme.typography.bodyMedium
@@ -2681,19 +2728,23 @@ private fun TransactionListItem(
             
             Spacer(modifier = Modifier.height(4.dp))
             
+            // Truncate the message text to show only first 25 characters + ellipsis
             Text(
-                transaction.originalMessage.body,
+                transaction.originalMessage.body.take(25) + if (transaction.originalMessage.body.length > 25) "..." else "",
                 style = MaterialTheme.typography.bodySmall,
                 maxLines = 1,
-                overflow = TextOverflow.Ellipsis,
-                modifier = Modifier.width(240.dp) // Use width instead of widthIn
+                overflow = TextOverflow.Ellipsis
             )
         }
         
+        // Give more space to the amount by using weight
         Text(
             "$${formatAmount(transaction.amount)}",
             style = MaterialTheme.typography.titleMedium,
-            color = MaterialTheme.colorScheme.error
+            color = MaterialTheme.colorScheme.error,
+            modifier = Modifier
+                .weight(0.4f) // Allocate more space for the amount
+                .padding(start = 8.dp) // Add some padding to separate from message
         )
     }
 }
@@ -2732,4 +2783,279 @@ private fun extractProviderFromBody(body: String): String? {
     }
     
     return bestMatch
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun ProviderTransactionSummary(
+    providerName: String,
+    allTransactions: List<TransactionData>,
+    onBack: () -> Unit,
+    navController: NavController
+) {
+    val providerTransactions = remember(allTransactions, providerName) {
+        allTransactions.filter { transaction ->
+            transaction.originalMessage.provider == providerName
+        }
+    }
+
+    val totalSent = remember(providerTransactions) {
+        providerTransactions.sumOf { it.amount.toDouble() }.toFloat()
+    }
+    
+    // Year/Month filters
+    val selectedYear = remember { mutableStateOf<Int?>(null) }
+    val selectedMonth = remember { mutableStateOf<Int?>(null) }
+    val showYearFilter = remember { mutableStateOf(false) }
+    val showMonthFilter = remember { mutableStateOf(false) }
+    
+    // Filtered transactions
+    val filteredTransactions = remember(providerTransactions, selectedYear.value, selectedMonth.value) {
+        providerTransactions.filter { transaction ->
+            val cal = Calendar.getInstance().apply { time = transaction.date }
+            
+            val matchesYear = selectedYear.value?.let { 
+                cal.get(Calendar.YEAR) == it 
+            } ?: true
+            
+            val matchesMonth = selectedMonth.value?.let { 
+                (cal.get(Calendar.MONTH) + 1) == it 
+            } ?: true
+            
+            matchesYear && matchesMonth
+        }
+    }
+    
+    // Calculate filtered total
+    val filteredTotal = remember(filteredTransactions) {
+        filteredTransactions.sumOf { it.amount.toDouble() }.toFloat()
+    }
+    
+    // Years available
+    val years = remember(providerTransactions) {
+        providerTransactions
+            .map { transaction ->
+                Calendar.getInstance().apply { time = transaction.date }
+                    .get(Calendar.YEAR)
+            }
+            .distinct()
+            .sorted()
+    }
+    
+    // Months available in selected year
+    val months = remember(providerTransactions, selectedYear.value) {
+        if (selectedYear.value == null) emptyList()
+        else {
+            providerTransactions
+                .filter { transaction ->
+                    val cal = Calendar.getInstance().apply { time = transaction.date }
+                    cal.get(Calendar.YEAR) == selectedYear.value
+                }
+                .map { transaction ->
+                    Calendar.getInstance().apply { time = transaction.date }
+                        .get(Calendar.MONTH) + 1
+                }
+                .distinct()
+                .sorted()
+        }
+    }
+    
+    Scaffold(
+        topBar = {
+            TopAppBar(
+                title = { Text(providerName) },
+                navigationIcon = {
+                    IconButton(onClick = onBack) {
+                        Icon(Icons.Filled.ArrowBack, contentDescription = "Back")
+                    }
+                }
+            )
+        }
+    ) { innerPadding ->
+        Column(
+            modifier = Modifier
+                .padding(innerPadding)
+                .padding(horizontal = 16.dp)
+        ) {
+            // Provider info card
+            Card(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(vertical = 8.dp)
+            ) {
+                Column(modifier = Modifier.padding(16.dp)) {
+                    Text(
+                        "Provider Summary",
+                        style = MaterialTheme.typography.titleMedium
+                    )
+                    Spacer(modifier = Modifier.height(8.dp))
+                    Text("Merchant: $providerName")
+                    Text("Total Transactions: ${providerTransactions.size}")
+                    Text(
+                        "Total Amount: $${formatAmount(totalSent)}",
+                        style = MaterialTheme.typography.titleSmall,
+                        color = MaterialTheme.colorScheme.error
+                    )
+                }
+            }
+            
+            // Filters
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(vertical = 8.dp),
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                // Year filter
+                Box {
+                    AssistChip(
+                        onClick = { showYearFilter.value = true },
+                        label = { Text(selectedYear.value?.toString() ?: "All Years") },
+                        leadingIcon = {
+                            Icon(
+                                Icons.Filled.CalendarToday,
+                                contentDescription = "Select Year",
+                                modifier = Modifier.size(18.dp)
+                            )
+                        }
+                    )
+                    
+                    DropdownMenu(
+                        expanded = showYearFilter.value,
+                        onDismissRequest = { showYearFilter.value = false }
+                    ) {
+                        DropdownMenuItem(
+                            onClick = {
+                                selectedYear.value = null
+                                selectedMonth.value = null
+                                showYearFilter.value = false
+                            },
+                            text = { Text("All Years") }
+                        )
+                        
+                        years.forEach { year ->
+                            DropdownMenuItem(
+                                onClick = {
+                                    selectedYear.value = year
+                                    selectedMonth.value = null
+                                    showYearFilter.value = false
+                                },
+                                text = { Text(year.toString()) }
+                            )
+                        }
+                    }
+                }
+                
+                // Month filter
+                Box {
+                    AssistChip(
+                        onClick = { 
+                            if (selectedYear.value != null) showMonthFilter.value = true 
+                        },
+                        enabled = selectedYear.value != null,
+                        label = { 
+                            Text(
+                                selectedMonth.value?.let { 
+                                    DateFormatSymbols().months[it - 1] 
+                                } ?: "All Months"
+                            )
+                        },
+                        leadingIcon = {
+                            Icon(
+                                Icons.Filled.ArrowDropDown,
+                                contentDescription = "Select Month",
+                                modifier = Modifier.size(18.dp)
+                            )
+                        }
+                    )
+                    
+                    DropdownMenu(
+                        expanded = showMonthFilter.value,
+                        onDismissRequest = { showMonthFilter.value = false }
+                    ) {
+                        DropdownMenuItem(
+                            onClick = {
+                                selectedMonth.value = null
+                                showMonthFilter.value = false
+                            },
+                            text = { Text("All Months") }
+                        )
+                        
+                        months.forEach { month ->
+                            DropdownMenuItem(
+                                onClick = {
+                                    selectedMonth.value = month
+                                    showMonthFilter.value = false
+                                },
+                                text = { Text(DateFormatSymbols().months[month - 1]) }
+                            )
+                        }
+                    }
+                }
+                
+                // Clear filters
+                if (selectedYear.value != null || selectedMonth.value != null) {
+                    IconButton(
+                        onClick = {
+                            selectedYear.value = null
+                            selectedMonth.value = null
+                        }
+                    ) {
+                        Icon(Icons.Filled.Close, contentDescription = "Clear Filters")
+                    }
+                }
+            }
+            
+            // Filtered total
+            if (selectedYear.value != null || selectedMonth.value != null) {
+                Card(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(vertical = 8.dp)
+                ) {
+                    Column(modifier = Modifier.padding(16.dp)) {
+                        Text(
+                            "Filtered Total: $${formatAmount(filteredTotal)}",
+                            style = MaterialTheme.typography.titleMedium,
+                            color = MaterialTheme.colorScheme.error
+                        )
+                    }
+                }
+            }
+            
+            // Transaction list
+            Text(
+                "Transactions",
+                style = MaterialTheme.typography.titleMedium,
+                modifier = Modifier.padding(vertical = 8.dp)
+            )
+            
+            // Display transactions
+            LazyColumn(
+                modifier = Modifier.fillMaxSize()
+            ) {
+                itemsIndexed(filteredTransactions) { index, transaction ->
+                    TransactionListItem(
+                        transaction = transaction,
+                        onClick = {
+                            navController.navigate("transaction_detail/${generateTransactionKey(transaction)}")
+                        }
+                    )
+                    
+                    if (index < filteredTransactions.size - 1) {
+                        Divider()
+                    }
+                }
+                
+                if (filteredTransactions.isEmpty()) {
+                    item {
+                        Text(
+                            "No transactions found for the selected filters",
+                            modifier = Modifier.padding(vertical = 16.dp)
+                        )
+                    }
+                }
+            }
+        }
+    }
 }
