@@ -61,6 +61,11 @@ dependencies {
     // Core Android
     implementation(libs.androidx.core.ktx)
     implementation(libs.androidx.lifecycle.runtime.ktx)
+    implementation("androidx.lifecycle:lifecycle-viewmodel-compose:2.7.0")
+    
+    // Coroutines
+    implementation("org.jetbrains.kotlinx:kotlinx-coroutines-core:1.7.3")
+    implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.7.3")
     
     // Testing
     testImplementation(libs.junit)
@@ -83,4 +88,7 @@ dependencies {
 
     // Add Material Compose for pull-to-refresh
     implementation("androidx.compose.material:material:1.4.3")
+    
+    // Category charts and visualizations
+    implementation("com.github.PhilJay:MPAndroidChart:v3.1.0")
 }
