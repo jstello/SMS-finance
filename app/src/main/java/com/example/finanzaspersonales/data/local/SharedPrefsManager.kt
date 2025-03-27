@@ -106,6 +106,8 @@ class SharedPrefsManager(private val context: Context) {
             Category(name = "Personal", color = 0xFFFF9800.toInt()),
             Category(name = "Education", color = 0xFF3F51B5.toInt()),
             Category(name = "Investments", color = 0xFF009688.toInt()),
+            Category(name = "Payroll", color = 0xFF4CAF50.toInt()),  // Green for income
+            Category(name = "Pets", color = 0xFFFF9800.toInt()),     // Orange for pets
             Category(name = "Other", color = 0xFF9E9E9E.toInt())
         )
     }

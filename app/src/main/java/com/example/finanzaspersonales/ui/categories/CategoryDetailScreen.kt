@@ -17,6 +17,8 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.filled.ArrowDownward
+import androidx.compose.material.icons.filled.ArrowUpward
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
@@ -65,6 +67,8 @@ fun CategoryDetailScreen(
     val isLoading by viewModel.isLoading.collectAsState()
     val selectedYear by viewModel.selectedYear.collectAsState()
     val selectedMonth by viewModel.selectedMonth.collectAsState()
+    val sortField by viewModel.sortField.collectAsState()
+    val sortOrder by viewModel.sortOrder.collectAsState()
     
     // Load transactions for this category with the same filters
     LaunchedEffect(category.id, selectedYear, selectedMonth) {
@@ -118,6 +122,13 @@ fun CategoryDetailScreen(
                 
                 Spacer(modifier = Modifier.height(8.dp))
                 
+                // Transaction table header
+                TransactionTableHeader(
+                    currentSortField = sortField,
+                    currentSortOrder = sortOrder,
+                    onSortByAmount = { viewModel.updateSort(TransactionSortField.AMOUNT) }
+                )
+                
                 LazyColumn(
                     modifier = Modifier.fillMaxWidth()
                 ) {
@@ -149,6 +160,61 @@ fun CategoryDetailScreen(
             }
         }
     }
+}
+
+/**
+ * Table header for transactions with sorting
+ */
+@Composable
+fun TransactionTableHeader(
+    currentSortField: TransactionSortField,
+    currentSortOrder: SortOrder,
+    onSortByAmount: () -> Unit
+) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f))
+            .padding(vertical = 8.dp, horizontal = 16.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        // Transaction info column
+        Text(
+            text = "Transaction",
+            style = MaterialTheme.typography.labelLarge,
+            modifier = Modifier.weight(1f)
+        )
+        
+        // Amount column with sort
+        Row(
+            modifier = Modifier
+                .clickable(onClick = onSortByAmount),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Text(
+                text = "Amount",
+                style = MaterialTheme.typography.labelLarge,
+                color = if (currentSortField == TransactionSortField.AMOUNT) 
+                    MaterialTheme.colorScheme.primary 
+                else 
+                    MaterialTheme.colorScheme.onSurfaceVariant
+            )
+            
+            // Show sort direction if sorting by amount
+            if (currentSortField == TransactionSortField.AMOUNT) {
+                Spacer(modifier = Modifier.width(4.dp))
+                Icon(
+                    imageVector = if (currentSortOrder == SortOrder.ASCENDING) 
+                        Icons.Default.ArrowUpward else Icons.Default.ArrowDownward,
+                    contentDescription = "Sort direction",
+                    modifier = Modifier.size(16.dp),
+                    tint = MaterialTheme.colorScheme.primary
+                )
+            }
+        }
+    }
+    
+    HorizontalDivider()
 }
 
 /**

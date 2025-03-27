@@ -29,9 +29,28 @@ class TransactionRepositoryImpl(
     
     private var cachedSmsMessages: List<SmsMessage> = emptyList()
     private var cachedTransactions: List<TransactionData> = emptyList()
-    private val sharedPreferences: SharedPreferences = context.getSharedPreferences(
-        "transaction_categories", Context.MODE_PRIVATE
-    )
+    
+    // Transaction-category mappings cache to avoid frequent disk reads
+    private var transactionCategoryCache: MutableMap<String, String> = mutableMapOf()
+    
+    init {
+        // Load the transaction category mappings into memory
+        loadTransactionCategoryCache()
+    }
+    
+    /**
+     * Load the transaction to category mappings from SharedPrefsManager into memory
+     */
+    private fun loadTransactionCategoryCache() {
+        transactionCategoryCache = sharedPrefsManager.loadTransactionCategories().toMutableMap()
+    }
+    
+    /**
+     * Persist the category mappings to SharedPreferences
+     */
+    private fun saveTransactionCategoryCache() {
+        sharedPrefsManager.saveTransactionCategories(transactionCategoryCache)
+    }
     
     /**
      * Get all SMS messages
@@ -190,6 +209,21 @@ class TransactionRepositoryImpl(
         }
     
     /**
+     * Get the saved category ID for a transaction
+     */
+    private fun getSavedCategoryForTransaction(transactionId: String): String? {
+        return transactionCategoryCache[transactionId]
+    }
+    
+    /**
+     * Save category assignment for a transaction
+     */
+    private fun saveCategoryForTransaction(transactionId: String, categoryId: String) {
+        transactionCategoryCache[transactionId] = categoryId
+        saveTransactionCategoryCache()
+    }
+    
+    /**
      * Assign category to transaction and save the assignment
      */
     override suspend fun assignCategoryToTransaction(
@@ -204,20 +238,6 @@ class TransactionRepositoryImpl(
         } else {
             false
         }
-    }
-    
-    /**
-     * Get the saved category ID for a transaction
-     */
-    private fun getSavedCategoryForTransaction(transactionId: String): String? {
-        return sharedPreferences.getString(transactionId, null)
-    }
-    
-    /**
-     * Save category assignment for a transaction
-     */
-    private fun saveCategoryForTransaction(transactionId: String, categoryId: String) {
-        sharedPreferences.edit().putString(transactionId, categoryId).apply()
     }
     
     /**

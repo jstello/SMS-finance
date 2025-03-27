@@ -11,10 +11,73 @@ import kotlin.text.RegexOption
  */
 object TextExtractors {
     
+    // Compile URL pattern once - combine all patterns into a single regex
+    private val URL_PATTERN = Pattern.compile(
+        """(https?://\S+)|(bit\.ly/\S+)|(tinyurl\.com/\S+)|(goo\.gl/\S+)|(www\.\S+\.\S+)|(\S+\.(com|net|org|co|io)/\S+)""",
+        Pattern.CASE_INSENSITIVE
+    )
+    
+    // Compile promotional keywords pattern once
+    private val PROMO_KEYWORDS_PATTERN = Pattern.compile(
+        """(promocion|promoción|descuento|oferta|hotsale|sale|ahorra|gana|sorteo|codigo|código|promo|cupon|cupón)""",
+        Pattern.CASE_INSENSITIVE
+    )
+    
+    // Cache for promotional message detection results
+    private val promoMessageCache = mutableMapOf<String, Boolean>()
+    
+    /**
+     * Checks if a message contains URLs, which likely indicates
+     * it's a promotional message rather than a transaction
+     */
+    fun containsUrl(body: String): Boolean {
+        return URL_PATTERN.matcher(body).find()
+    }
+    
+    /**
+     * Determines if a message is likely a promotional message
+     * and not a genuine transaction
+     */
+    fun isPromotionalMessage(body: String): Boolean {
+        // Check cache first
+        promoMessageCache[body]?.let { return it }
+        
+        val result = containsUrl(body) || PROMO_KEYWORDS_PATTERN.matcher(body).find()
+        
+        // Cache the result
+        promoMessageCache[body] = result
+        return result
+    }
+    
+    /**
+     * Clear promotional message cache when no longer needed
+     * (call this when transaction processing is complete)
+     */
+    fun clearPromoCache() {
+        promoMessageCache.clear()
+    }
+    
+    /**
+     * Process message for transaction data
+     * Returns null if promotional, otherwise processes the message
+     */
+    fun processMessage(body: String): Boolean {
+        // Check once if it's a promotional message
+        if (isPromotionalMessage(body)) {
+            return false
+        }
+        return true
+    }
+    
     /**
      * Extracts provider name from SMS body text
      */
     fun extractProviderFromBody(body: String): String? {
+        // Skip promotional messages - use cached result when possible
+        if (promoMessageCache[body] == true || (promoMessageCache[body] == null && isPromotionalMessage(body))) {
+            return null
+        }
+        
         // First, try to extract the provider using the common Bancolombia pattern
         val bancolombiaPattern = Pattern.compile("""(?:Compraste|pagaste)(?:\s[\$\w,.]+\s|\s)en\s((?:[A-Z0-9]|[*])+(?:\s[A-Z0-9]+)*)""")
         val matcher = bancolombiaPattern.matcher(body)
@@ -58,6 +121,11 @@ object TextExtractors {
      * Extracts amount from SMS body text
      */
     fun extractAmountFromBody(body: String): String? {
+        // Skip promotional messages - use cached result
+        if (promoMessageCache[body] == true) {
+            return null
+        }
+        
         val pattern = Pattern.compile("""(\$|COP)\s*((\d{1,3}(?:[.,]\d{3})*|\d+))(?:([.,])(\d{2}))?""")
         val matcher = pattern.matcher(body)
         return if (matcher.find()) {
@@ -86,6 +154,11 @@ object TextExtractors {
      * Determines if a transaction is an income based on SMS body text
      */
     fun isIncome(body: String): Boolean {
+        // Skip promotional messages - use cached result
+        if (promoMessageCache[body] == true) {
+            return false
+        }
+        
         return body.contains(
             Regex("(recepci[óo]n|recibiste|n[óo]mina|abono|consignaci[óo]n|dep[óo]sito|ingreso)", RegexOption.IGNORE_CASE)
         )
@@ -96,6 +169,11 @@ object TextExtractors {
      * Returns a pair of (detectedAccount, sourceAccount)
      */
     fun detectAccountInfo(body: String): Pair<String?, String?> {
+        // Skip promotional messages - use cached result
+        if (promoMessageCache[body] == true) {
+            return Pair(null, null)
+        }
+        
         // Bancolombia pattern - highest priority
         val bancolombiaPattern = Pattern.compile(
             "a\\s(.+?)\\sdesde\\sproducto\\s([*]\\d+)"

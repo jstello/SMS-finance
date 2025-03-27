@@ -12,6 +12,24 @@ import kotlinx.coroutines.launch
 import java.util.UUID
 
 /**
+ * Enum for transaction sort fields
+ */
+enum class TransactionSortField {
+    AMOUNT,
+    DATE,
+    PROVIDER,
+    NONE
+}
+
+/**
+ * Enum for sort order
+ */
+enum class SortOrder {
+    ASCENDING,
+    DESCENDING
+}
+
+/**
  * ViewModel for the Categories screen
  */
 class CategoriesViewModel(
@@ -45,6 +63,13 @@ class CategoriesViewModel(
     // State for all transactions
     private val _allTransactions = MutableStateFlow<List<TransactionData>>(emptyList())
     val allTransactions: StateFlow<List<TransactionData>> = _allTransactions
+    
+    // State for sorting transactions
+    private val _sortField = MutableStateFlow(TransactionSortField.NONE)
+    val sortField: StateFlow<TransactionSortField> = _sortField
+    
+    private val _sortOrder = MutableStateFlow(SortOrder.DESCENDING)
+    val sortOrder: StateFlow<SortOrder> = _sortOrder
     
     // Initialize the ViewModel
     init {
@@ -168,14 +193,66 @@ class CategoriesViewModel(
             val allCategoryTransactions = categoryRepository.getTransactionsByCategory(categoryId)
             
             // Apply the same filters used in the category list
-            _categoryTransactions.value = transactionRepository.filterTransactions(
+            val filteredTransactions = transactionRepository.filterTransactions(
                 transactions = allCategoryTransactions,
                 year = year,
                 month = month,
                 isIncome = isIncome
             )
+            
+            // Apply current sorting
+            _categoryTransactions.value = sortTransactions(filteredTransactions)
             _isLoading.value = false
         }
+    }
+    
+    /**
+     * Sort transactions based on current sort field and direction
+     */
+    private fun sortTransactions(transactions: List<TransactionData>): List<TransactionData> {
+        return when (_sortField.value) {
+            TransactionSortField.AMOUNT -> {
+                if (_sortOrder.value == SortOrder.ASCENDING) {
+                    transactions.sortedBy { it.amount }
+                } else {
+                    transactions.sortedByDescending { it.amount }
+                }
+            }
+            TransactionSortField.DATE -> {
+                if (_sortOrder.value == SortOrder.ASCENDING) {
+                    transactions.sortedBy { it.date }
+                } else {
+                    transactions.sortedByDescending { it.date }
+                }
+            }
+            TransactionSortField.PROVIDER -> {
+                if (_sortOrder.value == SortOrder.ASCENDING) {
+                    transactions.sortedBy { it.provider ?: "" }
+                } else {
+                    transactions.sortedByDescending { it.provider ?: "" }
+                }
+            }
+            TransactionSortField.NONE -> transactions
+        }
+    }
+    
+    /**
+     * Update the sort field and order
+     * If the same field is selected again, toggle the order
+     */
+    fun updateSort(field: TransactionSortField) {
+        if (_sortField.value == field) {
+            // Toggle order if same field
+            _sortOrder.value = if (_sortOrder.value == SortOrder.ASCENDING) 
+                SortOrder.DESCENDING else SortOrder.ASCENDING
+        } else {
+            // New field, default to descending
+            _sortField.value = field
+            _sortOrder.value = SortOrder.DESCENDING
+        }
+        
+        // Re-sort current transactions
+        _categoryTransactions.value = sortTransactions(_categoryTransactions.value)
     }
     
     /**
@@ -183,11 +260,20 @@ class CategoriesViewModel(
      */
     fun assignCategoryToTransaction(transaction: TransactionData, category: Category) {
         viewModelScope.launch {
+            // First, assign the category to this specific transaction
             val transactionId = generateTransactionKey(transaction)
             categoryRepository.setCategoryForTransaction(transactionId, category.id)
             
             // Update the transaction in memory
             transaction.categoryId = category.id
+            
+            // If transaction has a provider, assign same category to all transactions 
+            // from this provider
+            transaction.provider?.let { provider ->
+                if (provider.isNotEmpty()) {
+                    assignCategoryToProvider(provider, category.id)
+                }
+            }
             
             // Reload data to reflect changes
             loadCategorySpending()
@@ -197,6 +283,28 @@ class CategoriesViewModel(
                 val firstTransaction = _categoryTransactions.value.firstOrNull()
                 firstTransaction?.categoryId?.let { loadTransactionsForCategory(it) }
             }
+        }
+    }
+    
+    /**
+     * Assign category to all transactions from the same provider
+     */
+    private suspend fun assignCategoryToProvider(provider: String, categoryId: String) {
+        // Get all transactions
+        val allTransactions = transactionRepository.getTransactions()
+        
+        // Find all transactions with the same provider
+        val matchingTransactions = allTransactions.filter { 
+            it.provider == provider 
+        }
+        
+        // Assign the category to each matching transaction
+        for (transaction in matchingTransactions) {
+            val transactionId = generateTransactionKey(transaction)
+            categoryRepository.setCategoryForTransaction(transactionId, categoryId)
+            
+            // Update in-memory transaction data if found
+            transaction.categoryId = categoryId
         }
     }
     
