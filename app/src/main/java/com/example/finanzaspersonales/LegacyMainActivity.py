@@ -1,8 +1,5 @@
-// This file is the legacy MainActivity that was used in the previous version of the app.
-// It is kept here for reference and to ensure that the app still works as expected.
-// Should correspond to 
-package com.example.finanzaspersonales
-
+// package com.example.finanzaspersonales
+// 
 import android.Manifest
 import android.content.pm.PackageManager
 import android.database.Cursor

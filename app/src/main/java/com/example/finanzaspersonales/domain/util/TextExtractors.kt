@@ -44,8 +44,9 @@ object TextExtractors {
         while (allCapsMatcher.find()) {
             val match = allCapsMatcher.group(1)
             // Skip known non-provider words often in ALL CAPS (add more as needed)
-            if (match != "COP" && match != "USD" && match.length > 3 && match.length > maxLength) {
-                maxLength = match.length
+            val matchLength = match?.length ?: 0
+            if (match != "COP" && match != "USD" && matchLength > 3 && matchLength > maxLength) {
+                maxLength = matchLength
                 bestMatch = match
             }
         }
@@ -173,7 +174,10 @@ object TextExtractors {
         
         context.contentResolver.query(uri, projection, null, null, null)?.use { cursor ->
             if (cursor.moveToFirst()) {
-                return cursor.getString(cursor.getColumnIndex(ContactsContract.PhoneLookup.DISPLAY_NAME))
+                val index = cursor.getColumnIndex(ContactsContract.PhoneLookup.DISPLAY_NAME)
+                if (index >= 0) {
+                    return cursor.getString(index)
+                }
             }
         }
         
