@@ -6,6 +6,7 @@ import com.example.finanzaspersonales.data.local.SmsDataSource
 import com.example.finanzaspersonales.data.model.SmsMessage
 import com.example.finanzaspersonales.data.model.TransactionData
 import com.example.finanzaspersonales.data.model.Category
+import com.example.finanzaspersonales.data.local.SharedPrefsManager
 import com.example.finanzaspersonales.domain.usecase.CategoryAssignmentUseCase
 import com.example.finanzaspersonales.domain.usecase.ExtractTransactionDataUseCase
 import com.example.finanzaspersonales.domain.util.DateTimeUtils.toMonth
@@ -13,6 +14,7 @@ import com.example.finanzaspersonales.domain.util.DateTimeUtils.toYear
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import java.util.UUID
+import android.util.Log
 
 /**
  * Implementation of the TransactionRepository
@@ -21,7 +23,8 @@ class TransactionRepositoryImpl(
     private val context: Context,
     private val smsDataSource: SmsDataSource,
     private val extractTransactionDataUseCase: ExtractTransactionDataUseCase,
-    private val categoryAssignmentUseCase: CategoryAssignmentUseCase
+    private val categoryAssignmentUseCase: CategoryAssignmentUseCase,
+    private val sharedPrefsManager: SharedPrefsManager
 ) : TransactionRepository {
     
     private var cachedSmsMessages: List<SmsMessage> = emptyList()
@@ -79,11 +82,25 @@ class TransactionRepositoryImpl(
      * Refresh SMS data
      */
     override suspend fun refreshSmsData() = withContext(Dispatchers.IO) {
-        cachedSmsMessages = smsDataSource.readSmsMessages()
-        cachedTransactions = extractTransactionDataUseCase.execute(cachedSmsMessages)
-        
-        // Apply saved category assignments and auto-categorize new transactions
-        applyCategoryAssignments(cachedTransactions)
+        try {
+            // Check if we have SMS permission before attempting to read messages
+            if (!smsDataSource.hasReadSmsPermission()) {
+                Log.w("TransactionRepo", "Cannot refresh SMS data: READ_SMS permission not granted")
+                // Return without changing cached data
+                return@withContext
+            }
+            
+            cachedSmsMessages = smsDataSource.readSmsMessages()
+            cachedTransactions = extractTransactionDataUseCase.execute(cachedSmsMessages)
+            
+            // Apply saved category assignments and auto-categorize new transactions
+            applyCategoryAssignments(cachedTransactions)
+        } catch (e: Exception) {
+            Log.e("TransactionRepo", "Error refreshing SMS data", e)
+            // If we have no cached data yet, initialize with empty lists to prevent further crashes
+            if (cachedSmsMessages.isEmpty()) cachedSmsMessages = emptyList()
+            if (cachedTransactions.isEmpty()) cachedTransactions = emptyList()
+        }
     }
     
     /**
@@ -115,7 +132,46 @@ class TransactionRepositoryImpl(
      */
     override suspend fun getTransactionsByCategory(categoryId: String): List<TransactionData> = 
         withContext(Dispatchers.Default) {
-            getTransactions().filter { it.categoryId == categoryId }
+            val transactions = getTransactions()
+            val categories = sharedPrefsManager.loadCategories()
+            
+            // Get the requested category
+            val category = categories.find { it.id == categoryId }
+            
+            // Simple approach: Check if this is the "Other" category by name
+            val isOtherCategory = category?.name?.equals("Other", ignoreCase = true) ?: false
+            
+            // Comprehensive debug logging
+            android.util.Log.d("TransactionRepo", "Getting transactions for category: ${category?.name} (id: $categoryId)")
+            android.util.Log.d("TransactionRepo", "Is Other category: $isOtherCategory")
+            android.util.Log.d("TransactionRepo", "Total transactions: ${transactions.size}")
+            android.util.Log.d("TransactionRepo", "Transactions with null category: ${transactions.count { it.categoryId == null }}")
+            android.util.Log.d("TransactionRepo", "Transactions with this category ID: ${transactions.count { it.categoryId == categoryId }}")
+            
+            // Get all transactions for this category
+            val result = if (isOtherCategory) {
+                // For "Other" category, also include transactions with null categoryId
+                val filteredList = transactions.filter { 
+                    it.categoryId == null || it.categoryId == categoryId 
+                }
+                android.util.Log.d("TransactionRepo", "Special handling for Other category - included ${filteredList.size} transactions")
+                filteredList
+            } else {
+                // Normal filtering for other categories
+                transactions.filter { it.categoryId == categoryId }
+            }
+            
+            android.util.Log.d("TransactionRepo", "Final result: ${result.size} transactions")
+            
+            // If still empty but this is Other category, just return all uncategorized as a fallback
+            if (result.isEmpty() && isOtherCategory) {
+                // Emergency fallback - just get all null category items
+                val fallback = transactions.filter { it.categoryId == null }
+                android.util.Log.d("TransactionRepo", "Using fallback for Other - found ${fallback.size} uncategorized transactions")
+                return@withContext fallback
+            }
+            
+            result
         }
     
     /**

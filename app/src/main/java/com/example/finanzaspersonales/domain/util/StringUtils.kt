@@ -1,6 +1,7 @@
 package com.example.finanzaspersonales.domain.util
 
 import java.util.Locale
+import java.text.DecimalFormat
 
 /**
  * Utility functions for string operations
@@ -17,9 +18,10 @@ object StringUtils {
     }
     
     /**
-     * Formats a number as a currency string
+     * Formats a number as a currency string with thousands separators
      */
     fun formatAmount(amount: Float): String {
-        return String.format("%.2f", amount)
+        val formatter = DecimalFormat("#,##0.00")
+        return formatter.format(amount)
     }
 } 

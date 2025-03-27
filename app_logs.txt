@@ -1,0 +1,294 @@
+--------- beginning of system
+03-26 12:48:41.637 27373 29277 D FreecessController: com.clarocolombia.miclaro(10496) is important[7]
+03-26 12:48:41.664   666   666 D io_stats: !@   8,0 r 57593242 1580812996 w 11478103 175723944 d 1209139 83884272 f 0 0 iot 23599996 0 th 0 0 0 pt 0 inp 0 0 322396.009
+03-26 12:48:42.205 27373 27607 D ActivityManager: Received BROADCAST intent 0x9745a55 Key{broadcastIntent pkg=com.google.android.gms/com.google.android.gms.gcm intent=act=com.google.android.gms.gcm.HEARTBEAT_ALARM pkg=com.google.android.gms flags=0x4000000 u=0} requestCode=0 sent=0 from uid 1000
+--------- beginning of main
+03-26 12:48:42.215 29172 13891 I AlarmManager: setExactAndAllowWhileIdle [name: GCM_HB_ALARM type: 2 triggerAtMillis: 445060360]
+03-26 12:48:42.215 27373 30314 D AlarmManager: force change alarm method to setWindow() callingUid=10225, sourcePackage=com.google.android.gms, action=com.google.android.gms.gcm.HEARTBEAT_ALARM, origTriggerAtTime=445060360, triggerAtTime=445030361, windowLength=29999
+03-26 12:48:42.223 27373 31018 D PkgPredictorService-IpmAufPreloadController: getPredictByCount: start to read DB
+03-26 12:48:42.224 27373 31018 D PkgPredictorService-IpmAufPreloadController: getPredictByCount: sorted launchMap: [com.whatsapp=88, com.example.finanzaspersonales=38, com.zhiliaoapp.musically=29, com.google.android.youtube=23, com.microsoft.teams=16, com.linkedin.android=16, com.tplink.iot=12, com.sec.android.gallery3d=12, com.google.android.googlequicksearchbox=9, com.sec.android.app.camera=9, com.google.android.apps.photos=8, com.audible.application=7, com.ubercab=6, com.einnovation.temu=6, com.grability.rappi=5, com.truecaller=5, com.openai.chatgpt=5, com.google.android.deskclock=4, com.google.android.apps.maps=3, co.com.bancolombia.personas.superapp=3, com.microsoft.emmx=3, com.android.chrome=3, com.android.settings=3, com.google.android.contacts=2, com.todo1.mobile=2, ai.perplexity.app.android=2, com.tmsoft.whitenoise.full=1, com.microsoft.office.outlook=1, com.google.android.apps.walletnfcrel=1, com.linkedin.android.learning=1, com.amazon.mShop.android.shopping=1, com.microsoft.copilot=1, com.example.manageproducts=1, com.google.android.inputmethod.latin=1, com.samsung.android.app.notes=1, com.deepseek.chat=1, com.mercadolibre=1, com.netflix.mediaclient=1]
+03-26 12:48:42.224 27373 31018 D PkgPredictorService-IpmAufPreloadController: getPredictByCount: get count predict Apps SUCCESSFUL!
+03-26 12:48:42.229   909   909 E audit   : type=1400 audit(1743011322.225:262824): avc:  denied  { ioctl } for  pid=14451 comm=4173796E635461736B202332 path="/data/data/com.microsoft.office.officehubrow/databases/IntuneMAM" dev="dm-52" ino=716263 ioctlcmd=0xf522 scontext=u:r:untrusted_app:s0:c18,c257,c512,c768 tcontext=u:object_r:app_data_file:s0:c18,c257,c512,c768 tclass=file permissive=0 SEPF_SM-G990E_12_0001 audit_filtered
+03-26 12:48:42.229   909   909 E audit   : type=1300 audit(1743011322.225:262824): arch=c00000b7 syscall=29 success=no exit=-13 a0=70 a1=f522 a2=731d3e0868 a3=b4000070b082b4c0 items=0 ppid=27229 pid=14451 auid=4294967295 uid=10274 gid=10274 euid=10274 suid=10274 fsuid=10274 egid=10274 sgid=10274 fsgid=10274 tty=(none) ses=4294967295 comm=4173796E635461736B202332 exe="/system/bin/app_process64" subj=u:r:untrusted_app:s0:c18,c257,c512,c768 key=(null)
+03-26 12:48:42.229   909   909 E audit   : type=1327 audit(1743011322.225:262824): proctitle="com.microsoft.office.officehubrow"
+03-26 12:48:42.234   909   909 E audit   : type=1400 audit(1743011322.229:262825): avc:  denied  { ioctl } for  pid=14451 comm=4173796E635461736B202332 path="/data/data/com.microsoft.office.officehubrow/databases/IntuneMAM" dev="dm-52" ino=716263 ioctlcmd=0xf522 scontext=u:r:untrusted_app:s0:c18,c257,c512,c768 tcontext=u:object_r:app_data_file:s0:c18,c257,c512,c768 tclass=file permissive=0 SEPF_SM-G990E_12_0001 audit_filtered
+03-26 12:48:42.246 14451 14451 E AppHost.Android: Low memory. Level : 40. App part of LRU list. Likely to be killed anytime
+03-26 12:48:42.296   964 17555 W C2BqBuffer: last successful dequeue was 14542467522 us ago, 138606 consecutive failures
+03-26 12:48:42.303 29172 13891 D ConnectivityManager: StackLog: [android.net.ConnectivityManager.reportNetworkConnectivity(ConnectivityManager.java:3659)] [bjux.a(:com.google.android.gms@250934029@25.09.34 (190400-738842635):15)] [bjxg.p(:com.google.android.gms@250934029@25.09.34 (190400-738842635):6)] [bjvz.a(:com.google.android.gms@250934029@25.09.34 (190400-738842635):626)] [bjwt.run(:com.google.android.gms@250934029@25.09.34 (190400-738842635):15)] [bjxr.run(:com.google.android.gms@250934029@25.09.34 (190400-738842635):5)] [fhot.run(:com.google.android.gms@250934029@25.09.34 (190400-738842635):21)] [atuu.c(:com.google.android.gms@250934029@25.09.34 (190400-738842635):50)] [atuu.run(:com.google.android.gms@250934029@25.09.34 (190400-738842635):76)] [java.util.concurrent.ThreadPoolExecutor.runWorker(ThreadPoolExecutor.java:1145)] [java.util.concurrent.ThreadPoolExecutor$Worker.run(ThreadPoolExecutor.java:644)] [auai.run(:com.google.android.gms@250934029@25.09.34 (190400-738842635):8)] [java.lang.Thread.run(Thread.java:1012)]
+03-26 12:48:42.304 29172 13891 I AlarmManager: setExactAndAllowWhileIdle [name: GCM_HB_ALARM type: 2 triggerAtMillis: 445590449]
+03-26 12:48:42.304 27373 30309 D AlarmManager: force change alarm method to setWindow() callingUid=10225, sourcePackage=com.google.android.gms, action=com.google.android.gms.gcm.HEARTBEAT_ALARM, origTriggerAtTime=445590449, triggerAtTime=445295449, windowLength=295000
+03-26 12:48:42.376 27373 27403 I system_server: Background concurrent copying GC freed 13MB AllocSpace bytes, 629(12MB) LOS objects, 15% free, 129MB/153MB, paused 144us,217us total 130.236ms
+03-26 12:48:42.380 27373 27405 W System  : A resource failed to call HardwareBuffer.close. 
+03-26 12:48:42.591 21168 21168 D HidDeviceService: handleMessage(): msg.what=8
+03-26 12:48:42.596 21168 21168 D HidDeviceService: handleMessage(): msg.what=8
+03-26 12:48:42.609  1055  1160 I VSyncReactor: Current= 60, Period= 60, hwcPeriod= 60
+03-26 12:48:43.197 27373 29277 D FreecessController: com.whatsapp(10295) is important[2]
+03-26 12:48:43.198 27268 14689 I HYPER-HAL: [RequestManager.cpp]releaseLocked(): Released ID : 2115597
+03-26 12:48:43.198 27373 29277 D FreecessController: com.google.android.inputmethod.latin(10380) is important[11]
+03-26 12:48:43.236  1030  1198 I EDEN    : [Exynos][EDEN][v1.6.23][SERVICE] processAliveMointorMain:253: Try to check pid=(969)...
+03-26 12:48:43.667   666   666 D io_stats: !@   8,0 r 57593267 1580813380 w 11478128 175724336 d 1209139 83884272 f 0 0 iot 23600044 0 th 0 0 0 pt 0 inp 0 0 322398.013
+03-26 12:48:43.668   666   666 D io_stats: !@ Read_top(KB): rs.media.module(29548) 1732 .gms.persistent(29172) 344 system_server(27373) 32
+03-26 12:48:43.668   666   666 D io_stats: !@ Write_top(KB): kworker/u16:9(8747) 376 henticator:auth(11113) 16 system_server(27373) 8
+03-26 12:48:43.994 17631 17631 I wpa_supplicant: Heartbeat 5545
+03-26 12:48:44.110 21168 21168 D HidDeviceService: handleMessage(): msg.what=8
+03-26 12:48:44.115 21168 21168 D HidDeviceService: handleMessage(): msg.what=8
+03-26 12:48:44.124  1055  1160 I VSyncReactor: Current= 60, Period= 60, hwcPeriod= 60
+03-26 12:48:44.199  9935 10036 I MediaCodec: setCodecState state(0), called in 6
+03-26 12:48:44.200 27373 30309 V ResourceManagerHelper-JNI: JNIMediaResourceHelper::notify eventType : 3, ext1 : 0, ext2 : 0
+03-26 12:48:44.200 27373 30309 V ResourceManagerHelper-JNI: notify eventType : 3, ext1 : 0, ext2 : 0
+03-26 12:48:44.200 27373 27687 I SemMediaResourceHelper: onState
+03-26 12:48:44.200  9813  9824 V ResourceManagerHelper-JNI: JNIMediaResourceHelper::notify eventType : 3, ext1 : 0, ext2 : 0
+03-26 12:48:44.200 29649 29649 I SemMediaResourceHelper: onState
+03-26 12:48:44.200  9813  9824 V ResourceManagerHelper-JNI: notify eventType : 3, ext1 : 0, ext2 : 0
+03-26 12:48:44.200  9813  9829 I SemMediaResourceHelper: onState
+03-26 12:48:44.200  9813  9829 I DrmMediaResourceHelper: onStateChanged size = 3
+03-26 12:48:44.200  9813  9829 I DrmMediaResourceHelper: resource type: 2,,,isSecured :  falseIsEncoder : truegetCodecState : 0getpid : 9935
+03-26 12:48:44.201  9813  9829 I DrmMediaResourceHelper: resource type: 2,,,isSecured :  falseIsEncoder : falsegetCodecState : 0getpid : 14853
+03-26 12:48:44.201  9813  9829 I DrmMediaResourceHelper: resource type: 2,,,isSecured :  falseIsEncoder : falsegetCodecState : 0getpid : 14853
+03-26 12:48:44.227 27957 27957 W Settings: Setting wifi_on has moved from android.provider.Settings.System to android.provider.Settings.Secure, returning read-only value.
+03-26 12:48:44.227 27957 27957 W Settings: Setting wifi_on has moved from android.provider.Settings.Secure to android.provider.Settings.Global.
+03-26 12:48:44.227 27957 27957 I EPDG -- SIM0 [SMARTWIFI]: isWifiRssiLessOrEqualsHandoverThreshold: received rssi is: -35 handover threshold is: -100
+03-26 12:48:44.316 27373 30642 D SemWifiUsabilityStatsMonitor: onWifiUsabilityStats - seqNum 30747, isSameBssidAndFreq true
+03-26 12:48:44.319 27957 27957 I EPDG -- SIM0 [SMARTWIFI]: Rssi : -35 highrange : -101 lowrange : -100 mIsRssiInHystersis : false
+03-26 12:48:44.319 27957 27957 I EPDG -- SIM0 [SMARTWIFI]: Rssi : -35 highrange : -101 lowrange : -100 mIsRssiInHystersis : false
+03-26 12:48:44.319 27957 27957 I EPDG -- SIM0 [SMARTWIFI]: getHandoverThresholdMet: value is: false
+03-26 12:48:44.320 27996 27996 D StatusBarIconController: ignoring old pipeline callback because the new wifi icon is enabled
+03-26 12:48:44.350  1055  1055 D SurfaceFlinger: GPIS:: requestGPISForClientComposition
+03-26 12:48:44.357   964 10042 D BufferPoolAccessor2.0: bufferpool2 0xb40000782e8636b8 : 2(1320384 size) total buffers - 1(660192 size) used buffers - 27410/27592 (recycle/alloc) - 0/0 (fetch/transfer)
+03-26 12:48:44.364  1055  3068 D NativeSemDvfsManager: acquire:: timeout = 2000 mIsAcquired = 1  mTagName : SurfaceFlinger 
+03-26 12:48:44.364   964 10058 D BufferPoolAccessor2.0: bufferpool2 0xb40000782e859bc8 : 5(5244160 size) total buffers - 5(5244160 size) used buffers - 27436/27596 (recycle/alloc) - 2567/27591 (fetch/transfer)
+03-26 12:48:44.364 27268 27277 I HYPER-HAL: [RequestManager.cpp]acquire(): Acquired ID : 2115597  [1055 / 1001]    HINT : SF_GPU_MINLOCK    list : [TIMEOUT / 2000] 
+03-26 12:48:44.365  1055  3068 E NativeCustomFrequencyManager: [NativeCFMS] BpCustomFrequencyManager::acquire()
+03-26 12:48:44.365  9935 10036 I MediaCodec: setCodecState state(1), called in 6
+03-26 12:48:44.366 27373 30309 V ResourceManagerHelper-JNI: JNIMediaResourceHelper::notify eventType : 3, ext1 : 0, ext2 : 0
+03-26 12:48:44.366 27373 30309 V ResourceManagerHelper-JNI: notify eventType : 3, ext1 : 0, ext2 : 0
+03-26 12:48:44.366  9813  9824 V ResourceManagerHelper-JNI: JNIMediaResourceHelper::notify eventType : 3, ext1 : 0, ext2 : 0
+03-26 12:48:44.366 27373 27687 I SemMediaResourceHelper: onState
+03-26 12:48:44.366  9813  9824 V ResourceManagerHelper-JNI: notify eventType : 3, ext1 : 0, ext2 : 0
+03-26 12:48:44.366 29649 29649 I SemMediaResourceHelper: onState
+03-26 12:48:44.366  9813  9829 I SemMediaResourceHelper: onState
+03-26 12:48:44.366  9813  9829 I DrmMediaResourceHelper: onStateChanged size = 3
+03-26 12:48:44.366  9813  9829 I DrmMediaResourceHelper: resource type: 2,,,isSecured :  falseIsEncoder : truegetCodecState : 1getpid : 9935
+03-26 12:48:44.366  9813  9829 I DrmMediaResourceHelper: resource type: 2,,,isSecured :  falseIsEncoder : falsegetCodecState : 0getpid : 14853
+03-26 12:48:44.366  9813  9829 I DrmMediaResourceHelper: resource type: 2,,,isSecured :  falseIsEncoder : falsegetCodecState : 0getpid : 14853
+03-26 12:48:44.671 29172 29172 D BoundBrokerSvc: onUnbind: Intent { act=com.google.android.gms.auth.aang.events.services.START dat=chimera-action:/... cmp=com.google.android.gms/.chimera.PersistentApiService }
+03-26 12:48:44.755 27373 27951 D SGM:GameManager: identifyForegroundApp. com.sec.android.app.launcher, mCurrentUserId: 0, callerUserId: 0
+03-26 12:48:44.755 27373 27951 D SGM:PkgDataHelper: getGamePkgData(). com.sec.android.app.launcher
+03-26 12:48:44.755 21672 21923 I PolicyManager: [#CMH#] Is foreground game app: false
+03-26 12:48:45.080   964 17656 W C2BqBuffer: last successful dequeue was 14516810091 us ago, 138476 consecutive failures
+03-26 12:48:45.624 21168 21168 D HidDeviceService: handleMessage(): msg.what=8
+03-26 12:48:45.629 21168 21168 D HidDeviceService: handleMessage(): msg.what=8
+03-26 12:48:45.639  1055  1160 I VSyncReactor: Current= 60, Period= 60, hwcPeriod= 60
+03-26 12:48:45.668   666   666 D io_stats: !@   8,0 r 57593269 1580813388 w 11478128 175724336 d 1209139 83884272 f 0 0 iot 23600052 0 th 0 0 0 pt 0 inp 0 0 322400.014
+03-26 12:48:46.105 27373 29277 D FreecessController: com.google.android.youtube(10240) is important[fg-service]
+03-26 12:48:46.364 27268 14706 I HYPER-HAL: [RequestManager.cpp]releaseLocked(): Released ID : 2115597
+03-26 12:48:46.643 27373 29277 D FreecessController: com.clarocolombia.miclaro(10496) is important[7]
+03-26 12:48:47.143 21168 21168 D HidDeviceService: handleMessage(): msg.what=8
+03-26 12:48:47.147 21168 21168 D HidDeviceService: handleMessage(): msg.what=8
+03-26 12:48:47.154  1055  1160 I VSyncReactor: Current= 60, Period= 60, hwcPeriod= 60
+03-26 12:48:47.308   964 17555 W C2BqBuffer: last successful dequeue was 14547480206 us ago, 138651 consecutive failures
+03-26 12:48:47.367  9935 10036 I MediaCodec: setCodecState state(0), called in 6
+03-26 12:48:47.369 27373 27951 V ResourceManagerHelper-JNI: JNIMediaResourceHelper::notify eventType : 3, ext1 : 0, ext2 : 0
+03-26 12:48:47.369 27373 27951 V ResourceManagerHelper-JNI: notify eventType : 3, ext1 : 0, ext2 : 0
+03-26 12:48:47.369  9813  9824 V ResourceManagerHelper-JNI: JNIMediaResourceHelper::notify eventType : 3, ext1 : 0, ext2 : 0
+03-26 12:48:47.369  9813  9824 V ResourceManagerHelper-JNI: notify eventType : 3, ext1 : 0, ext2 : 0
+03-26 12:48:47.370 27373 27687 I SemMediaResourceHelper: onState
+03-26 12:48:47.370 29649 29649 I SemMediaResourceHelper: onState
+03-26 12:48:47.370  9813  9829 I SemMediaResourceHelper: onState
+03-26 12:48:47.370  9813  9829 I DrmMediaResourceHelper: onStateChanged size = 3
+03-26 12:48:47.370  9813  9829 I DrmMediaResourceHelper: resource type: 2,,,isSecured :  falseIsEncoder : truegetCodecState : 0getpid : 9935
+03-26 12:48:47.370  9813  9829 I DrmMediaResourceHelper: resource type: 2,,,isSecured :  falseIsEncoder : falsegetCodecState : 0getpid : 14853
+03-26 12:48:47.370  9813  9829 I DrmMediaResourceHelper: resource type: 2,,,isSecured :  falseIsEncoder : falsegetCodecState : 0getpid : 14853
+03-26 12:48:47.451 27957 27957 W Settings: Setting wifi_on has moved from android.provider.Settings.System to android.provider.Settings.Secure, returning read-only value.
+03-26 12:48:47.451 27957 27957 W Settings: Setting wifi_on has moved from android.provider.Settings.Secure to android.provider.Settings.Global.
+03-26 12:48:47.451 27957 27957 I EPDG -- SIM0 [SMARTWIFI]: isWifiRssiLessOrEqualsHandoverThreshold: received rssi is: -35 handover threshold is: -100
+03-26 12:48:47.481 27373 30642 D SemWifiUsabilityStatsMonitor: onWifiUsabilityStats - seqNum 30748, isSameBssidAndFreq true
+03-26 12:48:47.481 27957 27957 I EPDG -- SIM0 [SMARTWIFI]: Rssi : -35 highrange : -101 lowrange : -100 mIsRssiInHystersis : false
+03-26 12:48:47.481 27957 27957 I EPDG -- SIM0 [SMARTWIFI]: Rssi : -35 highrange : -101 lowrange : -100 mIsRssiInHystersis : false
+03-26 12:48:47.481 27957 27957 I EPDG -- SIM0 [SMARTWIFI]: getHandoverThresholdMet: value is: false
+03-26 12:48:47.660   909   909 E audit   : type=1400 audit(1743011327.657:262831): avc:  denied  { ioctl } for  pid=12988 comm="pool-29-thread-" path="/data/data/com.mercadolibre/databases/melidata_db" dev="dm-52" ino=141512 ioctlcmd=0xf522 scontext=u:r:untrusted_app:s0:c68,c257,c512,c768 tcontext=u:object_r:app_data_file:s0:c68,c257,c512,c768 tclass=file permissive=0 SEPF_SM-G990E_12_0001 audit_filtered
+03-26 12:48:47.660   909   909 E audit   : type=1300 audit(1743011327.657:262831): arch=c00000b7 syscall=29 success=no exit=-13 a0=54 a1=f522 a2=731d3e0868 a3=b4000070b081b700 items=0 ppid=27229 pid=12988 auid=4294967295 uid=10324 gid=10324 euid=10324 suid=10324 fsuid=10324 egid=10324 sgid=10324 fsgid=10324 tty=(none) ses=4294967295 comm="pool-29-thread-" exe="/system/bin/app_process64" subj=u:r:untrusted_app:s0:c68,c257,c512,c768 key=(null)
+03-26 12:48:47.660   909   909 E audit   : type=1327 audit(1743011327.657:262831): proctitle="com.mercadolibre"
+03-26 12:48:47.670   666   666 D io_stats: !@   8,0 r 57593271 1580813396 w 11478263 175724868 d 1209139 83884272 f 0 0 iot 23600068 0 th 0 0 0 pt 0 inp 0 0 322402.015
+03-26 12:48:47.670   666   666 D io_stats: !@ Read_top(KB): ce.officehubrow(14451) 8 .gms.persistent(29172) 8
+03-26 12:48:47.670   666   666 D io_stats: !@ Write_top(KB): ce.officehubrow(14451) 176 kworker/u16:9(8747) 48
+03-26 12:48:48.063   948   948 I android.hardware.health@2.1-service-samsung: updateLrpSysfs: write: 353
+03-26 12:48:48.064 27373 27426 D BatteryService: Sending ACTION_BATTERY_CHANGED: level:100, status:5, health:2, remain:0, ac:false, usb:true, wireless:false, pogo:false, misc:0x20000, charge_type:1, charger_type:1, voltage:4343, temperature:349, online:19, charging_status:0, cycle_count:0, current_avg:363, ps:false, hvc:true, capacity:280000, current_event:0x8000, current_now:415, mcc:0, mcv:0, cc:4132000, present:true, scale:100, technology:Li-ion
+03-26 12:48:48.070 14607 14890 V AppSyncOfflineMutationInterceptor: Thread:[709]: processing Mutations
+03-26 12:48:48.070 14607 14890 V QueueUpdateHandler: Thread:[709]: Got message to take action on the mutation queue.
+03-26 12:48:48.070 14607 14890 V QueueUpdateHandler: Thread:[709]: Got message to process next mutation if one exists.
+03-26 12:48:48.071 27373 27839 I DeviceBatteryInfoService: action: android.intent.action.BATTERY_CHANGED
+03-26 12:48:48.071 27373 27839 I DeviceBatteryInfoService: phone battery level: 100
+03-26 12:48:48.071 27373 27839 I DeviceBatteryInfoService: phone battery status: 5
+03-26 12:48:48.071 14607 14890 V AppSyncOfflineMutationManager: Thread:[709]:Persistent mutations queue is EMPTY!. Will check inMemory Queue next
+03-26 12:48:48.071 14607 14890 V AppSyncOfflineMutationManager: Thread:[709]: In Memory mutations queue was EMPTY!. Nothing to process, exiting
+03-26 12:48:48.071 27373 27373 E PocketModeEvent: PocketModeSetting is off 
+03-26 12:48:48.073 27373 27689 D MotionRecognitionService: [SAR]  onReceive : ACTION_BATTERY_CHANGED, Plugged: 2
+03-26 12:48:48.073 27879 27879 D SemBigDataInfoController: Intent: android.intent.action.BATTERY_CHANGED
+03-26 12:48:48.073 27879 27879 D SemBigDataInfoController: Intent: android.intent.action.BATTERY_CHANGED
+03-26 12:48:48.074 27996 27996 I AODBatteryManager: updateBatteryData: ACTION_BATTERY_CHANGED
+03-26 12:48:48.074 27996 27996 I AODBatteryManager: getChargeEstimateTime: not charging
+03-26 12:48:48.074 27996 27996 I AODBatteryManager: saveBatteryData : AOD BatteryData [mBatteryLevel=100, mBatteryStatus=FULL, mBatteryPlugType=USB, mBatteryPlugged=true, mRemainingChargeTime=0, mBatteryChargingType=0, mBatteryChargerType=FAST, mBatteryOnline=NOT_DEFINED, mBatterySwellingMode=NONE, mBatteryProtectMode=false, mBatteryProtectModeType=0, mSleepChargingEvent=null, mSleepChargingEventFinishTime=null]
+03-26 12:48:48.075 27996 27996 D SamsungBatteryMeterDrawable: onBatteryLevelChanged isSomethingChanged: false
+03-26 12:48:48.075 27996 27996 D SamsungBatteryMeterDrawable: onBatteryLevelChanged isSomethingChanged: false
+03-26 12:48:48.075 27996 27996 D SamsungBatteryMeterDrawable: onBatteryLevelChanged isSomethingChanged: false
+03-26 12:48:48.075 27996 27996 I PowerUI : mBootCompleted = true |  mFullyConnected = true
+03-26 12:48:48.075 27996 27996 I PowerUI : BATTERY_HEALTH_CHECK extraHealth=2 mBatteryMiscEvent=131072
+03-26 12:48:48.075 27996 27996 I PowerUI : dismissAdaptiveProtectionNotification
+03-26 12:48:48.075 27996 27996 D SecPowerUI.Notification: SecBatteryStatsSnapshot{batteryLevel=100, currentBatteryMode=0, chargingTime=0, chargingType=0, batteryHealth=2, automaticTestMode=false, isHiccupState=false, optChargingFinishTime=}
+03-26 12:48:48.075 27373 27951 D KNOX_MDM_SettingsProvider: isChangeAllowed() : name = key_sleep_charging
+03-26 12:48:48.075 27373 27951 D KNOX_MDM_SettingsProvider: edmUri: content://com.sec.knox.provider/RestrictionPolicy3
+03-26 12:48:48.075 27373 27951 D KNOX_MDM_SettingsProvider: projectionArgs: isSettingsChangesAllowed
+03-26 12:48:48.075 27373 27951 D KNOX_MDM_SettingsProvider: selectionArgs: false
+03-26 12:48:48.075 27373 27951 D KNOX_MDM_SettingsProvider: selectionArgs: 10040
+03-26 12:48:48.075 27373 27951 D SecContentProvider: query(), uri = 17 selection = isSettingsChangesAllowed
+03-26 12:48:48.075 27373 27951 D SecContentProvider: called from android.uid.systemui:10040
+03-26 12:48:48.076 27373 27951 D RestrictionPolicy: isSettingsChangesAllowedAsUser, userId 0 : true
+03-26 12:48:48.076 27373 27951 D KNOX_MDM_SettingsProvider: ret = 1
+03-26 12:48:48.076 27996 27996 W PowerUI : Plug reason
+03-26 12:48:48.076 27996 27996 W PowerUI : Skip charging animation - by plug status
+03-26 12:48:48.076 27996 27996 D PowerUI : priorPlugType = 2 mPlugType = 2 priorBatteryStatus = 5 mBatteryStatus = 5
+03-26 12:48:48.076 27996 27996 W PowerUI : Plug reason
+03-26 12:48:48.076 27996 27996 W PowerUI : Skip charging sound - by plug status
+03-26 12:48:48.076 27996 27996 I PowerUI : oldMisalign : false, curMisalign : false
+03-26 12:48:48.076 27996 27996 D SecPowerUI.Notification: dismissSlowByChargerConnectionInfoPopUp()
+03-26 12:48:48.076 27996 27996 D SecPowerUI.Notification: dismissChargingNotification()
+03-26 12:48:48.076 27996 27996 D SecPowerUI.Notification: SecBatteryStatsSnapshot{batteryLevel=100, currentBatteryMode=0, chargingTime=0, chargingType=0, batteryHealth=2, automaticTestMode=false, isHiccupState=false, optChargingFinishTime=}
+03-26 12:48:48.076 27996  4398 D SecPowerUI.Notification: dismissing low battery warning: level=100
+03-26 12:48:48.076 27996  4398 D SecPowerUI.Notification: updateNotification mWarning=false mPlaySound=false
+03-26 12:48:48.076 27996  4398 D SecPowerUI.Notification: SecBatteryStatsSnapshot{batteryLevel=100, currentBatteryMode=0, chargingTime=0, chargingType=0, batteryHealth=2, automaticTestMode=false, isHiccupState=false, optChargingFinishTime=}
+03-26 12:48:48.076 27996 27996 D PowerUI : Battery swelling mode - priorBatterySwellingMode = 0 mBatterySwellingMode = 0 mBatteryStatus = 5
+03-26 12:48:48.076 27996 27996 I PowerUI : mBatteryMiscEvent = 131072
+03-26 12:48:48.076 27996 27996 I PowerUI : checkBatteryProtectionNotification : 5, pb value : 0, plugType : 2, level : 100
+03-26 12:48:48.076 27996 27996 D SecPowerUI.Notification: SecBatteryStatsSnapshot{batteryLevel=100, currentBatteryMode=0, chargingTime=0, chargingType=0, batteryHealth=2, automaticTestMode=false, isHiccupState=false, optChargingFinishTime=}
+03-26 12:48:48.076 27996  4398 D SecPowerUI.Notification: 1. restoreScreenTimeOut - saved_value : :
+03-26 12:48:48.076 27996  4398 E SecPowerUI.Notification: no saved value, so we do nothing !!
+03-26 12:48:48.076 27373 27428 W ProcessStats: Tracking association SourceState{1bffc2b com.google.android.googlequicksearchbox:search/10230 BTop #997325} whose proc state 2 is better than process ProcessState{f910f1b com.google.android.googlequicksearchbox:interactor/10230 pkg=com.google.android.googlequicksearchbox} proc state 4 (442 skipped)
+03-26 12:48:48.076 27996 27996 D KeyguardUpdateMonitor: handleBatteryUpdate
+03-26 12:48:48.078 27373 27951 W BroadcastQueue: Ignoring finishReceiverLocked; no active broadcast for BroadcastProcessQueue{5bb5b32 6831:com.lemon.lvoverseas/u0a232}
+03-26 12:48:48.078 27373 27373 D AdaptiveBrightnessLongtermModelBuilder: Received android.intent.action.BATTERY_CHANGED
+03-26 12:48:48.206 27373 29277 D FreecessController: com.whatsapp(10295) is important[2]
+03-26 12:48:48.207 27373 29277 D FreecessController: com.google.android.inputmethod.latin(10380) is important[11]
+03-26 12:48:48.238  1030  1198 I EDEN    : [Exynos][EDEN][v1.6.23][SERVICE] processAliveMointorMain:253: Try to check pid=(969)...
+03-26 12:48:48.366   682 14594 I keystore2: system/security/keystore2/src/watchdog.rs:319 - Watchdog thread idle -> terminating. Have a great day.
+03-26 12:48:48.592 29649 30445 I SDHMS:C : SIOP:: AP:376 BAT:349 USB:342 CHG:361 PA:372 CP:357 WIFI:363 CF:366 BLK:0 SUBBAT:0 SKIN:357 SKINF:348 SKINB:359 LRP:359 LRP2:357 LRF:348 LRB:359 LRF2:347 LRB2:357 AP2:357 CHG2:353 WIFI2:347 RCV2:346 SPK2:338 FCAM:342 UPSPK:363 DNSPK:342 VAP:364 
+03-26 12:48:48.595  1926  2217 D BluetoothAdapter: getBleEnabledArray(): ON
+03-26 12:48:48.595  1926  2217 D BluetoothAdapter: getBleEnabledArray(): ON
+03-26 12:48:48.596  1926  2217 D BluetoothLeScanner: Stop Scan with callback intent
+03-26 12:48:48.657 21168 21168 D HidDeviceService: handleMessage(): msg.what=8
+03-26 12:48:48.665 21168 21168 D HidDeviceService: handleMessage(): msg.what=8
+03-26 12:48:48.670  1055  1160 I VSyncReactor: Current= 60, Period= 60, hwcPeriod= 60
+03-26 12:48:49.672   666   666 D io_stats: !@   8,0 r 57593278 1580813684 w 11478265 175724876 d 1209139 83884272 f 0 0 iot 23600084 0 th 0 0 0 pt 0 inp 0 0 322404.017
+03-26 12:48:49.827  1926  2217 D BluetoothAdapter: getBleEnabledArray(): ON
+03-26 12:48:49.828  1926  2217 D BluetoothAdapter: getBleEnabledArray(): ON
+03-26 12:48:49.829  1926  2217 D BluetoothLeScanner: Stop Scan with callback intent
+03-26 12:48:50.101   964 17656 W C2BqBuffer: last successful dequeue was 14521830809 us ago, 138521 consecutive failures
+03-26 12:48:50.176 21168 21168 D HidDeviceService: handleMessage(): msg.what=8
+03-26 12:48:50.181 21168 21168 D HidDeviceService: handleMessage(): msg.what=8
+03-26 12:48:50.184  1055  1160 I VSyncReactor: Current= 60, Period= 60, hwcPeriod= 60
+03-26 12:48:50.570 27957 27957 W Settings: Setting wifi_on has moved from android.provider.Settings.System to android.provider.Settings.Secure, returning read-only value.
+03-26 12:48:50.570 27957 27957 W Settings: Setting wifi_on has moved from android.provider.Settings.Secure to android.provider.Settings.Global.
+03-26 12:48:50.570 27957 27957 I EPDG -- SIM0 [SMARTWIFI]: isWifiRssiLessOrEqualsHandoverThreshold: received rssi is: -35 handover threshold is: -100
+03-26 12:48:50.657 27373 30642 D SemWifiUsabilityStatsMonitor: onWifiUsabilityStats - seqNum 30749, isSameBssidAndFreq true
+03-26 12:48:50.659 29172 13985 I NearbyMediums: No BLE Fast/GATT advertisements found in the latest cycle.
+03-26 12:48:50.661 27957 27957 I EPDG -- SIM0 [SMARTWIFI]: Rssi : -35 highrange : -101 lowrange : -100 mIsRssiInHystersis : false
+03-26 12:48:50.661 27957 27957 I EPDG -- SIM0 [SMARTWIFI]: Rssi : -35 highrange : -101 lowrange : -100 mIsRssiInHystersis : false
+03-26 12:48:50.661 27957 27957 I EPDG -- SIM0 [SMARTWIFI]: getHandoverThresholdMet: value is: false
+03-26 12:48:50.663 27996 27996 D StatusBarIconController: ignoring old pipeline callback because the new wifi icon is enabled
+03-26 12:48:50.676   964  1452 D BufferPoolAccessor2.0: bufferpool2 0xb40000782e859bc8 : 5(5244160 size) total buffers - 4(4195328 size) used buffers - 27446/27606 (recycle/alloc) - 2571/27602 (fetch/transfer)
+03-26 12:48:50.676   964  1452 D BufferPoolAccessor2.0: bufferpool2 0xb40000782e8636b8 : 2(1320384 size) total buffers - 0(0 size) used buffers - 27420/27602 (recycle/alloc) - 0/0 (fetch/transfer)
+03-26 12:48:50.677   964  1452 D BufferPoolAccessor2.0: evictor expired: 2, evicted: 2
+03-26 12:48:50.694  1055  1055 D SurfaceFlinger: GPIS:: requestGPISForClientComposition
+03-26 12:48:50.705  1055  3068 D NativeSemDvfsManager: acquire:: timeout = 2000 mIsAcquired = 1  mTagName : SurfaceFlinger 
+03-26 12:48:50.705  1055  3068 E NativeCustomFrequencyManager: [NativeCFMS] BpCustomFrequencyManager::acquire()
+03-26 12:48:50.705 27268 27277 I HYPER-HAL: [RequestManager.cpp]acquire(): Acquired ID : 2115597  [1055 / 1001]    HINT : SF_GPU_MINLOCK    list : [TIMEOUT / 2000] 
+03-26 12:48:50.712   964 10041 I ExynosC2Vp8EncComponent: [onUpdateC2Work] got SYNC FRAME
+03-26 12:48:50.715  9935 10036 I MediaCodec: setCodecState state(1), called in 6
+03-26 12:48:50.715 27373 30309 V ResourceManagerHelper-JNI: JNIMediaResourceHelper::notify eventType : 3, ext1 : 0, ext2 : 0
+03-26 12:48:50.715 27373 30309 V ResourceManagerHelper-JNI: notify eventType : 3, ext1 : 0, ext2 : 0
+03-26 12:48:50.715  9813  9824 V ResourceManagerHelper-JNI: JNIMediaResourceHelper::notify eventType : 3, ext1 : 0, ext2 : 0
+03-26 12:48:50.715 27373 27687 I SemMediaResourceHelper: onState
+03-26 12:48:50.715  9813  9824 V ResourceManagerHelper-JNI: notify eventType : 3, ext1 : 0, ext2 : 0
+03-26 12:48:50.715 29649 29649 I SemMediaResourceHelper: onState
+03-26 12:48:50.715  9813  9829 I SemMediaResourceHelper: onState
+03-26 12:48:50.715  9813  9829 I DrmMediaResourceHelper: onStateChanged size = 3
+03-26 12:48:50.715  9813  9829 I DrmMediaResourceHelper: resource type: 2,,,isSecured :  falseIsEncoder : truegetCodecState : 1getpid : 9935
+03-26 12:48:50.715  9813  9829 I DrmMediaResourceHelper: resource type: 2,,,isSecured :  falseIsEncoder : falsegetCodecState : 0getpid : 14853
+03-26 12:48:50.715  9813  9829 I DrmMediaResourceHelper: resource type: 2,,,isSecured :  falseIsEncoder : falsegetCodecState : 0getpid : 14853
+03-26 12:48:51.106 27373 29277 D FreecessController: com.google.android.youtube(10240) is important[fg-service]
+03-26 12:48:51.645 27373 29277 D FreecessController: com.clarocolombia.miclaro(10496) is important[7]
+03-26 12:48:51.673   666   666 D io_stats: !@   8,0 r 57593278 1580813684 w 11478275 175724908 d 1209139 83884272 f 0 0 iot 23600100 0 th 0 0 0 pt 0 inp 0 0 322406.018
+03-26 12:48:51.673   666   666 D io_stats: !@ Read_top(KB): olombia.miclaro(1926) 288
+03-26 12:48:51.673   666   666 D io_stats: !@ Write_top(KB): henticator:auth(11113) 16 olombia.miclaro(1926) 16
+03-26 12:48:51.688 21168 21168 D HidDeviceService: handleMessage(): msg.what=8
+03-26 12:48:51.693 21168 21168 D HidDeviceService: handleMessage(): msg.what=8
+03-26 12:48:51.699  1055  1160 I VSyncReactor: Current= 60, Period= 60, hwcPeriod= 60
+03-26 12:48:52.317   964 17555 W C2BqBuffer: last successful dequeue was 14552488659 us ago, 138696 consecutive failures
+03-26 12:48:52.671   909   909 E audit   : type=1400 audit(1743011332.669:262832): avc:  denied  { ioctl } for  pid=12988 comm="pool-29-thread-" path="/data/data/com.mercadolibre/databases/melidata_db" dev="dm-52" ino=141512 ioctlcmd=0xf522 scontext=u:r:untrusted_app:s0:c68,c257,c512,c768 tcontext=u:object_r:app_data_file:s0:c68,c257,c512,c768 tclass=file permissive=0 SEPF_SM-G990E_12_0001 audit_filtered
+03-26 12:48:52.671   909   909 E audit   : type=1300 audit(1743011332.669:262832): arch=c00000b7 syscall=29 success=no exit=-13 a0=54 a1=f522 a2=731d3e0868 a3=b4000070b081b700 items=0 ppid=27229 pid=12988 auid=4294967295 uid=10324 gid=10324 euid=10324 suid=10324 fsuid=10324 egid=10324 sgid=10324 fsgid=10324 tty=(none) ses=4294967295 comm="pool-29-thread-" exe="/system/bin/app_process64" subj=u:r:untrusted_app:s0:c68,c257,c512,c768 key=(null)
+03-26 12:48:52.671   909   909 E audit   : type=1327 audit(1743011332.669:262832): proctitle="com.mercadolibre"
+03-26 12:48:52.706 27268 14728 I HYPER-HAL: [RequestManager.cpp]releaseLocked(): Released ID : 2115597
+03-26 12:48:53.199 21168 21168 D HidDeviceService: handleMessage(): msg.what=8
+03-26 12:48:53.202 21168 21168 D HidDeviceService: handleMessage(): msg.what=8
+03-26 12:48:53.209 27373 29277 D FreecessController: com.whatsapp(10295) is important[2]
+03-26 12:48:53.209 27373 29277 D FreecessController: com.google.android.inputmethod.latin(10380) is important[11]
+03-26 12:48:53.214  1055  1160 I VSyncReactor: Current= 60, Period= 60, hwcPeriod= 60
+03-26 12:48:53.240  1030  1198 I EDEN    : [Exynos][EDEN][v1.6.23][SERVICE] processAliveMointorMain:253: Try to check pid=(969)...
+03-26 12:48:53.674   666   666 D io_stats: !@   8,0 r 57593280 1580813692 w 11478281 175725040 d 1209139 83884272 f 0 0 iot 23600120 0 th 0 0 0 pt 0 inp 0 0 322408.019
+03-26 12:48:53.700 27957 27957 W Settings: Setting wifi_on has moved from android.provider.Settings.System to android.provider.Settings.Secure, returning read-only value.
+03-26 12:48:53.700 27957 27957 W Settings: Setting wifi_on has moved from android.provider.Settings.Secure to android.provider.Settings.Global.
+03-26 12:48:53.700 27957 27957 I EPDG -- SIM0 [SMARTWIFI]: isWifiRssiLessOrEqualsHandoverThreshold: received rssi is: -37 handover threshold is: -100
+03-26 12:48:53.715  9935 10036 I MediaCodec: setCodecState state(0), called in 6
+03-26 12:48:53.716 27373 30309 V ResourceManagerHelper-JNI: JNIMediaResourceHelper::notify eventType : 3, ext1 : 0, ext2 : 0
+03-26 12:48:53.716 27373 30309 V ResourceManagerHelper-JNI: notify eventType : 3, ext1 : 0, ext2 : 0
+03-26 12:48:53.716 29649 29649 I SemMediaResourceHelper: onState
+03-26 12:48:53.716  9813  9824 V ResourceManagerHelper-JNI: JNIMediaResourceHelper::notify eventType : 3, ext1 : 0, ext2 : 0
+03-26 12:48:53.716 27373 27687 I SemMediaResourceHelper: onState
+03-26 12:48:53.716  9813  9824 V ResourceManagerHelper-JNI: notify eventType : 3, ext1 : 0, ext2 : 0
+03-26 12:48:53.717  9813  9829 I SemMediaResourceHelper: onState
+03-26 12:48:53.717  9813  9829 I DrmMediaResourceHelper: onStateChanged size = 3
+03-26 12:48:53.717  9813  9829 I DrmMediaResourceHelper: resource type: 2,,,isSecured :  falseIsEncoder : truegetCodecState : 0getpid : 9935
+03-26 12:48:53.717  9813  9829 I DrmMediaResourceHelper: resource type: 2,,,isSecured :  falseIsEncoder : falsegetCodecState : 0getpid : 14853
+03-26 12:48:53.717  9813  9829 I DrmMediaResourceHelper: resource type: 2,,,isSecured :  falseIsEncoder : falsegetCodecState : 0getpid : 14853
+03-26 12:48:53.721 27373 30642 D SemWifiUsabilityStatsMonitor: onWifiUsabilityStats - seqNum 30750, isSameBssidAndFreq true
+03-26 12:48:53.722 27957 27957 I EPDG -- SIM0 [SMARTWIFI]: Rssi : -37 highrange : -101 lowrange : -100 mIsRssiInHystersis : false
+03-26 12:48:53.722 27957 27957 I EPDG -- SIM0 [SMARTWIFI]: Rssi : -37 highrange : -101 lowrange : -100 mIsRssiInHystersis : false
+03-26 12:48:53.723 27957 27957 I EPDG -- SIM0 [SMARTWIFI]: getHandoverThresholdMet: value is: false
+03-26 12:48:53.723 27957 27957 W Settings: Setting wifi_on has moved from android.provider.Settings.System to android.provider.Settings.Secure, returning read-only value.
+03-26 12:48:53.723 27957 27957 W Settings: Setting wifi_on has moved from android.provider.Settings.Secure to android.provider.Settings.Global.
+03-26 12:48:53.723 27957 27957 I EPDG -- SIM1 [SMARTWIFI]: isWifiRssiLessOrEqualsHandoverThreshold: received rssi is: -37 handover threshold is: -100
+03-26 12:48:53.723 27996 27996 D StatusBarIconController: ignoring old pipeline callback because the new wifi icon is enabled
+03-26 12:48:53.724 27957 27957 I EPDG -- SIM1 [SMARTWIFI]: Rssi : -37 highrange : -101 lowrange : -100 mIsRssiInHystersis : false
+03-26 12:48:53.724 27957 27957 I EPDG -- SIM1 [SMARTWIFI]: Rssi : -37 highrange : -101 lowrange : -100 mIsRssiInHystersis : false
+03-26 12:48:53.724 27957 27957 I EPDG -- SIM1 [SMARTWIFI]: getHandoverThresholdMet: value is: false
+03-26 12:48:53.724 27957 27957 W Settings: Setting wifi_on has moved from android.provider.Settings.System to android.provider.Settings.Secure, returning read-only value.
+03-26 12:48:53.724 27957 27957 W Settings: Setting wifi_on has moved from android.provider.Settings.Secure to android.provider.Settings.Global.
+03-26 12:48:53.724 27957 27957 I EPDG -- SIM0 [SMARTWIFI]: isWifiRssiLessOrEqualsHandoverThreshold: received rssi is: -37 handover threshold is: -100
+03-26 12:48:53.724 27957 27957 I EPDG -- SIM0 [SMARTWIFI]: Rssi : -37 highrange : -101 lowrange : -100 mIsRssiInHystersis : false
+03-26 12:48:53.724 27957 27957 I EPDG -- SIM0 [SMARTWIFI]: Rssi : -37 highrange : -101 lowrange : -100 mIsRssiInHystersis : false
+03-26 12:48:53.724 27957 27957 I EPDG -- SIM0 [SMARTWIFI]: getHandoverThresholdMet: value is: false
+03-26 12:48:53.754  1055  1055 D SurfaceFlinger: GPIS:: requestGPISForClientComposition
+03-26 12:48:53.768  9935 10036 I MediaCodec: setCodecState state(1), called in 6
+03-26 12:48:53.768 27373 29829 V ResourceManagerHelper-JNI: JNIMediaResourceHelper::notify eventType : 3, ext1 : 0, ext2 : 0
+03-26 12:48:53.768 27373 29829 V ResourceManagerHelper-JNI: notify eventType : 3, ext1 : 0, ext2 : 0
+03-26 12:48:53.768  9813  9824 V ResourceManagerHelper-JNI: JNIMediaResourceHelper::notify eventType : 3, ext1 : 0, ext2 : 0
+03-26 12:48:53.769 27373 27687 I SemMediaResourceHelper: onState
+03-26 12:48:53.769  9813  9824 V ResourceManagerHelper-JNI: notify eventType : 3, ext1 : 0, ext2 : 0
+03-26 12:48:53.769 29649 29649 I SemMediaResourceHelper: onState
+03-26 12:48:53.769  9813  9829 I SemMediaResourceHelper: onState
+03-26 12:48:53.769  9813  9829 I DrmMediaResourceHelper: onStateChanged size = 3
+03-26 12:48:53.769  9813  9829 I DrmMediaResourceHelper: resource type: 2,,,isSecured :  falseIsEncoder : truegetCodecState : 1getpid : 9935
+03-26 12:48:53.769  9813  9829 I DrmMediaResourceHelper: resource type: 2,,,isSecured :  falseIsEncoder : falsegetCodecState : 0getpid : 14853
+03-26 12:48:53.769  9813  9829 I DrmMediaResourceHelper: resource type: 2,,,isSecured :  falseIsEncoder : falsegetCodecState : 0getpid : 14853
+03-26 12:48:53.769  1055  3068 D NativeSemDvfsManager: acquire:: timeout = 2000 mIsAcquired = 1  mTagName : SurfaceFlinger 
+03-26 12:48:53.770  1055  3068 E NativeCustomFrequencyManager: [NativeCFMS] BpCustomFrequencyManager::acquire()
+03-26 12:48:53.770 27268 27277 I HYPER-HAL: [RequestManager.cpp]acquire(): Acquired ID : 2115597  [1055 / 1001]    HINT : SF_GPU_MINLOCK    list : [TIMEOUT / 2000] 
+03-26 12:48:54.004 17631 17631 I wpa_supplicant: Heartbeat 5546
+03-26 12:48:54.220 17697 17697 D Event   : No subscribers registered for event class wi.m
+03-26 12:48:54.220 17697 17697 D Event   : No subscribers registered for event class yl0.f
+03-26 12:48:54.221 17697 17697 D Event   : No subscribers registered for event class wi.m
+03-26 12:48:54.221 17697 17697 D Event   : No subscribers registered for event class yl0.f
+03-26 12:48:54.708 21168 21168 D HidDeviceService: handleMessage(): msg.what=8
+03-26 12:48:54.714 21168 21168 D HidDeviceService: handleMessage(): msg.what=8
+03-26 12:48:54.714  1055  1160 I VSyncReactor: Current= 60, Period= 60, hwcPeriod= 60
+03-26 12:48:55.203   964 17656 W C2BqBuffer: last successful dequeue was 14526932969 us ago, 138567 consecutive failures

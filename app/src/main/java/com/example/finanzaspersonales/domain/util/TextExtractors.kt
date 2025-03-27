@@ -133,11 +133,16 @@ object TextExtractors {
     
     /**
      * Extract phone number from account information
-     * Often phone numbers are masked within account numbers like *0000+3XXXXXXXXX
+     * Often phone numbers are masked within account numbers like *0000+3XXXXXXXXX or 00000032228962828
      */
     fun extractPhoneNumberFromAccount(account: String): String? {
         // Pattern for Colombia mobile numbers starting with 3
-        val mobilePattern = Regex("""[*]?0{3,}(3\d{9})""")
+        // Matches:
+        // - Optional * at start
+        // - 3 or more zeros
+        // - Optional + or other non-digit character
+        // - 10 digit number starting with 3
+        val mobilePattern = Regex("""[*]?0{3,}[^0-9]?(3\d{9})""")
         val mobileMatch = mobilePattern.find(account)
         if (mobileMatch != null) {
             return mobileMatch.groupValues[1]
@@ -147,7 +152,11 @@ object TextExtractors {
         val generalPattern = Regex("""(\d{10,})""")
         val generalMatch = generalPattern.find(account)
         if (generalMatch != null) {
-            return generalMatch.groupValues[1]
+            val number = generalMatch.groupValues[1]
+            // Only return if it starts with 3 and is 10 digits
+            if (number.startsWith("3") && number.length == 10) {
+                return number
+            }
         }
         
         return null

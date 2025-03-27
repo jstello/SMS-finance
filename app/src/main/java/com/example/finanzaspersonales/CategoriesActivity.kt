@@ -1,8 +1,13 @@
 package com.example.finanzaspersonales
 
+import android.Manifest
+import android.content.pm.PackageManager
 import android.os.Bundle
+import android.util.Log
+import android.widget.Toast
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
@@ -13,6 +18,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.core.content.ContextCompat
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewmodel.compose.viewModel
@@ -39,8 +45,61 @@ import com.example.finanzaspersonales.ui.theme.FinanzasPersonalesTheme
  */
 class CategoriesActivity : ComponentActivity() {
     
+    // Permission launcher for SMS read permission
+    private val requestPermissionLauncher = registerForActivityResult(
+        ActivityResultContracts.RequestPermission()
+    ) { isGranted ->
+        if (isGranted) {
+            Log.d("APP_PERMISSIONS", "SMS permission granted")
+            // Permission granted, continue app initialization
+            initializeAppWithPermissions()
+        } else {
+            Log.e("APP_PERMISSIONS", "SMS permission denied")
+            // Permission denied, show message to user
+            Toast.makeText(this, "SMS permission is required for transaction tracking", Toast.LENGTH_LONG).show()
+        }
+    }
+    
+    private fun checkAndRequestPermissions() {
+        when {
+            ContextCompat.checkSelfPermission(this, Manifest.permission.READ_SMS) == 
+                    PackageManager.PERMISSION_GRANTED -> {
+                // Permission already granted
+                Log.d("APP_PERMISSIONS", "SMS permission already granted")
+                initializeAppWithPermissions()
+            }
+            shouldShowRequestPermissionRationale(Manifest.permission.READ_SMS) -> {
+                // Explain why we need permission
+                Log.d("APP_PERMISSIONS", "Should show permission rationale")
+                Toast.makeText(this, "SMS permission is needed to analyze your transactions", Toast.LENGTH_LONG).show()
+                requestPermissionLauncher.launch(Manifest.permission.READ_SMS)
+            }
+            else -> {
+                // Request permission directly
+                Log.d("APP_PERMISSIONS", "Requesting SMS permission")
+                requestPermissionLauncher.launch(Manifest.permission.READ_SMS)
+            }
+        }
+    }
+    
+    private fun initializeAppWithPermissions() {
+        // This function will be called once permissions are granted
+        // You can put any initialization that requires permissions here
+        Log.d("APP_STARTUP", "App initialized with permissions")
+    }
+    
     override fun onCreate(savedInstanceState: Bundle?) {
+        Log.d("APP_STARTUP", "onCreate() started - Bundle: ${savedInstanceState?.toString()}")
         super.onCreate(savedInstanceState)
+        Log.d("APP_STARTUP", "Super.onCreate() completed")
+        
+        // Add this temporary exception handler
+        Thread.setDefaultUncaughtExceptionHandler { thread, throwable ->
+            Log.e("CRASH", "Uncaught exception in thread ${thread.name}", throwable)
+            throwable.printStackTrace()
+        }
+
+        // Set content with Compose
         setContent {
             FinanzasPersonalesTheme {
                 Surface(
@@ -51,6 +110,21 @@ class CategoriesActivity : ComponentActivity() {
                 }
             }
         }
+        
+        // Check and request permissions after setting content
+        checkAndRequestPermissions()
+        
+        Log.d("APP_STARTUP", "onCreate() completed successfully")
+    }
+
+    override fun onStart() {
+        super.onStart()
+        Log.d("APP_LIFECYCLE", "onStart() called")
+    }
+
+    override fun onResume() {
+        super.onResume()
+        Log.d("APP_LIFECYCLE", "onResume() called")
     }
 }
 
@@ -129,11 +203,12 @@ fun CategoriesApp(onBack: () -> Unit) {
                 val categoryAssignmentUseCase = CategoryAssignmentUseCase(tempCategoryRepository)
                 
                 // Now we can create the actual repositories with the proper dependencies
-                val transactionRepository: TransactionRepository = TransactionRepositoryImpl(
+                val transactionRepository = TransactionRepositoryImpl(
                     context = context,
                     smsDataSource = smsDataSource,
                     extractTransactionDataUseCase = extractTransactionDataUseCase,
-                    categoryAssignmentUseCase = categoryAssignmentUseCase
+                    categoryAssignmentUseCase = categoryAssignmentUseCase,
+                    sharedPrefsManager = sharedPrefsManager
                 )
                 
                 // Replace the temporary repository with the real one

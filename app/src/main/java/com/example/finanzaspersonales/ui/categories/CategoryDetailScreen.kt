@@ -57,11 +57,20 @@ fun CategoryDetailScreen(
     onTransactionClick: (TransactionData) -> Unit
 ) {
     val transactions by viewModel.categoryTransactions.collectAsState()
+    val allTransactions by viewModel.allTransactions.collectAsState()
     val isLoading by viewModel.isLoading.collectAsState()
     
     // Load transactions for this category
     LaunchedEffect(category.id) {
+        viewModel.loadAllTransactions() // Load all transactions first
         viewModel.loadTransactionsForCategory(category.id)
+        
+        // Debug log
+        android.util.Log.d("CategoryDebug", "Category ID: ${category.id}")
+        android.util.Log.d("CategoryDebug", "Category Name: ${category.name}")
+        android.util.Log.d("CategoryDebug", "Total transactions: ${allTransactions.size}")
+        android.util.Log.d("CategoryDebug", "Uncategorized transactions: ${allTransactions.count { it.categoryId == null }}")
+        android.util.Log.d("CategoryDebug", "This category transactions: ${allTransactions.count { it.categoryId == category.id }}")
     }
     
     Scaffold(
@@ -95,6 +104,42 @@ fun CategoryDetailScreen(
                 // Category summary card
                 CategorySummaryCard(category, transactions)
                 
+                // Debug Info Card
+                if (category.name.equals("Other", ignoreCase = true)) {
+                    Card(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(16.dp),
+                        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+                    ) {
+                        Column(
+                            modifier = Modifier.padding(16.dp)
+                        ) {
+                            Text(
+                                text = "Debug Information",
+                                style = MaterialTheme.typography.titleMedium
+                            )
+                            Spacer(modifier = Modifier.height(8.dp))
+                            Text(
+                                text = "All transactions: ${allTransactions.size}",
+                                style = MaterialTheme.typography.bodySmall
+                            )
+                            Text(
+                                text = "Null category transactions: ${allTransactions.count { it.categoryId == null }}",
+                                style = MaterialTheme.typography.bodySmall
+                            )
+                            Text(
+                                text = "This category transactions: ${allTransactions.count { it.categoryId == category.id }}",
+                                style = MaterialTheme.typography.bodySmall
+                            )
+                            Text(
+                                text = "Filtered transactions: ${transactions.size}",
+                                style = MaterialTheme.typography.bodySmall
+                            )
+                        }
+                    }
+                }
+                
                 Spacer(modifier = Modifier.height(16.dp))
                 
                 // Transactions list
@@ -106,23 +151,25 @@ fun CategoryDetailScreen(
                 
                 Spacer(modifier = Modifier.height(8.dp))
                 
-                if (transactions.isEmpty()) {
-                    Box(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(32.dp),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Text(
-                            text = "No transactions found for this category",
-                            style = MaterialTheme.typography.bodyMedium,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
-                    }
-                } else {
-                    LazyColumn(
-                        modifier = Modifier.fillMaxWidth()
-                    ) {
+                LazyColumn(
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    if (transactions.isEmpty()) {
+                        item {
+                            Box(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(32.dp),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Text(
+                                    text = "No transactions found for this category",
+                                    style = MaterialTheme.typography.bodyMedium,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                            }
+                        }
+                    } else {
                         items(transactions) { transaction ->
                             TransactionItem(
                                 transaction = transaction,
