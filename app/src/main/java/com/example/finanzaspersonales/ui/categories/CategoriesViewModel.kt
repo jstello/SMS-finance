@@ -156,10 +156,24 @@ class CategoriesViewModel(
     /**
      * Get transactions for a category
      */
-    fun loadTransactionsForCategory(categoryId: String) {
+    fun loadTransactionsForCategory(
+        categoryId: String,
+        year: Int? = null,
+        month: Int? = null,
+        isIncome: Boolean? = null
+    ) {
         viewModelScope.launch {
             _isLoading.value = true
-            _categoryTransactions.value = categoryRepository.getTransactionsByCategory(categoryId)
+            // Get all transactions for the category
+            val allCategoryTransactions = categoryRepository.getTransactionsByCategory(categoryId)
+            
+            // Apply the same filters used in the category list
+            _categoryTransactions.value = transactionRepository.filterTransactions(
+                transactions = allCategoryTransactions,
+                year = year,
+                month = month,
+                isIncome = isIncome
+            )
             _isLoading.value = false
         }
     }

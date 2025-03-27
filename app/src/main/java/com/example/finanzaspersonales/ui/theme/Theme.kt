@@ -9,7 +9,16 @@ import androidx.compose.material3.dynamicDarkColorScheme
 import androidx.compose.material3.dynamicLightColorScheme
 import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.input.pointer.PointerEventType
+import androidx.compose.ui.input.pointer.PointerIcon
+import androidx.compose.ui.input.pointer.pointerHoverIcon
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.unit.dp
+import androidx.compose.foundation.layout.Box
+import androidx.compose.ui.input.pointer.pointerInteropFilter
+import kotlinx.coroutines.launch
+import androidx.compose.foundation.ExperimentalFoundationApi
 
 private val DarkColorScheme = darkColorScheme(
     primary = Purple80,
@@ -33,6 +42,7 @@ private val LightColorScheme = lightColorScheme(
     */
 )
 
+@OptIn(ExperimentalFoundationApi::class)
 @Composable
 fun FinanzasPersonalesTheme(
     darkTheme: Boolean = isSystemInDarkTheme(),
@@ -45,7 +55,6 @@ fun FinanzasPersonalesTheme(
             val context = LocalContext.current
             if (darkTheme) dynamicDarkColorScheme(context) else dynamicLightColorScheme(context)
         }
-
         darkTheme -> DarkColorScheme
         else -> LightColorScheme
     }

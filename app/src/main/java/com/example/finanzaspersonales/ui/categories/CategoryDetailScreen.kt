@@ -33,15 +33,19 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.example.finanzaspersonales.data.model.Category
 import com.example.finanzaspersonales.data.model.TransactionData
+import com.example.finanzaspersonales.domain.util.ContactsUtil
 import com.example.finanzaspersonales.domain.util.StringUtils
+import com.example.finanzaspersonales.domain.util.StringUtils.extractPhoneNumber
 import java.text.SimpleDateFormat
 import java.util.Locale
 
@@ -59,18 +63,17 @@ fun CategoryDetailScreen(
     val transactions by viewModel.categoryTransactions.collectAsState()
     val allTransactions by viewModel.allTransactions.collectAsState()
     val isLoading by viewModel.isLoading.collectAsState()
+    val selectedYear by viewModel.selectedYear.collectAsState()
+    val selectedMonth by viewModel.selectedMonth.collectAsState()
     
-    // Load transactions for this category
-    LaunchedEffect(category.id) {
-        viewModel.loadAllTransactions() // Load all transactions first
-        viewModel.loadTransactionsForCategory(category.id)
-        
-        // Debug log
-        android.util.Log.d("CategoryDebug", "Category ID: ${category.id}")
-        android.util.Log.d("CategoryDebug", "Category Name: ${category.name}")
-        android.util.Log.d("CategoryDebug", "Total transactions: ${allTransactions.size}")
-        android.util.Log.d("CategoryDebug", "Uncategorized transactions: ${allTransactions.count { it.categoryId == null }}")
-        android.util.Log.d("CategoryDebug", "This category transactions: ${allTransactions.count { it.categoryId == category.id }}")
+    // Load transactions for this category with the same filters
+    LaunchedEffect(category.id, selectedYear, selectedMonth) {
+        viewModel.loadTransactionsForCategory(
+            categoryId = category.id,
+            year = selectedYear,
+            month = selectedMonth,
+            isIncome = false // Only show expenses to match main screen
+        )
     }
     
     Scaffold(
@@ -103,42 +106,6 @@ fun CategoryDetailScreen(
             } else {
                 // Category summary card
                 CategorySummaryCard(category, transactions)
-                
-                // Debug Info Card
-                if (category.name.equals("Other", ignoreCase = true)) {
-                    Card(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(16.dp),
-                        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
-                    ) {
-                        Column(
-                            modifier = Modifier.padding(16.dp)
-                        ) {
-                            Text(
-                                text = "Debug Information",
-                                style = MaterialTheme.typography.titleMedium
-                            )
-                            Spacer(modifier = Modifier.height(8.dp))
-                            Text(
-                                text = "All transactions: ${allTransactions.size}",
-                                style = MaterialTheme.typography.bodySmall
-                            )
-                            Text(
-                                text = "Null category transactions: ${allTransactions.count { it.categoryId == null }}",
-                                style = MaterialTheme.typography.bodySmall
-                            )
-                            Text(
-                                text = "This category transactions: ${allTransactions.count { it.categoryId == category.id }}",
-                                style = MaterialTheme.typography.bodySmall
-                            )
-                            Text(
-                                text = "Filtered transactions: ${transactions.size}",
-                                style = MaterialTheme.typography.bodySmall
-                            )
-                        }
-                    }
-                }
                 
                 Spacer(modifier = Modifier.height(16.dp))
                 
@@ -248,8 +215,24 @@ fun TransactionItem(
     transaction: TransactionData,
     onClick: () -> Unit
 ) {
+    val context = LocalContext.current
     val dateFormat = SimpleDateFormat("MMM dd, yyyy", Locale.getDefault())
     val dateString = transaction.date.let { dateFormat.format(it) }
+    
+    // Extract potential phone number from provider
+    val phoneNumber = extractPhoneNumber(transaction.provider)
+    
+    // Look up contact name if a phone number is extracted
+    val contactName = remember(phoneNumber) {
+        phoneNumber?.let { ContactsUtil.getContactNameFromPhoneNumber(context, it) }
+    }
+    
+    // Display contact name if available, otherwise show provider/address
+    val displayText = when {
+        contactName != null -> contactName
+        phoneNumber != null -> "${transaction.provider} (${phoneNumber})"
+        else -> transaction.provider ?: transaction.originalMessage.address
+    }
     
     Row(
         modifier = Modifier
@@ -261,9 +244,9 @@ fun TransactionItem(
         Column(
             modifier = Modifier.weight(1f)
         ) {
-            // Provider or SMS sender
+            // Provider/Contact name
             Text(
-                text = transaction.provider ?: transaction.originalMessage.address,
+                text = displayText,
                 style = MaterialTheme.typography.bodyLarge,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis

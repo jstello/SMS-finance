@@ -82,24 +82,39 @@ class TransactionRepositoryImpl(
      * Refresh SMS data
      */
     override suspend fun refreshSmsData() = withContext(Dispatchers.IO) {
+        if (!smsDataSource.hasReadSmsPermission()) {
+            Log.w("SMS_REFRESH", "SMS permission not granted")
+            return@withContext
+        }
+        
         try {
-            // Check if we have SMS permission before attempting to read messages
-            if (!smsDataSource.hasReadSmsPermission()) {
-                Log.w("TransactionRepo", "Cannot refresh SMS data: READ_SMS permission not granted")
-                // Return without changing cached data
-                return@withContext
+            val messages = smsDataSource.readSmsMessages()
+            messages.chunked(50).forEach { chunk ->
+                processChunk(chunk)
             }
-            
-            cachedSmsMessages = smsDataSource.readSmsMessages()
-            cachedTransactions = extractTransactionDataUseCase.execute(cachedSmsMessages)
-            
-            // Apply saved category assignments and auto-categorize new transactions
-            applyCategoryAssignments(cachedTransactions)
         } catch (e: Exception) {
-            Log.e("TransactionRepo", "Error refreshing SMS data", e)
-            // If we have no cached data yet, initialize with empty lists to prevent further crashes
-            if (cachedSmsMessages.isEmpty()) cachedSmsMessages = emptyList()
-            if (cachedTransactions.isEmpty()) cachedTransactions = emptyList()
+            Log.e("SMS_REFRESH", "Error processing SMS", e)
+        }
+    }
+    
+    private suspend fun processChunk(chunk: List<SmsMessage>) {
+        withContext(Dispatchers.Default) {
+            chunk.mapNotNull { sms ->
+                try {
+                    // Extract transaction data from SMS
+                    extractTransactionDataUseCase.execute(listOf(sms)).firstOrNull()
+                } catch (e: Exception) {
+                    Log.e("SMS_PROCESSING", "Error processing SMS: ${sms.body}", e)
+                    null
+                }
+            }.also { transactions ->
+                withContext(Dispatchers.Main) {
+                    // Merge with existing transactions
+                    cachedTransactions = (cachedTransactions + transactions).distinctBy { 
+                        generateTransactionKey(it) 
+                    }
+                }
+            }
         }
     }
     

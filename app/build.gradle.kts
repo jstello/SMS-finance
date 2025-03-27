@@ -45,7 +45,7 @@ android {
 
 dependencies {
     // Compose
-    implementation(platform(libs.androidx.compose.bom))
+    implementation(platform("androidx.compose:compose-bom:2024.06.00"))
     implementation(libs.androidx.compose.foundation)
     implementation(libs.androidx.compose.ui)
     implementation(libs.androidx.compose.material3)
@@ -91,4 +91,10 @@ dependencies {
     
     // Category charts and visualizations
     implementation("com.github.PhilJay:MPAndroidChart:v3.1.0")
+
+    // Ensure these dependencies are included
+    implementation("androidx.compose.ui:ui")
+    implementation("androidx.compose.foundation:foundation")
+    implementation("androidx.compose.material3:material3")
+    implementation("androidx.compose.ui:ui-tooling-preview")
 }
