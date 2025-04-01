@@ -110,6 +110,10 @@ class CategoriesViewModel(
         viewModelScope.launch {
             _isLoading.value = true
             try {
+                // Initialize transactions with saved categories
+                transactionRepository.initializeTransactions()
+                
+                // Get all transactions
                 _allTransactions.value = transactionRepository.getTransactions()
             } finally {
                 _isLoading.value = false
@@ -328,6 +332,10 @@ class CategoriesViewModel(
         viewModelScope.launch {
             _isLoading.value = true
             try {
+                // Initialize transactions with saved categories
+                transactionRepository.initializeTransactions()
+                
+                // Refresh SMS data
                 transactionRepository.refreshSmsData()
                 loadAllTransactions()
                 loadCategorySpending()

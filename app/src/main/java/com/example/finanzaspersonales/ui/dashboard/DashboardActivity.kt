@@ -1,0 +1,523 @@
+package com.example.finanzaspersonales.ui.dashboard
+
+import android.Manifest
+import android.content.Intent
+import android.content.pm.PackageManager
+import android.os.Bundle
+import android.util.Log
+import android.widget.Toast
+import androidx.activity.ComponentActivity
+import androidx.activity.compose.setContent
+import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.AccountBalance
+import androidx.compose.material.icons.filled.Assessment
+import androidx.compose.material.icons.filled.Category
+import androidx.compose.material.icons.filled.Notifications
+import androidx.compose.material.icons.filled.Refresh
+import androidx.compose.material.icons.filled.Settings
+import androidx.compose.material3.Card
+import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.Divider
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.FloatingActionButton
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Surface
+import androidx.compose.material3.Text
+import androidx.compose.material3.TopAppBar
+import androidx.compose.material3.TopAppBarDefaults
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
+import androidx.core.content.ContextCompat
+import androidx.lifecycle.ViewModelProvider
+import androidx.lifecycle.viewmodel.compose.viewModel
+import com.example.finanzaspersonales.CategoriesActivity
+import com.example.finanzaspersonales.data.local.SharedPrefsManager
+import com.example.finanzaspersonales.data.local.SmsDataSource
+import com.example.finanzaspersonales.data.model.SmsMessage
+import com.example.finanzaspersonales.data.model.TransactionData
+import com.example.finanzaspersonales.data.repository.CategoryRepository
+import com.example.finanzaspersonales.data.repository.CategoryRepositoryImpl
+import com.example.finanzaspersonales.data.repository.TransactionRepository
+import com.example.finanzaspersonales.data.repository.TransactionRepositoryImpl
+import com.example.finanzaspersonales.domain.usecase.CategoryAssignmentUseCase
+import com.example.finanzaspersonales.domain.usecase.ExtractTransactionDataUseCase
+import com.example.finanzaspersonales.sms.SmsPermissionActivity
+import com.example.finanzaspersonales.ui.theme.FinanzasPersonalesTheme
+import java.text.NumberFormat
+import java.text.SimpleDateFormat
+import java.util.Date
+import java.util.Locale
+
+class DashboardActivity : ComponentActivity() {
+    
+    private lateinit var viewModel: DashboardViewModel
+    
+    // Permission launcher for SMS read permission
+    private val requestPermissionLauncher = registerForActivityResult(
+        ActivityResultContracts.RequestMultiplePermissions()
+    ) { permissions ->
+        val smsPermissionGranted = permissions[Manifest.permission.READ_SMS] ?: false
+        val receiveSmsPermissionGranted = permissions[Manifest.permission.RECEIVE_SMS] ?: false
+        
+        if (smsPermissionGranted && receiveSmsPermissionGranted) {
+            // Permissions granted, load data
+            viewModel.loadDashboardData()
+        } else {
+            // Permissions denied
+            Toast.makeText(
+                this,
+                "SMS permissions are required to detect transactions",
+                Toast.LENGTH_LONG
+            ).show()
+        }
+    }
+    
+    override fun onCreate(savedInstanceState: Bundle?) {
+        super.onCreate(savedInstanceState)
+        
+        // Create dependencies
+        val sharedPrefsManager = SharedPrefsManager(this)
+        val smsDataSource = SmsDataSource(this)
+        val extractTransactionDataUseCase = ExtractTransactionDataUseCase(this)
+        
+        // Create a "dummy" transaction repository first for the CategoryRepository
+        val dummyTransactionRepository = object : TransactionRepository {
+            override suspend fun getAllSmsMessages(): List<SmsMessage> = emptyList()
+            override suspend fun getTransactions(): List<TransactionData> = emptyList()
+            override suspend fun filterTransactions(transactions: List<TransactionData>, year: Int?, month: Int?, isIncome: Boolean?): List<TransactionData> = emptyList()
+            override suspend fun getTransactionById(id: String): TransactionData? = null
+            override suspend fun getTransactionsByCategory(categoryId: String): List<TransactionData> = emptyList()
+            override suspend fun assignCategoryToTransaction(transactionId: String, categoryId: String): Boolean = false
+            override suspend fun refreshSmsData() {}
+        }
+        
+        // Create CategoryRepository
+        val categoryRepository = CategoryRepositoryImpl(
+            context = this,
+            sharedPrefsManager = sharedPrefsManager,
+            transactionRepository = dummyTransactionRepository
+        )
+        
+        // Create CategoryAssignmentUseCase with the CategoryRepository
+        val categoryAssignmentUseCase = CategoryAssignmentUseCase(categoryRepository)
+        
+        // Now create the real TransactionRepository
+        val transactionRepository = TransactionRepositoryImpl(
+            context = this,
+            smsDataSource = smsDataSource,
+            extractTransactionDataUseCase = extractTransactionDataUseCase,
+            categoryAssignmentUseCase = categoryAssignmentUseCase,
+            sharedPrefsManager = sharedPrefsManager
+        )
+        
+        // Create ViewModel
+        viewModel = ViewModelProvider(
+            this,
+            DashboardViewModelFactory(transactionRepository)
+        )[DashboardViewModel::class.java]
+        
+        setContent {
+            FinanzasPersonalesTheme {
+                Surface(
+                    modifier = Modifier.fillMaxSize(),
+                    color = MaterialTheme.colorScheme.background
+                ) {
+                    val monthlyExpenses by viewModel.monthlyExpenses.collectAsState()
+                    val monthlyIncome by viewModel.monthlyIncome.collectAsState()
+                    val recentTransactions by viewModel.recentTransactions.collectAsState()
+                    val isLoading by viewModel.isLoading.collectAsState()
+                    
+                    DashboardScreen(
+                        monthlyExpenses = monthlyExpenses,
+                        monthlyIncome = monthlyIncome,
+                        recentTransactions = recentTransactions,
+                        isLoading = isLoading,
+                        onRefresh = { checkAndRequestPermissions() },
+                        onCategoriesClick = {
+                            startActivity(Intent(this, CategoriesActivity::class.java))
+                        },
+                        onSmsTestClick = {
+                            startActivity(Intent(this, SmsPermissionActivity::class.java))
+                        }
+                    )
+                }
+            }
+        }
+        
+        // Check permissions and load data
+        checkAndRequestPermissions()
+    }
+    
+    private fun checkAndRequestPermissions() {
+        val readSmsPermission = ContextCompat.checkSelfPermission(
+            this, 
+            Manifest.permission.READ_SMS
+        ) == PackageManager.PERMISSION_GRANTED
+        
+        val receiveSmsPermission = ContextCompat.checkSelfPermission(
+            this,
+            Manifest.permission.RECEIVE_SMS
+        ) == PackageManager.PERMISSION_GRANTED
+        
+        if (readSmsPermission && receiveSmsPermission) {
+            // Permissions already granted, load data
+            viewModel.loadDashboardData()
+        } else {
+            // Request permissions
+            requestPermissionLauncher.launch(
+                arrayOf(
+                    Manifest.permission.READ_SMS,
+                    Manifest.permission.RECEIVE_SMS
+                )
+            )
+        }
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun DashboardScreen(
+    monthlyExpenses: Float,
+    monthlyIncome: Float,
+    recentTransactions: List<TransactionData>,
+    isLoading: Boolean,
+    onRefresh: () -> Unit,
+    onCategoriesClick: () -> Unit,
+    onSmsTestClick: () -> Unit
+) {
+    val currencyFormat = NumberFormat.getCurrencyInstance(Locale("es", "CO"))
+    
+    Scaffold(
+        topBar = {
+            TopAppBar(
+                title = { Text(text = "Finanzas Personales", fontWeight = FontWeight.Bold) },
+                colors = TopAppBarDefaults.topAppBarColors(
+                    containerColor = MaterialTheme.colorScheme.primaryContainer,
+                    titleContentColor = MaterialTheme.colorScheme.onPrimaryContainer
+                ),
+                actions = {
+                    IconButton(onClick = onRefresh) {
+                        Icon(
+                            imageVector = Icons.Default.Refresh,
+                            contentDescription = "Refresh"
+                        )
+                    }
+                }
+            )
+        }
+    ) { paddingValues ->
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(paddingValues)
+                .verticalScroll(rememberScrollState())
+                .padding(16.dp),
+            verticalArrangement = Arrangement.spacedBy(16.dp)
+        ) {
+            // Financial summary card
+            Card(
+                modifier = Modifier.fillMaxWidth(),
+                colors = CardDefaults.cardColors(
+                    containerColor = MaterialTheme.colorScheme.surfaceVariant
+                ),
+                elevation = CardDefaults.cardElevation(4.dp)
+            ) {
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(16.dp)
+                ) {
+                    Text(
+                        text = "This Month's Overview",
+                        fontWeight = FontWeight.Bold,
+                        fontSize = 18.sp
+                    )
+                    Spacer(modifier = Modifier.height(16.dp))
+                    
+                    if (isLoading) {
+                        Box(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(16.dp),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            CircularProgressIndicator()
+                        }
+                    } else {
+                        Text(
+                            text = currencyFormat.format(monthlyExpenses),
+                            fontSize = 36.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = MaterialTheme.colorScheme.primary
+                        )
+                        Text(
+                            text = "Total Expenses",
+                            fontSize = 14.sp,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                        Spacer(modifier = Modifier.height(8.dp))
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween
+                        ) {
+                            Column {
+                                Text(
+                                    text = currencyFormat.format(monthlyIncome),
+                                    fontSize = 18.sp,
+                                    fontWeight = FontWeight.Medium,
+                                    color = Color.Green
+                                )
+                                Text(
+                                    text = "Income",
+                                    fontSize = 12.sp,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                            }
+                            Column {
+                                Text(
+                                    text = currencyFormat.format(monthlyExpenses),
+                                    fontSize = 18.sp,
+                                    fontWeight = FontWeight.Medium,
+                                    color = Color.Red
+                                )
+                                Text(
+                                    text = "Expenses",
+                                    fontSize = 12.sp,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                            }
+                        }
+                    }
+                }
+            }
+            
+            // Quick Actions
+            Text(
+                text = "Quick Actions",
+                fontSize = 18.sp,
+                fontWeight = FontWeight.Bold,
+                modifier = Modifier.padding(vertical = 8.dp)
+            )
+            
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween
+            ) {
+                // Categories
+                DashboardActionItem(
+                    icon = Icons.Default.Category,
+                    title = "Categories",
+                    backgroundColor = MaterialTheme.colorScheme.primaryContainer,
+                    modifier = Modifier.weight(1f),
+                    onClick = onCategoriesClick
+                )
+                
+                // Transactions
+                DashboardActionItem(
+                    icon = Icons.Default.AccountBalance,
+                    title = "Transactions",
+                    backgroundColor = MaterialTheme.colorScheme.secondaryContainer,
+                    modifier = Modifier.weight(1f),
+                    onClick = {}
+                )
+            }
+            
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween
+            ) {
+                // Reports
+                DashboardActionItem(
+                    icon = Icons.Default.Assessment,
+                    title = "Reports",
+                    backgroundColor = MaterialTheme.colorScheme.tertiaryContainer,
+                    modifier = Modifier.weight(1f),
+                    onClick = {}
+                )
+                
+                // SMS Notifications
+                DashboardActionItem(
+                    icon = Icons.Default.Notifications,
+                    title = "SMS Test",
+                    backgroundColor = MaterialTheme.colorScheme.errorContainer,
+                    modifier = Modifier.weight(1f),
+                    onClick = onSmsTestClick
+                )
+            }
+            
+            // Recent Transactions
+            Text(
+                text = "Recent Transactions",
+                fontSize = 18.sp,
+                fontWeight = FontWeight.Bold,
+                modifier = Modifier.padding(vertical = 8.dp)
+            )
+            
+            if (isLoading) {
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(32.dp),
+                    contentAlignment = Alignment.Center
+                ) {
+                    CircularProgressIndicator()
+                }
+            } else if (recentTransactions.isEmpty()) {
+                // Empty state for transactions
+                Card(
+                    modifier = Modifier.fillMaxWidth(),
+                    colors = CardDefaults.cardColors(
+                        containerColor = MaterialTheme.colorScheme.surface
+                    ),
+                    elevation = CardDefaults.cardElevation(2.dp)
+                ) {
+                    Column(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(24.dp),
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        verticalArrangement = Arrangement.Center
+                    ) {
+                        Text(
+                            text = "No recent transactions",
+                            fontSize = 16.sp,
+                            fontWeight = FontWeight.Medium,
+                            textAlign = TextAlign.Center
+                        )
+                        Spacer(modifier = Modifier.height(8.dp))
+                        Text(
+                            text = "Transactions will appear here once they're detected from SMS messages",
+                            fontSize = 14.sp,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            textAlign = TextAlign.Center
+                        )
+                    }
+                }
+            } else {
+                // Transaction list
+                Card(
+                    modifier = Modifier.fillMaxWidth(),
+                    colors = CardDefaults.cardColors(
+                        containerColor = MaterialTheme.colorScheme.surface
+                    ),
+                    elevation = CardDefaults.cardElevation(2.dp)
+                ) {
+                    Column(modifier = Modifier.fillMaxWidth()) {
+                        recentTransactions.forEachIndexed { index, transaction ->
+                            TransactionItem(transaction = transaction)
+                            if (index < recentTransactions.size - 1) {
+                                Divider()
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+fun TransactionItem(transaction: TransactionData) {
+    val currencyFormat = NumberFormat.getCurrencyInstance(Locale("es", "CO"))
+    val dateFormat = SimpleDateFormat("dd MMM yyyy", Locale.getDefault())
+    
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(16.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Column(
+            modifier = Modifier.weight(1f)
+        ) {
+            Text(
+                text = transaction.provider ?: "Unknown",
+                fontWeight = FontWeight.Medium,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis
+            )
+            Text(
+                text = dateFormat.format(transaction.date),
+                fontSize = 12.sp,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+        }
+        
+        Text(
+            text = currencyFormat.format(transaction.amount),
+            fontWeight = FontWeight.Bold,
+            color = if (transaction.isIncome) Color.Green else Color.Red
+        )
+    }
+}
+
+@Composable
+fun DashboardActionItem(
+    icon: ImageVector,
+    title: String,
+    backgroundColor: Color,
+    modifier: Modifier = Modifier,
+    onClick: () -> Unit
+) {
+    Box(
+        modifier = modifier
+            .padding(4.dp)
+            .clip(RoundedCornerShape(12.dp))
+            .background(backgroundColor)
+            .clickable(onClick = onClick)
+            .padding(16.dp),
+        contentAlignment = Alignment.Center
+    ) {
+        Column(
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.Center
+        ) {
+            Icon(
+                imageVector = icon,
+                contentDescription = title,
+                tint = MaterialTheme.colorScheme.onPrimaryContainer,
+                modifier = Modifier.padding(bottom = 8.dp)
+            )
+            Text(
+                text = title,
+                fontWeight = FontWeight.Medium,
+                fontSize = 14.sp,
+                color = MaterialTheme.colorScheme.onPrimaryContainer,
+                textAlign = TextAlign.Center
+            )
+        }
+    }
+} 

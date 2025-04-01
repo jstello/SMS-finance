@@ -2,6 +2,26 @@
 
 A Colombian SMS-based finance tracker for Bancolombia & Nequi transactions
 
+## 🎉 Recent Updates
+
+### New Dashboard Home Screen
+- Added a proper dashboard landing page with financial summary
+- Shows monthly expense and income metrics at a glance
+- Provides quick access to all key app features
+- Displays recent transactions for quick review
+
+### SMS Transaction Detection System
+- Implemented real-time SMS processing for financial messages
+- Added transaction parsing with improved detection algorithms
+- Created permission handling system for seamless setup
+- Added testing interface for SMS detection
+
+### Rule-based Categorization System
+- Added persistent rules for automatic transaction categorization
+- Implemented rule matching based on transaction patterns
+- Created default rules for common merchants and transaction types
+- Added ability to create custom rules from past transactions
+
 ## ✅ Implemented Features
 
 - **SMS Processing**

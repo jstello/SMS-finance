@@ -39,6 +39,17 @@ class TransactionRepositoryImpl(
     }
     
     /**
+     * Initialize transactions with saved categories without refreshing SMS
+     * This is useful to restore categories when the app starts
+     */
+    suspend fun initializeTransactions() = withContext(Dispatchers.IO) {
+        if (cachedTransactions.isNotEmpty()) {
+            // Apply category assignments to already loaded transactions
+            applyCategoryAssignments(cachedTransactions)
+        }
+    }
+    
+    /**
      * Load the transaction to category mappings from SharedPrefsManager into memory
      */
     private fun loadTransactionCategoryCache() {
@@ -68,6 +79,9 @@ class TransactionRepositoryImpl(
     override suspend fun getTransactions(): List<TransactionData> = withContext(Dispatchers.IO) {
         if (cachedTransactions.isEmpty()) {
             refreshSmsData()
+        } else {
+            // Even if transactions are cached, ensure they have category assignments
+            applyCategoryAssignments(cachedTransactions)
         }
         cachedTransactions
     }
@@ -111,6 +125,10 @@ class TransactionRepositoryImpl(
             messages.chunked(50).forEach { chunk ->
                 processChunk(chunk)
             }
+            
+            // Apply category assignments to all transactions after processing
+            applyCategoryAssignments(cachedTransactions)
+            
         } catch (e: Exception) {
             Log.e("SMS_REFRESH", "Error processing SMS", e)
         }

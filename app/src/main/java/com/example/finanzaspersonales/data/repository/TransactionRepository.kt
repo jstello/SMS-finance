@@ -47,4 +47,9 @@ interface TransactionRepository {
      * Refresh SMS data
      */
     suspend fun refreshSmsData()
+    
+    /**
+     * Initialize transactions with saved categories
+     */
+    suspend fun initializeTransactions()
 } 

@@ -1,9 +1,12 @@
 package com.example.finanzaspersonales
 
 import android.Manifest
+import android.content.Intent
 import android.content.pm.PackageManager
 import android.os.Bundle
 import android.util.Log
+import android.view.Menu
+import android.view.MenuItem
 import android.widget.Toast
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
@@ -125,6 +128,35 @@ class CategoriesActivity : ComponentActivity() {
     override fun onResume() {
         super.onResume()
         Log.d("APP_LIFECYCLE", "onResume() called")
+    }
+    
+    /**
+     * Launch the SMS test activity
+     */
+    private fun launchSmsTestActivity() {
+        val intent = Intent(this, com.example.finanzaspersonales.sms.SmsPermissionActivity::class.java)
+        startActivity(intent)
+    }
+    
+    /**
+     * Create options menu with SMS Test option
+     */
+    override fun onCreateOptionsMenu(menu: Menu): Boolean {
+        menuInflater.inflate(R.menu.menu_main, menu)
+        return true
+    }
+    
+    /**
+     * Handle menu item selection
+     */
+    override fun onOptionsItemSelected(item: MenuItem): Boolean {
+        return when (item.itemId) {
+            R.id.action_sms_test -> {
+                launchSmsTestActivity()
+                true
+            }
+            else -> super.onOptionsItemSelected(item)
+        }
     }
 }
 
