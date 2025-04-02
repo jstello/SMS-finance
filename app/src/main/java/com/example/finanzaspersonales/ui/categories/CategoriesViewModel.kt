@@ -76,9 +76,37 @@ class CategoriesViewModel(
     
     // Initialize the ViewModel
     init {
+        // Set default year and month to current date
+        val currentDate = java.util.Calendar.getInstance()
+        val defaultYear = currentDate.get(java.util.Calendar.YEAR)
+        val defaultMonth = currentDate.get(java.util.Calendar.MONTH) + 1
+        
+        _selectedYear.value = defaultYear
+        _selectedMonth.value = defaultMonth
+        
+        // Log the default filter
+        Log.d("CATEGORIES_VM", "Setting default filter to year: $defaultYear, month: $defaultMonth")
+        
+        // Load initial data
         loadCategories()
-        loadCategorySpending()
-        loadAllTransactions()
+        
+        // Initialize with just the last month of data for performance
+        viewModelScope.launch {
+            _isLoading.value = true
+            try {
+                // Initialize transactions with saved categories
+                transactionRepository.initializeTransactions()
+                
+                // Refresh SMS data for the selected month only
+                transactionRepository.refreshSmsData(limitToRecentMonths = 1)
+                
+                // Load all relevant transactions and spending data
+                loadAllTransactions()
+                loadCategorySpending()
+            } finally {
+                _isLoading.value = false
+            }
+        }
     }
     
     /**
@@ -376,16 +404,21 @@ class CategoriesViewModel(
     
     /**
      * Refresh transaction data from SMS
+     * @param limitToRecentMonths Number of months to limit the SMS data refresh to
      */
-    fun refreshTransactionData() {
+    fun refreshTransactionData(limitToRecentMonths: Int = 1) {
         viewModelScope.launch {
             _isLoading.value = true
             try {
+                Log.d("CATEGORIES_VM", "Refreshing transaction data for last $limitToRecentMonths months")
+                
                 // Initialize transactions with saved categories
                 transactionRepository.initializeTransactions()
                 
-                // Refresh SMS data
-                transactionRepository.refreshSmsData()
+                // Refresh SMS data with month limit
+                transactionRepository.refreshSmsData(limitToRecentMonths)
+                
+                // Load transactions and update categories
                 loadAllTransactions()
                 loadCategorySpending()
             } finally {

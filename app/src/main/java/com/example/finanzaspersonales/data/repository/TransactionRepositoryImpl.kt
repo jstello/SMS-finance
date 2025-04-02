@@ -68,7 +68,7 @@ class TransactionRepositoryImpl(
      */
     override suspend fun getAllSmsMessages(): List<SmsMessage> = withContext(Dispatchers.IO) {
         if (cachedSmsMessages.isEmpty()) {
-            refreshSmsData()
+            refreshSmsData(0)
         }
         cachedSmsMessages
     }
@@ -78,7 +78,7 @@ class TransactionRepositoryImpl(
      */
     override suspend fun getTransactions(): List<TransactionData> = withContext(Dispatchers.IO) {
         if (cachedTransactions.isEmpty()) {
-            refreshSmsData()
+            refreshSmsData(0)
         } else {
             // Even if transactions are cached, ensure they have category assignments
             applyCategoryAssignments(cachedTransactions)
@@ -142,16 +142,30 @@ class TransactionRepositoryImpl(
     }
     
     /**
-     * Refresh SMS data
+     * Refresh SMS data with options to limit by date
      */
-    override suspend fun refreshSmsData() = withContext(Dispatchers.IO) {
+    override suspend fun refreshSmsData(limitToRecentMonths: Int) = withContext(Dispatchers.IO) {
         if (!smsDataSource.hasReadSmsPermission()) {
             Log.w("SMS_REFRESH", "SMS permission not granted")
             return@withContext
         }
         
         try {
-            val messages = smsDataSource.readSmsMessages()
+            Log.d("SMS_REFRESH", "Loading SMS data limited to last $limitToRecentMonths months")
+            val messages = smsDataSource.readSmsMessages(
+                limitToRecentMonths = limitToRecentMonths,
+                maxResults = 500
+            )
+            
+            // Clear cache if we're refreshing
+            if (limitToRecentMonths > 0) {
+                cachedSmsMessages = emptyList()
+                cachedTransactions = emptyList()
+            }
+            
+            cachedSmsMessages = messages
+            
+            Log.d("SMS_REFRESH", "Processing ${messages.size} SMS messages in chunks")
             messages.chunked(50).forEach { chunk ->
                 processChunk(chunk)
             }

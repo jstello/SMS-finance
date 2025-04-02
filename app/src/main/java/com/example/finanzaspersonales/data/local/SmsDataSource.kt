@@ -32,8 +32,12 @@ class SmsDataSource(private val context: Context) {
     
     /**
      * Read SMS messages from the device with enhanced filtering for financial institutions
+     * Optionally limit by date range
      */
-    fun readSmsMessages(): List<SmsMessage> {
+    fun readSmsMessages(
+        limitToRecentMonths: Int = 1,
+        maxResults: Int = 500
+    ): List<SmsMessage> {
         // Check for permission first
         if (!hasReadSmsPermission()) {
             Log.e(TAG, "SMS_PERMISSION_DENIED: Cannot read SMS messages without READ_SMS permission")
@@ -71,23 +75,47 @@ class SmsDataSource(private val context: Context) {
                 "%transaccion%"
             )
             
+            // Calculate date filter if limiting by recent months
+            var dateConstraint = ""
+            var dateArg: String? = null
+            
+            if (limitToRecentMonths > 0) {
+                val calendar = java.util.Calendar.getInstance()
+                calendar.add(java.util.Calendar.MONTH, -limitToRecentMonths)
+                val cutoffTimestamp = calendar.timeInMillis
+                
+                dateConstraint = " AND ${Telephony.Sms.DATE} >= ?"
+                dateArg = cutoffTimestamp.toString()
+                
+                Log.d(TAG, "Limiting SMS to last $limitToRecentMonths months (since ${java.util.Date(cutoffTimestamp)})")
+            }
+            
             // Build SQL WHERE clause dynamically
             val whereClause = StringBuilder("(")
-            val whereArgs = bankFilters.mapIndexed { index, filter ->
+            val whereArgs = mutableListOf<String>()
+            
+            bankFilters.forEachIndexed { index, filter ->
                 if (index > 0) whereClause.append(" OR ")
                 whereClause.append("${Telephony.Sms.BODY} LIKE ?")
-                filter
-            }.toTypedArray()
-            whereClause.append(")")
+                whereArgs.add(filter)
+            }
             
-            Log.d(TAG, "Querying SMS content provider with filter")
+            whereClause.append(")")
+            whereClause.append(dateConstraint) // Add date constraint if needed
+            
+            // Add date arg if we have one
+            if (dateArg != null) {
+                whereArgs.add(dateArg)
+            }
+            
+            Log.d(TAG, "Querying SMS content provider with filter and limit to $limitToRecentMonths months")
             
             val cursor: Cursor? = context.contentResolver.query(
                 Telephony.Sms.CONTENT_URI,
                 null,
                 whereClause.toString(),
-                whereArgs,
-                "${Telephony.Sms.DATE} DESC" // Remove the LIMIT to get all messages
+                whereArgs.toTypedArray(),
+                "${Telephony.Sms.DATE} DESC LIMIT $maxResults" // Limit results for performance
             )
             
             cursor?.use { c ->
@@ -141,13 +169,12 @@ class SmsDataSource(private val context: Context) {
                     }
                 }
             }
-        } catch (secEx: SecurityException) {
-            Log.e(TAG, "SecurityException while reading SMS: ${secEx.message}")
-        } catch (ex: Exception) {
-            Log.e(TAG, "Error reading SMS messages", ex)
+            
+            Log.d(TAG, "Processed and returning ${smsMessages.size} relevant financial messages")
+        } catch (e: Exception) {
+            Log.e(TAG, "Error reading SMS messages", e)
         }
         
-        Log.d(TAG, "Extracted ${smsMessages.size} financial SMS messages")
         return smsMessages
     }
     

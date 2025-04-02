@@ -45,8 +45,9 @@ interface TransactionRepository {
     
     /**
      * Refresh SMS data
+     * @param limitToRecentMonths Number of months to limit SMS loading to. Use 0 for all messages.
      */
-    suspend fun refreshSmsData()
+    suspend fun refreshSmsData(limitToRecentMonths: Int = 1)
     
     /**
      * Initialize transactions with saved categories
