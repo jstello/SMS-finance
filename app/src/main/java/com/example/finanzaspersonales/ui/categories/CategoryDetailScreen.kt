@@ -1,5 +1,6 @@
 package com.example.finanzaspersonales.ui.categories
 
+import android.util.Log
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Box
@@ -72,6 +73,10 @@ fun CategoryDetailScreen(
     
     // Load transactions for this category with the same filters
     LaunchedEffect(category.id, selectedYear, selectedMonth) {
+        Log.d("CATEGORY_DETAIL", "Loading transactions for '${category.name}' (ID: ${category.id})")
+        Log.d("CATEGORY_DETAIL", "Filters - Year: $selectedYear, Month: $selectedMonth")
+        
+        // Explicitly set isIncome=false to match the chart calculation
         viewModel.loadTransactionsForCategory(
             categoryId = category.id,
             year = selectedYear,
@@ -134,6 +139,8 @@ fun CategoryDetailScreen(
                 ) {
                     if (transactions.isEmpty()) {
                         item {
+                            Log.d("CATEGORY_DETAIL", "No transactions found for category: ${category.name}")
+                            Log.d("CATEGORY_DETAIL", "Is Other category: ${category.name.equals("Other", ignoreCase = true)}")
                             Box(
                                 modifier = Modifier
                                     .fillMaxWidth()
@@ -148,6 +155,7 @@ fun CategoryDetailScreen(
                             }
                         }
                     } else {
+                        Log.d("CATEGORY_DETAIL", "Displaying ${transactions.size} transactions for category: ${category.name}")
                         items(transactions) { transaction ->
                             TransactionItem(
                                 transaction = transaction,

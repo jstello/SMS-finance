@@ -42,7 +42,7 @@ class TransactionRepositoryImpl(
      * Initialize transactions with saved categories without refreshing SMS
      * This is useful to restore categories when the app starts
      */
-    suspend fun initializeTransactions() = withContext(Dispatchers.IO) {
+    override suspend fun initializeTransactions() = withContext(Dispatchers.IO) {
         if (cachedTransactions.isNotEmpty()) {
             // Apply category assignments to already loaded transactions
             applyCategoryAssignments(cachedTransactions)
@@ -95,13 +95,43 @@ class TransactionRepositoryImpl(
         month: Int?,
         isIncome: Boolean?
     ): List<TransactionData> = withContext(Dispatchers.Default) {
-        transactions.filter { transaction ->
-            val matchesYear = year?.let { transaction.date.toYear() == it } ?: true
-            val matchesMonth = month?.let { transaction.date.toMonth() == it } ?: true
-            val matchesType = isIncome?.let { transaction.isIncome == it } ?: true
+        // Add debug logging
+        Log.d("TX_FILTER", "========== Filtering Transactions ==========")
+        Log.d("TX_FILTER", "Year: $year, Month: $month, isIncome: $isIncome")
+        Log.d("TX_FILTER", "Total transactions before filtering: ${transactions.size}")
+        
+        // Count income vs expense transactions
+        val incomeCount = transactions.count { it.isIncome }
+        val expenseCount = transactions.count { !it.isIncome }
+        Log.d("TX_FILTER", "Income transactions: $incomeCount, Expense transactions: $expenseCount")
+        
+        // Filter transactions
+        val filteredTransactions = transactions.filter { transaction ->
+            val txYear = transaction.date.toYear()
+            val txMonth = transaction.date.toMonth()
             
-            matchesYear && matchesMonth && matchesType
+            val matchesYear = year?.let { txYear == it } ?: true
+            val matchesMonth = month?.let { txMonth == it } ?: true
+            
+            // IMPORTANT: Default is to show expenses (isIncome == false)
+            // When isIncome is null, show all transactions
+            val matchesType = if (isIncome == null) {
+                true // If isIncome is null, include all transactions
+            } else {
+                transaction.isIncome == isIncome // Otherwise filter by type
+            }
+            
+            val matches = matchesYear && matchesMonth && matchesType
+            matches
         }
+        
+        // Log filtered transactions
+        val filteredIncomeCount = filteredTransactions.count { it.isIncome }
+        val filteredExpenseCount = filteredTransactions.count { !it.isIncome }
+        Log.d("TX_FILTER", "Filtered Income: $filteredIncomeCount, Filtered Expense: $filteredExpenseCount")
+        Log.d("TX_FILTER", "Total transactions after filtering: ${filteredTransactions.size}")
+        
+        filteredTransactions
     }
     
     /**
@@ -190,40 +220,50 @@ class TransactionRepositoryImpl(
             // Get the requested category
             val category = categories.find { it.id == categoryId }
             
-            // Simple approach: Check if this is the "Other" category by name
+            // Check if this is the "Other" category by name
             val isOtherCategory = category?.name?.equals("Other", ignoreCase = true) ?: false
             
-            // Comprehensive debug logging
-            android.util.Log.d("TransactionRepo", "Getting transactions for category: ${category?.name} (id: $categoryId)")
-            android.util.Log.d("TransactionRepo", "Is Other category: $isOtherCategory")
-            android.util.Log.d("TransactionRepo", "Total transactions: ${transactions.size}")
-            android.util.Log.d("TransactionRepo", "Transactions with null category: ${transactions.count { it.categoryId == null }}")
-            android.util.Log.d("TransactionRepo", "Transactions with this category ID: ${transactions.count { it.categoryId == categoryId }}")
+            // Enhanced debug logging
+            Log.d("CATEGORY_TRANSACTIONS", "========== Category Transaction Debug ==========")
+            Log.d("CATEGORY_TRANSACTIONS", "Category: ${category?.name} (id: $categoryId)")
+            Log.d("CATEGORY_TRANSACTIONS", "Is Other category: $isOtherCategory")
+            Log.d("CATEGORY_TRANSACTIONS", "Total transactions available: ${transactions.size}")
             
-            // Get all transactions for this category
-            val result = if (isOtherCategory) {
-                // For "Other" category, also include transactions with null categoryId
-                val filteredList = transactions.filter { 
+            // Handle "Other" category differently from regular categories
+            if (isOtherCategory) {
+                // For "Other" category, include both:
+                // 1. Transactions explicitly assigned to the Other category
+                // 2. Transactions with null categoryId (uncategorized)
+                Log.d("CATEGORY_TRANSACTIONS", "Special handling for Other category")
+                
+                // Count uncategorized transactions
+                val uncategorizedCount = transactions.count { it.categoryId == null }
+                Log.d("CATEGORY_TRANSACTIONS", "Uncategorized transactions: $uncategorizedCount")
+                
+                // Count transactions explicitly assigned to Other
+                val otherCount = transactions.count { it.categoryId == categoryId }
+                Log.d("CATEGORY_TRANSACTIONS", "Explicitly Other transactions: $otherCount")
+                
+                // Create result including both uncategorized and explicitly Other
+                val result = transactions.filter { 
                     it.categoryId == null || it.categoryId == categoryId 
                 }
-                android.util.Log.d("TransactionRepo", "Special handling for Other category - included ${filteredList.size} transactions")
-                filteredList
+                
+                Log.d("CATEGORY_TRANSACTIONS", "Combined Other category transactions: ${result.size}")
+                
+                // Sample some transactions for debugging
+                result.take(5).forEach { tx ->
+                    Log.d("CATEGORY_TRANSACTIONS", "Sample Other tx: ${tx.provider}, Amount: ${tx.amount}, " +
+                      "Date: ${tx.date}, CategoryId: ${tx.categoryId ?: "null"}")
+                }
+                
+                return@withContext result
             } else {
                 // Normal filtering for other categories
-                transactions.filter { it.categoryId == categoryId }
+                val result = transactions.filter { it.categoryId == categoryId }
+                Log.d("CATEGORY_TRANSACTIONS", "Regular category transactions: ${result.size}")
+                return@withContext result
             }
-            
-            android.util.Log.d("TransactionRepo", "Final result: ${result.size} transactions")
-            
-            // If still empty but this is Other category, just return all uncategorized as a fallback
-            if (result.isEmpty() && isOtherCategory) {
-                // Emergency fallback - just get all null category items
-                val fallback = transactions.filter { it.categoryId == null }
-                android.util.Log.d("TransactionRepo", "Using fallback for Other - found ${fallback.size} uncategorized transactions")
-                return@withContext fallback
-            }
-            
-            result
         }
     
     /**

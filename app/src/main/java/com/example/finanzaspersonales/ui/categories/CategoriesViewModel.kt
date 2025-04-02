@@ -1,11 +1,14 @@
 package com.example.finanzaspersonales.ui.categories
 
+import android.util.Log
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.finanzaspersonales.data.model.Category
 import com.example.finanzaspersonales.data.model.TransactionData
 import com.example.finanzaspersonales.data.repository.CategoryRepository
 import com.example.finanzaspersonales.data.repository.TransactionRepository
+import com.example.finanzaspersonales.domain.util.DateTimeUtils.toMonth
+import com.example.finanzaspersonales.domain.util.DateTimeUtils.toYear
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.launch
@@ -193,20 +196,66 @@ class CategoriesViewModel(
     ) {
         viewModelScope.launch {
             _isLoading.value = true
-            // Get all transactions for the category
-            val allCategoryTransactions = categoryRepository.getTransactionsByCategory(categoryId)
-            
-            // Apply the same filters used in the category list
-            val filteredTransactions = transactionRepository.filterTransactions(
-                transactions = allCategoryTransactions,
-                year = year,
-                month = month,
-                isIncome = isIncome
-            )
-            
-            // Apply current sorting
-            _categoryTransactions.value = sortTransactions(filteredTransactions)
-            _isLoading.value = false
+            try {
+                Log.d("TX_DEBUG", "========== Loading Transactions for Category ==========")
+                Log.d("TX_DEBUG", "Category ID: $categoryId, Year: $year, Month: $month, isIncome: $isIncome")
+                
+                // Get all transactions and apply year/month filter first
+                val allTransactions = transactionRepository.getTransactions()
+                Log.d("TX_DEBUG", "Total transactions: ${allTransactions.size}")
+                
+                // Apply same filter logic as in getSpendingByCategory
+                val filteredByDate = transactionRepository.filterTransactions(
+                    transactions = allTransactions,
+                    year = year,
+                    month = month,
+                    isIncome = isIncome
+                )
+                Log.d("TX_DEBUG", "After date/type filtering: ${filteredByDate.size}")
+                
+                // Check if this is the "Other" category
+                val category = _categories.value.find { it.id == categoryId }
+                val isOtherCategory = category?.name?.equals("Other", ignoreCase = true) ?: false
+                Log.d("TX_DEBUG", "Category: ${category?.name}, Is Other Category: $isOtherCategory")
+                
+                // For debugging, count uncategorized transactions
+                val uncategorizedCount = filteredByDate.count { it.categoryId == null }
+                Log.d("TX_DEBUG", "Uncategorized transactions after filtering: $uncategorizedCount")
+                
+                // Get transactions for this category using EXACT same logic as in spending calculation
+                val categoryTransactions = if (isOtherCategory) {
+                    Log.d("TX_DEBUG", "Using Other category logic")
+                    // For Other category, include both:
+                    // 1. Explicitly assigned to Other (categoryId == this category's ID)
+                    // 2. Null categoryId (uncategorized)
+                    // 3. CategoryId that doesn't exist anymore
+                    filteredByDate.filter { transaction ->
+                        val txCategoryId = transaction.categoryId
+                        val isNull = txCategoryId == null
+                        val isOther = txCategoryId == categoryId
+                        val isMissing = txCategoryId != null && _categories.value.none { it.id == txCategoryId }
+                        val include = isNull || isOther || isMissing
+                        
+                        if (include) {
+                            Log.d("TX_DEBUG", "Including transaction: ${transaction.provider}, " +
+                                "Amount: ${transaction.amount}, CategoryId: ${txCategoryId ?: "null"}")
+                        }
+                        
+                        include
+                    }
+                } else {
+                    Log.d("TX_DEBUG", "Using regular category logic")
+                    // For regular categories, just get transactions with this categoryId
+                    filteredByDate.filter { it.categoryId == categoryId }
+                }
+                
+                Log.d("TX_DEBUG", "Found ${categoryTransactions.size} transactions for category")
+                
+                // Apply sorting
+                _categoryTransactions.value = sortTransactions(categoryTransactions)
+            } finally {
+                _isLoading.value = false
+            }
         }
     }
     

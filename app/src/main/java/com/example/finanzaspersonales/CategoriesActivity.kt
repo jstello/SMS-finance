@@ -224,6 +224,10 @@ fun CategoriesApp(onBack: () -> Unit) {
                     override suspend fun refreshSmsData() {
                         // Do nothing
                     }
+                    
+                    override suspend fun initializeTransactions() {
+                        // Dummy implementation added
+                    }
                 }
                 
                 val tempCategoryRepository = CategoryRepositoryImpl(

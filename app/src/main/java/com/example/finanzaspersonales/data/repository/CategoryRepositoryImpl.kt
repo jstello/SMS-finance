@@ -2,6 +2,7 @@ package com.example.finanzaspersonales.data.repository
 
 import android.content.Context
 import android.content.SharedPreferences
+import android.util.Log
 import com.example.finanzaspersonales.data.local.SharedPrefsManager
 import com.example.finanzaspersonales.data.model.Category
 import com.example.finanzaspersonales.data.model.TransactionData
@@ -90,14 +91,24 @@ class CategoryRepositoryImpl(
      * Get spending by category
      */
     override suspend fun getSpendingByCategory(year: Int?, month: Int?): Map<Category, Float> = withContext(Dispatchers.Default) {
+        Log.d("CATEGORY_SPENDING", "====== Getting Spending By Category ======")
+        Log.d("CATEGORY_SPENDING", "Filter - Year: $year, Month: $month")
+        
         val categories = getCategories()
+        Log.d("CATEGORY_SPENDING", "Total categories: ${categories.size}")
+        
         val transactions = transactionRepository.getTransactions()
+        Log.d("CATEGORY_SPENDING", "Total transactions: ${transactions.size}")
+        
+        // IMPORTANT: Filter transactions by year/month first
         val filteredTransactions = transactionRepository.filterTransactions(
             transactions = transactions,
             year = year,
             month = month,
             isIncome = false // Only expenses
         )
+        Log.d("CATEGORY_SPENDING", "Filtered transactions: ${filteredTransactions.size}")
+        Log.d("CATEGORY_SPENDING", "Filtered uncategorized transactions: ${filteredTransactions.count { it.categoryId == null }}")
         
         val result = mutableMapOf<Category, Float>()
         
@@ -108,6 +119,15 @@ class CategoryRepositoryImpl(
         
         // Get "Other" category
         val otherCategory = categories.find { it.name == "Other" } ?: categories.last()
+        Log.d("CATEGORY_SPENDING", "Other category: ${otherCategory.name} (${otherCategory.id})")
+        
+        // Log transactions by category
+        Log.d("CATEGORY_SPENDING", "----- Transaction Distribution -----")
+        categories.forEach { category ->
+            val count = filteredTransactions.count { it.categoryId == category.id }
+            Log.d("CATEGORY_SPENDING", "Category '${category.name}': $count transactions")
+        }
+        Log.d("CATEGORY_SPENDING", "Uncategorized: ${filteredTransactions.count { it.categoryId == null }} transactions")
         
         // Add up spending for each transaction
         filteredTransactions.forEach { transaction ->
@@ -117,19 +137,37 @@ class CategoryRepositoryImpl(
                 // If we have a category for this transaction
                 val category = categories.find { it.id == categoryId }
                 if (category != null) {
-                    result[category] = result[category]!! + transaction.amount
+                    val oldAmount = result[category] ?: 0.0f
+                    val newAmount = oldAmount + transaction.amount
+                    result[category] = newAmount
+                    Log.d("CATEGORY_SPENDING", "Added ${transaction.amount} to '${category.name}', total: $newAmount")
                 } else {
                     // Category no longer exists, add to Other
-                    result[otherCategory] = result[otherCategory]!! + transaction.amount
+                    val oldAmount = result[otherCategory] ?: 0.0f
+                    val newAmount = oldAmount + transaction.amount
+                    result[otherCategory] = newAmount
+                    Log.d("CATEGORY_SPENDING", "Added ${transaction.amount} to '${otherCategory.name}' (missing category), total: $newAmount")
                 }
             } else {
                 // No category assigned, add to Other
-                result[otherCategory] = result[otherCategory]!! + transaction.amount
+                val oldAmount = result[otherCategory] ?: 0.0f
+                val newAmount = oldAmount + transaction.amount
+                result[otherCategory] = newAmount
+                Log.d("CATEGORY_SPENDING", "Added ${transaction.amount} to '${otherCategory.name}' (uncategorized), total: $newAmount")
             }
         }
         
+        // Log final category totals
+        Log.d("CATEGORY_SPENDING", "----- Final Category Totals -----")
+        result.forEach { (category, amount) ->
+            Log.d("CATEGORY_SPENDING", "Category '${category.name}': $amount")
+        }
+        
         // Return only categories with spending > 0
-        result.filter { it.value > 0 }
+        val nonZeroResults = result.filter { it.value > 0 }
+        Log.d("CATEGORY_SPENDING", "Categories with spending > 0: ${nonZeroResults.size}")
+        
+        nonZeroResults
     }
     
     /**
