@@ -221,7 +221,7 @@ fun CategoriesApp(onBack: () -> Unit) {
                         return false
                     }
                     
-                    override suspend fun refreshSmsData() {
+                    override suspend fun refreshSmsData(limitToRecentMonths: Int) {
                         // Do nothing
                     }
                     

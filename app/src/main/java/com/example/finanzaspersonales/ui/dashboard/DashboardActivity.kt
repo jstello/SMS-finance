@@ -121,7 +121,7 @@ class DashboardActivity : ComponentActivity() {
             override suspend fun getTransactionById(id: String): TransactionData? = null
             override suspend fun getTransactionsByCategory(categoryId: String): List<TransactionData> = emptyList()
             override suspend fun assignCategoryToTransaction(transactionId: String, categoryId: String): Boolean = false
-            override suspend fun refreshSmsData() {
+            override suspend fun refreshSmsData(limitToRecentMonths: Int) {
                 // Do nothing
             }
             override suspend fun initializeTransactions() {

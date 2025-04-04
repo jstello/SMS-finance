@@ -15,6 +15,8 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import java.util.UUID
 import android.util.Log
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.CoroutineScope
 
 /**
  * Implementation of the TransactionRepository
@@ -33,9 +35,13 @@ class TransactionRepositoryImpl(
     // Transaction-category mappings cache to avoid frequent disk reads
     private var transactionCategoryCache: MutableMap<String, String> = mutableMapOf()
     
+    private val coroutineScope = CoroutineScope(Dispatchers.Main)
+    
     init {
-        // Load the transaction category mappings into memory
-        loadTransactionCategoryCache()
+        coroutineScope.launch {
+            migrateLegacyKeys()
+            loadTransactionCategoryCache()
+        }
     }
     
     /**
@@ -204,20 +210,18 @@ class TransactionRepositoryImpl(
      */
     private suspend fun applyCategoryAssignments(transactions: List<TransactionData>) {
         transactions.forEach { transaction ->
-            val transactionId = generateTransactionKey(transaction)
-            
-            // First check if we have a saved category assignment
-            val savedCategoryId = getSavedCategoryForTransaction(transactionId)
-            
-            if (savedCategoryId != null) {
-                transaction.categoryId = savedCategoryId
-            } else {
-                // Auto-categorize transactions without saved categories
-                val assignedCategory = categoryAssignmentUseCase.assignCategoryToTransaction(transaction)
-                if (assignedCategory != null) {
-                    transaction.categoryId = assignedCategory.id
-                    // Save this auto-assignment
-                    saveCategoryForTransaction(transactionId, assignedCategory.id)
+            // Only auto-assign if category is unset or still 'Other'
+            if (transaction.categoryId == null || transaction.categoryId.equals("Other", ignoreCase = true)) {
+                val transactionId = generateTransactionKey(transaction)
+                val savedCategoryId = getSavedCategoryForTransaction(transactionId)
+                if (savedCategoryId != null) {
+                    transaction.categoryId = savedCategoryId
+                } else {
+                    val assignedCategory = categoryAssignmentUseCase.assignCategoryToTransaction(transaction)
+                    if (assignedCategory != null) {
+                        transaction.categoryId = assignedCategory.id
+                        saveCategoryForTransaction(transactionId, assignedCategory.id)
+                    }
                 }
             }
         }
@@ -313,11 +317,23 @@ class TransactionRepositoryImpl(
     }
     
     /**
-     * Generate a unique key for a transaction
+     * Generate a unique key for a transaction using the stable id from TransactionData
      */
     private fun generateTransactionKey(transaction: TransactionData): String {
-        val message = transaction.originalMessage
-        val input = "${message.address}_${message.body}_${message.dateTime?.time}"
-        return UUID.nameUUIDFromBytes(input.toByteArray()).toString()
+        return transaction.id
+    }
+    
+    private suspend fun migrateLegacyKeys() = withContext(Dispatchers.IO) {
+        val oldMap = sharedPrefsManager.loadTransactionCategories()
+        val newMap = mutableMapOf<String, String>()
+        
+        cachedTransactions.forEach { transaction ->
+            val currentKey = generateTransactionKey(transaction)
+            oldMap[currentKey]?.let { categoryId ->
+                newMap[currentKey] = categoryId
+            }
+        }
+        
+        sharedPrefsManager.saveTransactionCategories(newMap)
     }
 } 
