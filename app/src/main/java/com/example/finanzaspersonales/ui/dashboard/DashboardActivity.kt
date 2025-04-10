@@ -80,10 +80,14 @@ import java.text.NumberFormat
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
+import com.example.finanzaspersonales.data.auth.AuthRepository
+import com.example.finanzaspersonales.data.auth.AuthRepositoryImpl
+import com.example.finanzaspersonales.ui.auth.LoginScreen
 
 class DashboardActivity : ComponentActivity() {
     
     private lateinit var viewModel: DashboardViewModel
+    private lateinit var authRepository: AuthRepository
     
     // Permission launcher for SMS read permission
     private val requestPermissionLauncher = registerForActivityResult(
@@ -108,6 +112,9 @@ class DashboardActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         
+        // Instantiate AuthRepository (TODO: Replace with DI later)
+        authRepository = AuthRepositoryImpl()
+        
         // Create dependencies
         val sharedPrefsManager = SharedPrefsManager(this)
         val smsDataSource = SmsDataSource(this)
@@ -121,8 +128,8 @@ class DashboardActivity : ComponentActivity() {
             override suspend fun getTransactionById(id: String): TransactionData? = null
             override suspend fun getTransactionsByCategory(categoryId: String): List<TransactionData> = emptyList()
             override suspend fun assignCategoryToTransaction(transactionId: String, categoryId: String): Boolean = false
-            override suspend fun refreshSmsData() {
-                // Do nothing
+            override suspend fun refreshSmsData(limitToRecentMonths: Int) {
+                // Dummy implementation - do nothing
             }
             override suspend fun initializeTransactions() {
                 // Dummy implementation
@@ -160,30 +167,52 @@ class DashboardActivity : ComponentActivity() {
                     modifier = Modifier.fillMaxSize(),
                     color = MaterialTheme.colorScheme.background
                 ) {
-                    val monthlyExpenses by viewModel.monthlyExpenses.collectAsState()
-                    val monthlyIncome by viewModel.monthlyIncome.collectAsState()
-                    val recentTransactions by viewModel.recentTransactions.collectAsState()
-                    val isLoading by viewModel.isLoading.collectAsState()
-                    
-                    DashboardScreen(
-                        monthlyExpenses = monthlyExpenses,
-                        monthlyIncome = monthlyIncome,
-                        recentTransactions = recentTransactions,
-                        isLoading = isLoading,
-                        onRefresh = { checkAndRequestPermissions() },
-                        onCategoriesClick = {
-                            startActivity(Intent(this, CategoriesActivity::class.java))
-                        },
-                        onSmsTestClick = {
-                            startActivity(Intent(this, SmsPermissionActivity::class.java))
+                    // --- Authentication State Check ---
+                    val currentUser by authRepository.currentUserState.collectAsState()
+
+                    if (currentUser == null) {
+                        // --- User Not Logged In: Show Login Screen ---
+                        LoginScreen(
+                            onLoginSuccess = {
+                                // Login is handled by ViewModel, state flow update will trigger recomposition
+                                // to show DashboardScreen automatically. No explicit navigation needed here.
+                                Log.d("DashboardActivity", "Login successful, auth state should update.")
+                            }
+                            // TODO: Add onNavigateToRegister callback later
+                        )
+                    } else {
+                        // --- User Logged In: Show Dashboard Screen ---
+                        Log.d("DashboardActivity", "User logged in: ${currentUser?.uid}, showing Dashboard")
+                        // Collect necessary states for DashboardScreen
+                        val monthlyExpenses by viewModel.monthlyExpenses.collectAsState()
+                        val monthlyIncome by viewModel.monthlyIncome.collectAsState()
+                        val recentTransactions by viewModel.recentTransactions.collectAsState()
+                        val isLoading by viewModel.isLoading.collectAsState()
+
+                        DashboardScreen(
+                            monthlyExpenses = monthlyExpenses,
+                            monthlyIncome = monthlyIncome,
+                            recentTransactions = recentTransactions,
+                            isLoading = isLoading,
+                            onRefresh = { checkAndRequestPermissions() },
+                            onCategoriesClick = {
+                                startActivity(Intent(this, CategoriesActivity::class.java))
+                            },
+                            onSmsTestClick = {
+                                startActivity(Intent(this, SmsPermissionActivity::class.java))
+                            }
+                            // TODO: Add a way to Sign Out from the DashboardScreen later
+                        )
+                        
+                        // Load data only if user is logged in and permissions are checked
+                        // Moved permission check here to ensure it runs only when dashboard is shown
+                        LaunchedEffect(Unit) { // Run only once when DashboardScreen is composed
+                           checkAndRequestPermissions()
                         }
-                    )
+                    }
                 }
             }
         }
-        
-        // Check permissions and load data
-        checkAndRequestPermissions()
     }
     
     private fun checkAndRequestPermissions() {

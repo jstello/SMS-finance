@@ -2,6 +2,7 @@ plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.kotlin.android) version "2.0.0"
     alias(libs.plugins.kotlin.compose)
+    alias(libs.plugins.google.gms.google.services)
 }
 
 android {
@@ -69,6 +70,18 @@ dependencies {
     // Coroutines
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-core:1.7.3")
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.7.3")
+    implementation("org.jetbrains.kotlinx:kotlinx-coroutines-play-services:1.7.3")
+    
+    // Firebase
+    // Import the Firebase BoM
+    implementation(platform("com.google.firebase:firebase-bom:33.1.1")) // Use the latest version
+    // Add the dependency for Firebase Authentication KTX
+    implementation("com.google.firebase:firebase-auth-ktx")
+    // Add the dependency for Google Play Services Auth (for Google Sign In)
+    implementation("com.google.android.gms:play-services-auth:21.2.0") // Use a recent version
+    // Add other Firebase dependencies as needed (e.g., Firestore, Analytics)
+    // implementation("com.google.firebase:firebase-firestore-ktx")
+    // implementation("com.google.firebase:firebase-analytics-ktx")
     
     // Testing
     testImplementation(libs.junit)

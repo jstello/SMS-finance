@@ -189,44 +189,19 @@ fun CategoriesApp(onBack: () -> Unit) {
                 val smsDataSource = SmsDataSource(context)
                 val extractTransactionDataUseCase = ExtractTransactionDataUseCase(context)
                 
-                // Create the CategoryAssignmentUseCase with a temporary CategoryRepository
-                // (We'll replace this with the actual repository later)
+                // Create a "dummy" transaction repository first for the CategoryRepository
                 val dummyTransactionRepository = object : TransactionRepository {
-                    override suspend fun getAllSmsMessages(): List<SmsMessage> {
-                        return emptyList()
+                    override suspend fun getAllSmsMessages(): List<SmsMessage> = emptyList()
+                    override suspend fun getTransactions(): List<TransactionData> = emptyList()
+                    override suspend fun filterTransactions(transactions: List<TransactionData>, year: Int?, month: Int?, isIncome: Boolean?): List<TransactionData> = emptyList()
+                    override suspend fun getTransactionById(id: String): TransactionData? = null
+                    override suspend fun getTransactionsByCategory(categoryId: String): List<TransactionData> = emptyList()
+                    override suspend fun assignCategoryToTransaction(transactionId: String, categoryId: String): Boolean = false
+                    override suspend fun refreshSmsData(limitToRecentMonths: Int) {
+                        // Dummy implementation - do nothing
                     }
-                    
-                    override suspend fun getTransactions(): List<TransactionData> {
-                        return emptyList()
-                    }
-                    
-                    override suspend fun filterTransactions(
-                        transactions: List<TransactionData>,
-                        year: Int?,
-                        month: Int?,
-                        isIncome: Boolean?
-                    ): List<TransactionData> {
-                        return emptyList()
-                    }
-                    
-                    override suspend fun getTransactionById(id: String): TransactionData? {
-                        return null
-                    }
-                    
-                    override suspend fun getTransactionsByCategory(categoryId: String): List<TransactionData> {
-                        return emptyList()
-                    }
-                    
-                    override suspend fun assignCategoryToTransaction(transactionId: String, categoryId: String): Boolean {
-                        return false
-                    }
-                    
-                    override suspend fun refreshSmsData() {
-                        // Do nothing
-                    }
-                    
                     override suspend fun initializeTransactions() {
-                        // Dummy implementation added
+                        // Dummy implementation
                     }
                 }
                 
