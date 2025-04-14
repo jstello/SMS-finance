@@ -73,16 +73,28 @@ fun CategoryDetailScreen(
     
     // Load transactions for this category with the same filters
     LaunchedEffect(category.id, selectedYear, selectedMonth) {
-        Log.d("CATEGORY_DETAIL", "Loading transactions for '${category.name}' (ID: ${category.id})")
-        Log.d("CATEGORY_DETAIL", "Filters - Year: $selectedYear, Month: $selectedMonth")
+        Log.d("CAT_DETAIL_EFFECT", "LaunchedEffect triggered.")
+        Log.d("CAT_DETAIL_EFFECT", "Category Name: ${category.name}, Category ID: ${category.id}")
+        Log.d("CAT_DETAIL_EFFECT", "Selected Year: $selectedYear, Selected Month: $selectedMonth")
         
-        // Explicitly set isIncome=false to match the chart calculation
-        viewModel.loadTransactionsForCategory(
-            categoryId = category.id,
-            year = selectedYear,
-            month = selectedMonth,
-            isIncome = false // Only show expenses to match main screen
-        )
+        // Ensure category.id is not null before proceeding
+        category.id?.let { categoryId -> // Use let to safely access category when id is not null
+            Log.d("CAT_DETAIL_EFFECT", "Category ID ($categoryId) is not null. Calling loadTransactionsForCategory.")
+            Log.d("CATEGORY_DETAIL", "Loading transactions for '${category.name}' (ID: ${category.id})")
+            Log.d("CATEGORY_DETAIL", "Filters - Year: $selectedYear, Month: $selectedMonth")
+            
+            // Call the existing loadTransactionsForCategory with the category object
+            viewModel.loadTransactionsForCategory(category)
+            
+            // Note: The filtering by isIncome=false and year/month 
+            // is handled *inside* the ViewModel's loadTransactionsForCategory method now.
+            
+        } ?: run {
+             Log.e("CAT_DETAIL_EFFECT", "LaunchedEffect - Category ID is NULL for category name '${category.name}'")
+             Log.e("CATEGORY_DETAIL", "Cannot load transactions: Category ID is null for category name '${category.name}'")
+             // Optionally clear transactions list or show an error state in the ViewModel if needed
+             // viewModel.clearCategoryTransactions()
+        }
     }
     
     Scaffold(
@@ -301,11 +313,14 @@ fun TransactionItem(
         phoneNumber?.let { ContactsUtil.getContactNameFromPhoneNumber(context, it) }
     }
     
-    // Display contact name if available, otherwise show provider/address
+    // Display contact name if available, otherwise show provider
     val displayText = when {
         contactName != null -> contactName
-        phoneNumber != null -> "${transaction.provider} (${phoneNumber})"
-        else -> transaction.provider ?: transaction.originalMessage.address
+        phoneNumber != null -> "${transaction.provider ?: "Unknown"} (${phoneNumber})" // Add null check for provider
+        // Fallback to provider or description or a default text
+        transaction.provider != null -> transaction.provider
+        transaction.description != null -> transaction.description.take(30) + "..." // Example: use truncated description
+        else -> "Unknown Sender"
     }
     
     Row(

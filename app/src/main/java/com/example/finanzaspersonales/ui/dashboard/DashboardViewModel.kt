@@ -1,9 +1,12 @@
 package com.example.finanzaspersonales.ui.dashboard
 
 import android.content.Context
+import android.util.Log
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.example.finanzaspersonales.data.local.SharedPrefsManager
 import com.example.finanzaspersonales.data.model.TransactionData
+import com.example.finanzaspersonales.data.repository.CategoryRepository
 import com.example.finanzaspersonales.data.repository.TransactionRepository
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -11,10 +14,14 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 import java.time.LocalDate
 import java.time.ZoneId
+import java.time.temporal.TemporalAdjusters
 import java.util.Calendar
+import java.util.Date
 
 class DashboardViewModel(
-    private val transactionRepository: TransactionRepository
+    private val transactionRepository: TransactionRepository,
+    private val categoryRepository: CategoryRepository,
+    private val sharedPrefsManager: SharedPrefsManager
 ) : ViewModel() {
     
     // Current month's spending summary
@@ -32,14 +39,89 @@ class DashboardViewModel(
     private val _isLoading = MutableStateFlow(false)
     val isLoading: StateFlow<Boolean> = _isLoading.asStateFlow()
     
+    // --- Add Sync State ---
+    private val _isSyncing = MutableStateFlow(false)
+    val isSyncing: StateFlow<Boolean> = _isSyncing.asStateFlow()
+    
+    private val _syncError = MutableStateFlow<String?>(null)
+    val syncError: StateFlow<String?> = _syncError.asStateFlow()
+    // ---------------------
+    
+    /**
+     * Checks if initial sync is needed and performs it.
+     * Should be called after successful login.
+     */
+    fun checkAndPerformInitialSync(userId: String) {
+        if (sharedPrefsManager.hasCompletedInitialSync(userId)) {
+            Log.d("SYNC", "Initial sync already completed for user $userId")
+            // Sync already done, load regular data
+            loadDashboardData()
+            return
+        }
+        
+        Log.d("SYNC", "Initial sync needed for user $userId. Starting...")
+        viewModelScope.launch {
+            _isSyncing.value = true
+            _syncError.value = null
+            
+            try {
+                // Calculate start date for sync (e.g., first day of current month)
+                val calendar = Calendar.getInstance()
+                calendar.set(Calendar.DAY_OF_MONTH, 1)
+                calendar.set(Calendar.HOUR_OF_DAY, 0)
+                calendar.set(Calendar.MINUTE, 0)
+                calendar.set(Calendar.SECOND, 0)
+                calendar.set(Calendar.MILLISECOND, 0)
+                val syncStartDateMillis = calendar.timeInMillis
+                
+                // Perform Category Sync
+                val categoryResult = categoryRepository.performInitialCategorySync(userId)
+                if (categoryResult.isFailure) {
+                    throw categoryResult.exceptionOrNull() ?: Exception("Unknown category sync error")
+                }
+                 Log.d("SYNC", "Category sync successful for user $userId")
+                 
+                 // Perform Transaction Sync
+                 // Important: Ensure local data (cachedTransactions) is populated before syncing
+                 // Might need to call refreshSmsData first if cache is empty?
+                 // transactionRepository.refreshSmsData(1) // Example: load last month
+                 
+                 val transactionResult = transactionRepository.performInitialTransactionSync(userId, syncStartDateMillis)
+                 if (transactionResult.isFailure) {
+                     throw transactionResult.exceptionOrNull() ?: Exception("Unknown transaction sync error")
+                 }
+                 Log.d("SYNC", "Transaction sync successful for user $userId")
+                 
+                // Mark sync as complete
+                sharedPrefsManager.markInitialSyncComplete(userId)
+                Log.d("SYNC", "Initial sync marked complete for user $userId")
+                
+                // Load regular dashboard data after successful sync
+                loadDashboardData()
+                
+            } catch (e: Exception) {
+                Log.e("SYNC", "Initial sync failed for user $userId", e)
+                _syncError.value = "Sync failed: ${e.message}"
+            } finally {
+                _isSyncing.value = false
+            }
+        }
+    }
+    
     /**
      * Load data for the dashboard
      */
     fun loadDashboardData() {
         viewModelScope.launch {
-            _isLoading.value = true
+             // Don't show main loading indicator if sync indicator is active
+            if (!_isSyncing.value) {
+                _isLoading.value = true
+            }
             
             try {
+                // TODO: Update this logic to fetch from Firestore primarily
+                // For now, keeps existing logic using local cache/SMS refresh
+                
                 // Initialize transactions with saved categories
                 transactionRepository.initializeTransactions()
                 
@@ -82,9 +164,13 @@ class DashboardViewModel(
                     .take(5)
                 
             } catch (e: Exception) {
+                Log.e("DASHBOARD_LOAD", "Error loading dashboard data", e)
                 // Handle error
             } finally {
-                _isLoading.value = false
+                 // Don't hide loading if sync indicator is active
+                if (!_isSyncing.value) {
+                    _isLoading.value = false
+                }
             }
         }
     }

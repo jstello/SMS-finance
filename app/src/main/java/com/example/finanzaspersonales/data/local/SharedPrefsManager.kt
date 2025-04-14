@@ -22,6 +22,9 @@ class SharedPrefsManager(private val context: Context) {
     // Transaction preferences
     private val transactionPrefs = context.getSharedPreferences(TRANSACTION_PREFS, Context.MODE_PRIVATE)
     
+    // Sync preferences
+    private val syncPrefs = context.getSharedPreferences(SYNC_PREFS, Context.MODE_PRIVATE)
+    
     /**
      * Save accounts
      */
@@ -85,14 +88,35 @@ class SharedPrefsManager(private val context: Context) {
         }
     }
     
+    // Sync status functions
+    /**
+     * Check if initial sync has been completed for a user
+     */
+    fun hasCompletedInitialSync(userId: String): Boolean {
+        return syncPrefs.getBoolean(getSyncStatusKey(userId), false)
+    }
+
+    /**
+     * Mark initial sync as completed for a user
+     */
+    fun markInitialSyncComplete(userId: String) {
+        syncPrefs.edit().putBoolean(getSyncStatusKey(userId), true).apply()
+    }
+
+    private fun getSyncStatusKey(userId: String): String {
+        return "${KEY_INITIAL_SYNC_STATUS_PREFIX}_$userId"
+    }
+    
     companion object {
         private const val ACCOUNT_PREFS = "account_prefs"
         private const val CATEGORY_PREFS = "category_prefs"
         private const val TRANSACTION_PREFS = "transaction_prefs"
+        private const val SYNC_PREFS = "sync_prefs"
         
         private const val KEY_ACCOUNTS = "accounts"
         private const val KEY_CATEGORIES = "categories"
         private const val KEY_TRANSACTION_CATEGORIES = "transaction_categories"
+        private const val KEY_INITIAL_SYNC_STATUS_PREFIX = "initial_sync_status"
         
         // Default categories
         val DEFAULT_CATEGORIES = listOf(

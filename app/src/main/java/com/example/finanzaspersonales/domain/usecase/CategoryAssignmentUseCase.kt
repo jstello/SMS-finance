@@ -3,6 +3,7 @@ package com.example.finanzaspersonales.domain.usecase
 import com.example.finanzaspersonales.data.model.Category
 import com.example.finanzaspersonales.data.model.TransactionData
 import com.example.finanzaspersonales.data.repository.CategoryRepository
+import android.util.Log
 
 /**
  * Use case for assigning categories to transactions based on patterns in transaction data
@@ -52,11 +53,15 @@ class CategoryAssignmentUseCase(
             keywords.add(contact.lowercase())
         }
         
-        // Extract keywords from the SMS body
-        val body = transaction.originalMessage.body.lowercase()
+        // Extract keywords from the transaction description
+        val descriptionText = transaction.description?.lowercase()
         
-        // Add common category-specific keywords
-        addKeywordsFromText(body, keywords)
+        if (descriptionText != null) {
+            // Add common category-specific keywords
+            addKeywordsFromText(descriptionText, keywords)
+        } else {
+            Log.w("CategoryAssign", "Transaction description is null, cannot extract keywords from text for tx date ${transaction.date}")
+        }
         
         return keywords
     }

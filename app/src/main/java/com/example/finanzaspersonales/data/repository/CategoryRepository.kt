@@ -31,7 +31,7 @@ interface CategoryRepository {
     /**
      * Set a category for a transaction
      */
-    suspend fun setCategoryForTransaction(transactionId: String, categoryId: String)
+    suspend fun setCategoryForTransaction(transactionId: String, categoryId: String): Boolean
     
     /**
      * Get transactions by category
@@ -47,4 +47,29 @@ interface CategoryRepository {
      * Get spending by category
      */
     suspend fun getSpendingByCategory(year: Int? = null, month: Int? = null): Map<Category, Float>
+
+    /**
+     * Save a category to Firestore
+     */
+    suspend fun saveCategoryToFirestore(category: Category): Result<Unit>
+
+    /**
+     * Get categories from Firestore
+     */
+    suspend fun getCategoriesFromFirestore(userId: String): Result<List<Category>>
+
+    /**
+     * Update a category in Firestore
+     */
+    suspend fun updateCategoryInFirestore(category: Category): Result<Unit>
+
+    /**
+     * Delete a category from Firestore
+     */
+    suspend fun deleteCategoryFromFirestore(categoryId: String, userId: String): Result<Unit>
+
+    /**
+     * Perform initial category sync
+     */
+    suspend fun performInitialCategorySync(userId: String): Result<Unit>
 } 

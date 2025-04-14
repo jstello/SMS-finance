@@ -79,8 +79,9 @@ dependencies {
     implementation("com.google.firebase:firebase-auth-ktx")
     // Add the dependency for Google Play Services Auth (for Google Sign In)
     implementation("com.google.android.gms:play-services-auth:21.2.0") // Use a recent version
-    // Add other Firebase dependencies as needed (e.g., Firestore, Analytics)
-    // implementation("com.google.firebase:firebase-firestore-ktx")
+    // Add the dependency for Cloud Firestore KTX
+    implementation("com.google.firebase:firebase-firestore-ktx")
+    // Add other Firebase dependencies as needed (e.g., Analytics)
     // implementation("com.google.firebase:firebase-analytics-ktx")
     
     // Testing

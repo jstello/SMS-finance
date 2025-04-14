@@ -42,6 +42,7 @@ import com.example.finanzaspersonales.ui.categories.CategoryDetailScreen
 import com.example.finanzaspersonales.ui.categories.CategoryEditScreen
 import com.example.finanzaspersonales.ui.categories.TransactionDetailScreen
 import com.example.finanzaspersonales.ui.theme.FinanzasPersonalesTheme
+import com.example.finanzaspersonales.data.auth.AuthRepositoryImpl
 
 /**
  * Activity for the Categories feature
@@ -188,6 +189,7 @@ fun CategoriesApp(onBack: () -> Unit) {
                 val sharedPrefsManager = SharedPrefsManager(context)
                 val smsDataSource = SmsDataSource(context)
                 val extractTransactionDataUseCase = ExtractTransactionDataUseCase(context)
+                val authRepository = AuthRepositoryImpl() // Instantiate AuthRepository
                 
                 // Create a "dummy" transaction repository first for the CategoryRepository
                 val dummyTransactionRepository = object : TransactionRepository {
@@ -197,18 +199,22 @@ fun CategoriesApp(onBack: () -> Unit) {
                     override suspend fun getTransactionById(id: String): TransactionData? = null
                     override suspend fun getTransactionsByCategory(categoryId: String): List<TransactionData> = emptyList()
                     override suspend fun assignCategoryToTransaction(transactionId: String, categoryId: String): Boolean = false
-                    override suspend fun refreshSmsData(limitToRecentMonths: Int) {
-                        // Dummy implementation - do nothing
-                    }
-                    override suspend fun initializeTransactions() {
-                        // Dummy implementation
-                    }
+                    override suspend fun refreshSmsData(limitToRecentMonths: Int) { /* Dummy */ }
+                    override suspend fun initializeTransactions() { /* Dummy */ }
+                    // --- Add Stubs for Firestore/Sync functions ---
+                    override suspend fun saveTransactionToFirestore(transaction: TransactionData): Result<Unit> = Result.failure(NotImplementedError("Dummy implementation"))
+                    override suspend fun getTransactionsFromFirestore(userId: String): Result<List<TransactionData>> = Result.failure(NotImplementedError("Dummy implementation"))
+                    override suspend fun updateTransactionInFirestore(transaction: TransactionData): Result<Unit> = Result.failure(NotImplementedError("Dummy implementation"))
+                    override suspend fun deleteTransactionFromFirestore(transactionId: String, userId: String): Result<Unit> = Result.failure(NotImplementedError("Dummy implementation"))
+                    override suspend fun performInitialTransactionSync(userId: String, syncStartDate: Long): Result<Unit> = Result.failure(NotImplementedError("Dummy implementation"))
                 }
                 
+                // Create temp CategoryRepository with AuthRepository
                 val tempCategoryRepository = CategoryRepositoryImpl(
                     context = context,
                     sharedPrefsManager = sharedPrefsManager,
-                    transactionRepository = dummyTransactionRepository
+                    transactionRepository = dummyTransactionRepository,
+                    authRepository = authRepository // Pass AuthRepository
                 )
                 
                 val categoryAssignmentUseCase = CategoryAssignmentUseCase(tempCategoryRepository)
@@ -222,11 +228,12 @@ fun CategoriesApp(onBack: () -> Unit) {
                     sharedPrefsManager = sharedPrefsManager
                 )
                 
-                // Replace the temporary repository with the real one
+                // Replace the temporary repository with the real one, including AuthRepository
                 val categoryRepository: CategoryRepository = CategoryRepositoryImpl(
                     context = context,
                     sharedPrefsManager = sharedPrefsManager,
-                    transactionRepository = transactionRepository
+                    transactionRepository = transactionRepository,
+                    authRepository = authRepository // Pass AuthRepository
                 )
                 
                 return CategoriesViewModel(
@@ -277,14 +284,11 @@ fun CategoriesApp(onBack: () -> Unit) {
                     }
                 },
                 onCategorySelected = { transaction, category ->
+                    Log.d("CAT_ASSIGN_UI", "-> onCategorySelected triggered. TxID: ${transaction.id}, New Cat: ${category.name} (${category.id})")
                     categoriesViewModel.assignCategoryToTransaction(transaction, category)
-                    // Go back after assigning
-                    val previousState = navState
-                    if (previousState is CategoriesNavState.CategoryDetail) {
-                        navState = previousState
-                    } else {
-                        navState = CategoriesNavState.Categories
-                    }
+                    // Log before navigation
+                    Log.d("CAT_ASSIGN_UI", "<- Navigating back to Categories list after triggering VM.")
+                    navState = CategoriesNavState.Categories
                 }
             )
         }

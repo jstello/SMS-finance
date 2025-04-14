@@ -4,6 +4,7 @@ import android.content.Context
 import com.example.finanzaspersonales.data.model.SmsMessage
 import com.example.finanzaspersonales.data.model.TransactionData
 import com.example.finanzaspersonales.domain.util.TextExtractors
+import java.util.UUID
 
 /**
  * Use case for extracting transaction data from SMS messages
@@ -15,6 +16,7 @@ class ExtractTransactionDataUseCase(private val context: Context) {
      */
     fun execute(messages: List<SmsMessage>): List<TransactionData> {
         return messages.mapNotNull { message ->
+            // Basic validation: ensure date and amount are present
             if (message.dateTime != null && message.numericAmount != null) {
                 // Extract provider name
                 val provider = TextExtractors.extractProviderFromBody(message.body)
@@ -27,15 +29,18 @@ class ExtractTransactionDataUseCase(private val context: Context) {
                 val contactName = phoneNumber?.let { TextExtractors.lookupContactName(context, it) }
                 
                 TransactionData(
+                    id = UUID.randomUUID().toString(),
                     date = message.dateTime,
                     amount = message.numericAmount,
                     isIncome = TextExtractors.isIncome(message.body),
-                    originalMessage = message,
+                    description = message.body, // Populate description field with SMS body
                     provider = provider,
                     contactName = contactName,
                     accountInfo = accountInfo
                 )
-            } else null
+            } else {
+                 null // Skip messages without date or amount
+            }
         }
     }
 } 

@@ -7,145 +7,136 @@ import com.example.finanzaspersonales.data.model.Category
 import com.example.finanzaspersonales.data.model.TransactionData
 import com.example.finanzaspersonales.data.repository.CategoryRepository
 import com.example.finanzaspersonales.data.repository.TransactionRepository
-import com.example.finanzaspersonales.domain.util.DateTimeUtils.toMonth
-import com.example.finanzaspersonales.domain.util.DateTimeUtils.toYear
+import java.time.LocalDate
+import java.util.Calendar
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
-import java.util.UUID
 
 /**
- * Enum for transaction sort fields
+ * Enum class for transaction sorting fields
  */
 enum class TransactionSortField {
-    AMOUNT,
-    DATE,
-    PROVIDER,
-    NONE
+    DATE, AMOUNT, DESCRIPTION
 }
 
 /**
- * Enum for sort order
+ * Enum class for sort order
  */
 enum class SortOrder {
-    ASCENDING,
-    DESCENDING
+    ASCENDING, DESCENDING
 }
 
 /**
- * ViewModel for the Categories screen
+ * ViewModel for the Categories screens
  */
 class CategoriesViewModel(
     private val categoryRepository: CategoryRepository,
     private val transactionRepository: TransactionRepository
 ) : ViewModel() {
     
-    // State for categories
+    // Categories list
     private val _categories = MutableStateFlow<List<Category>>(emptyList())
-    val categories: StateFlow<List<Category>> = _categories
+    val categories: StateFlow<List<Category>> = _categories.asStateFlow()
     
-    // State for category spending
+    // Category spending data
     private val _categorySpending = MutableStateFlow<Map<Category, Float>>(emptyMap())
-    val categorySpending: StateFlow<Map<Category, Float>> = _categorySpending
+    val categorySpending: StateFlow<Map<Category, Float>> = _categorySpending.asStateFlow()
     
-    // State for selected year and month
-    private val _selectedYear = MutableStateFlow<Int?>(null)
-    val selectedYear: StateFlow<Int?> = _selectedYear
+    // Selected transactions for a category
+    private val _transactions = MutableStateFlow<List<TransactionData>>(emptyList())
+    val transactions: StateFlow<List<TransactionData>> = _transactions.asStateFlow()
     
-    private val _selectedMonth = MutableStateFlow<Int?>(null)
-    val selectedMonth: StateFlow<Int?> = _selectedMonth
-    
-    // State for loading
-    private val _isLoading = MutableStateFlow(false)
-    val isLoading: StateFlow<Boolean> = _isLoading
-    
-    // State for category transactions
-    private val _categoryTransactions = MutableStateFlow<List<TransactionData>>(emptyList())
-    val categoryTransactions: StateFlow<List<TransactionData>> = _categoryTransactions
-    
-    // State for all transactions
+    // All transactions (for reference)
     private val _allTransactions = MutableStateFlow<List<TransactionData>>(emptyList())
-    val allTransactions: StateFlow<List<TransactionData>> = _allTransactions
+    val allTransactions: StateFlow<List<TransactionData>> = _allTransactions.asStateFlow()
     
-    // State for sorting transactions
-    private val _sortField = MutableStateFlow(TransactionSortField.NONE)
-    val sortField: StateFlow<TransactionSortField> = _sortField
+    // Filtered transactions for a specific category
+    private val _categoryTransactions = MutableStateFlow<List<TransactionData>>(emptyList())
+    val categoryTransactions: StateFlow<List<TransactionData>> = _categoryTransactions.asStateFlow()
+    
+    // Selected category for viewing transactions
+    private val _selectedCategory = MutableStateFlow<Category?>(null)
+    val selectedCategory: StateFlow<Category?> = _selectedCategory.asStateFlow()
+    
+    // Date filter for transactions
+    private val _selectedYear = MutableStateFlow<Int?>(LocalDate.now().year)
+    val selectedYear: StateFlow<Int?> = _selectedYear.asStateFlow()
+    
+    private val _selectedMonth = MutableStateFlow<Int?>(LocalDate.now().monthValue)
+    val selectedMonth: StateFlow<Int?> = _selectedMonth.asStateFlow()
+    
+    // Sorting options
+    private val _sortField = MutableStateFlow(TransactionSortField.DATE)
+    val sortField: StateFlow<TransactionSortField> = _sortField.asStateFlow()
     
     private val _sortOrder = MutableStateFlow(SortOrder.DESCENDING)
-    val sortOrder: StateFlow<SortOrder> = _sortOrder
+    val sortOrder: StateFlow<SortOrder> = _sortOrder.asStateFlow()
     
-    // Initialize the ViewModel
+    // Loading state
+    private val _isLoading = MutableStateFlow(false)
+    val isLoading: StateFlow<Boolean> = _isLoading.asStateFlow()
+    
     init {
-        // Set default year and month to current date
-        val currentDate = java.util.Calendar.getInstance()
-        val defaultYear = currentDate.get(java.util.Calendar.YEAR)
-        val defaultMonth = currentDate.get(java.util.Calendar.MONTH) + 1
-        
-        _selectedYear.value = defaultYear
-        _selectedMonth.value = defaultMonth
-        
-        // Log the default filter
-        Log.d("CATEGORIES_VM", "Setting default filter to year: $defaultYear, month: $defaultMonth")
-        
-        // Load initial data
         loadCategories()
-        
-        // Initialize with just the last month of data for performance
-        viewModelScope.launch {
-            _isLoading.value = true
-            try {
-                // Initialize transactions with saved categories
-                transactionRepository.initializeTransactions()
-                
-                // Refresh SMS data for the selected month only
-                transactionRepository.refreshSmsData(limitToRecentMonths = 1)
-                
-                // Load all relevant transactions and spending data
-                loadAllTransactions()
-                loadCategorySpending()
-            } finally {
-                _isLoading.value = false
-            }
-        }
+        loadCategorySpending()
+        loadAllTransactions()
     }
     
     /**
-     * Load categories
+     * Load all categories
      */
     fun loadCategories() {
         viewModelScope.launch {
             _isLoading.value = true
-            _categories.value = categoryRepository.getCategories()
-            _isLoading.value = false
-        }
-    }
-    
-    /**
-     * Load category spending
-     */
-    fun loadCategorySpending() {
-        viewModelScope.launch {
-            _isLoading.value = true
-            _categorySpending.value = categoryRepository.getSpendingByCategory(
-                year = _selectedYear.value,
-                month = _selectedMonth.value
-            )
-            _isLoading.value = false
+            try {
+                _categories.value = categoryRepository.getCategories()
+            } catch (e: Exception) {
+                Log.e("CategoriesViewModel", "Error loading categories", e)
+            } finally {
+                _isLoading.value = false
+            }
         }
     }
     
     /**
      * Load all transactions
      */
-    fun loadAllTransactions() {
+    private fun loadAllTransactions() {
+        Log.d("CAT_ASSIGN_VM", "-> loadAllTransactions() called.")
+        viewModelScope.launch {
+            // Don't show loading indicator if already loading
+            val wasLoading = _isLoading.value
+            if (!wasLoading) _isLoading.value = true
+            
+            try {
+                Log.d("CAT_ASSIGN_VM", "   Calling transactionRepository.getTransactions()...")
+                val transactions = transactionRepository.getTransactions()
+                _allTransactions.value = transactions
+                Log.d("CAT_ASSIGN_VM", "   Updated _allTransactions with ${transactions.size} items.")
+            } catch (e: Exception) {
+                Log.e("CategoriesViewModel", "Error loading all transactions", e)
+            } finally {
+                if (!wasLoading) _isLoading.value = false
+                Log.d("CAT_ASSIGN_VM", "<- loadAllTransactions() finished.")
+            }
+        }
+    }
+    
+    /**
+     * Load spending data for all categories
+     */
+    fun loadCategorySpending() {
         viewModelScope.launch {
             _isLoading.value = true
             try {
-                // Initialize transactions with saved categories
-                transactionRepository.initializeTransactions()
-                
-                // Get all transactions
-                _allTransactions.value = transactionRepository.getTransactions()
+                _categorySpending.value = categoryRepository.getSpendingByCategory(
+                    year = _selectedYear.value,
+                    month = _selectedMonth.value
+                )
+            } catch (e: Exception) {
+                Log.e("CategoriesViewModel", "Error loading category spending", e)
             } finally {
                 _isLoading.value = false
             }
@@ -153,59 +144,23 @@ class CategoriesViewModel(
     }
     
     /**
-     * Save a category (add if new, update if existing)
+     * Set year filter
      */
-    fun saveCategory(category: Category) {
-        viewModelScope.launch {
-            if (_categories.value.any { it.id == category.id }) {
-                categoryRepository.updateCategory(category)
-            } else {
-                categoryRepository.addCategory(category)
-            }
-            loadCategories()
-            loadCategorySpending()
-        }
+    fun setYearFilter(year: Int?) {
+        _selectedYear.value = year
+        loadCategorySpending()
     }
     
     /**
-     * Add a new category
+     * Set month filter
      */
-    fun addCategory(name: String, color: Int) {
-        viewModelScope.launch {
-            val newCategory = Category(
-                id = UUID.randomUUID().toString(),
-                name = name,
-                color = color
-            )
-            categoryRepository.addCategory(newCategory)
-            loadCategories()
-        }
+    fun setMonthFilter(month: Int?) {
+        _selectedMonth.value = month
+        loadCategorySpending()
     }
     
     /**
-     * Delete a category
-     */
-    fun deleteCategory(categoryId: String) {
-        viewModelScope.launch {
-            categoryRepository.deleteCategory(categoryId)
-            loadCategories()
-            loadCategorySpending()
-        }
-    }
-    
-    /**
-     * Update a category
-     */
-    fun updateCategory(category: Category) {
-        viewModelScope.launch {
-            categoryRepository.updateCategory(category)
-            loadCategories()
-            loadCategorySpending()
-        }
-    }
-    
-    /**
-     * Set the selected year and month
+     * Set year and month filter simultaneously
      */
     fun setYearMonth(year: Int?, month: Int?) {
         _selectedYear.value = year
@@ -214,73 +169,24 @@ class CategoriesViewModel(
     }
     
     /**
-     * Get transactions for a category
+     * Refresh transaction data
      */
-    fun loadTransactionsForCategory(
-        categoryId: String,
-        year: Int? = null,
-        month: Int? = null,
-        isIncome: Boolean? = null
-    ) {
+    fun refreshTransactionData() {
         viewModelScope.launch {
             _isLoading.value = true
             try {
-                Log.d("TX_DEBUG", "========== Loading Transactions for Category ==========")
-                Log.d("TX_DEBUG", "Category ID: $categoryId, Year: $year, Month: $month, isIncome: $isIncome")
+                // Refresh SMS data for the most recent month only
+                transactionRepository.refreshSmsData(1)
+                // Initialize transactions with saved categories
+                transactionRepository.initializeTransactions()
+                // Reload all data
+                loadAllTransactions()
+                loadCategorySpending()
                 
-                // Get all transactions and apply year/month filter first
-                val allTransactions = transactionRepository.getTransactions()
-                Log.d("TX_DEBUG", "Total transactions: ${allTransactions.size}")
-                
-                // Apply same filter logic as in getSpendingByCategory
-                val filteredByDate = transactionRepository.filterTransactions(
-                    transactions = allTransactions,
-                    year = year,
-                    month = month,
-                    isIncome = isIncome
-                )
-                Log.d("TX_DEBUG", "After date/type filtering: ${filteredByDate.size}")
-                
-                // Check if this is the "Other" category
-                val category = _categories.value.find { it.id == categoryId }
-                val isOtherCategory = category?.name?.equals("Other", ignoreCase = true) ?: false
-                Log.d("TX_DEBUG", "Category: ${category?.name}, Is Other Category: $isOtherCategory")
-                
-                // For debugging, count uncategorized transactions
-                val uncategorizedCount = filteredByDate.count { it.categoryId == null }
-                Log.d("TX_DEBUG", "Uncategorized transactions after filtering: $uncategorizedCount")
-                
-                // Get transactions for this category using EXACT same logic as in spending calculation
-                val categoryTransactions = if (isOtherCategory) {
-                    Log.d("TX_DEBUG", "Using Other category logic")
-                    // For Other category, include both:
-                    // 1. Explicitly assigned to Other (categoryId == this category's ID)
-                    // 2. Null categoryId (uncategorized)
-                    // 3. CategoryId that doesn't exist anymore
-                    filteredByDate.filter { transaction ->
-                        val txCategoryId = transaction.categoryId
-                        val isNull = txCategoryId == null
-                        val isOther = txCategoryId == categoryId
-                        val isMissing = txCategoryId != null && _categories.value.none { it.id == txCategoryId }
-                        val include = isNull || isOther || isMissing
-                        
-                        if (include) {
-                            Log.d("TX_DEBUG", "Including transaction: ${transaction.provider}, " +
-                                "Amount: ${transaction.amount}, CategoryId: ${txCategoryId ?: "null"}")
-                        }
-                        
-                        include
-                    }
-                } else {
-                    Log.d("TX_DEBUG", "Using regular category logic")
-                    // For regular categories, just get transactions with this categoryId
-                    filteredByDate.filter { it.categoryId == categoryId }
-                }
-                
-                Log.d("TX_DEBUG", "Found ${categoryTransactions.size} transactions for category")
-                
-                // Apply sorting
-                _categoryTransactions.value = sortTransactions(categoryTransactions)
+                // If a category is selected, reload its transactions
+                _selectedCategory.value?.let { loadTransactionsForCategory(it) }
+            } catch (e: Exception) {
+                Log.e("CategoriesViewModel", "Error refreshing transaction data", e)
             } finally {
                 _isLoading.value = false
             }
@@ -288,151 +194,274 @@ class CategoriesViewModel(
     }
     
     /**
-     * Sort transactions based on current sort field and direction
+     * Select a category to view its transactions
      */
-    private fun sortTransactions(transactions: List<TransactionData>): List<TransactionData> {
-        return when (_sortField.value) {
-            TransactionSortField.AMOUNT -> {
-                if (_sortOrder.value == SortOrder.ASCENDING) {
-                    transactions.sortedBy { it.amount }
-                } else {
-                    transactions.sortedByDescending { it.amount }
-                }
+    fun selectCategory(category: Category) {
+        _selectedCategory.value = category
+        loadTransactionsForCategory(category)
+    }
+    
+    /**
+     * Load transactions for a category
+     */
+    fun loadTransactionsForCategory(category: Category) {
+        viewModelScope.launch {
+            val categoryId = category.id
+            Log.i("CAT_DETAIL_VM", "Loading transactions for category: ${category.name} (ID: $categoryId)")
+            
+            if (categoryId == null) {
+                Log.e("CAT_DETAIL_VM", "Category ID is null, cannot load transactions.")
+                _transactions.value = emptyList()
+                _categoryTransactions.value = emptyList()
+                return@launch
             }
-            TransactionSortField.DATE -> {
-                if (_sortOrder.value == SortOrder.ASCENDING) {
-                    transactions.sortedBy { it.date }
-                } else {
-                    transactions.sortedByDescending { it.date }
-                }
+            
+            _isLoading.value = true
+            try {
+                // Step 1: Get all transactions for this category ID from the repo
+                Log.d("CAT_DETAIL_VM", "Fetching transactions for categoryId: $categoryId from CategoryRepository")
+                val allTransactionsForCategory = categoryRepository.getTransactionsByCategory(categoryId)
+                Log.d("CAT_DETAIL_VM", "Fetched ${allTransactionsForCategory.size} raw transactions for categoryId: $categoryId")
+                
+                // Step 2: Apply year/month filters and isIncome=false using TransactionRepository
+                val filterYear = _selectedYear.value
+                val filterMonth = _selectedMonth.value
+                // *** We consistently filter for isIncome = false here for the detail screen ***
+                val filterIsIncome = false 
+                Log.d("CAT_DETAIL_VM", "Applying filters: Year=$filterYear, Month=$filterMonth, IsIncome=$filterIsIncome")
+                
+                val filteredTransactions = transactionRepository.filterTransactions(
+                    transactions = allTransactionsForCategory,
+                    year = filterYear,
+                    month = filterMonth,
+                    isIncome = filterIsIncome
+                )
+                Log.d("CAT_DETAIL_VM", "After filtering: ${filteredTransactions.size} transactions remain")
+                
+                _transactions.value = filteredTransactions // Keep original _transactions update if needed elsewhere
+                _categoryTransactions.value = filteredTransactions // Update the specific flow for the detail screen
+                Log.i("CAT_DETAIL_VM", "Final transaction list size for UI: ${filteredTransactions.size}")
+                
+                // Step 3: Apply current sorting
+                applySorting()
+            } catch (e: Exception) {
+                Log.e("CAT_DETAIL_VM", "Error loading transactions for category ${category.name}", e)
+                _transactions.value = emptyList()
+                _categoryTransactions.value = emptyList()
+            } finally {
+                _isLoading.value = false
+                Log.d("CAT_DETAIL_VM", "Finished loading transactions for category ${category.name}")
             }
-            TransactionSortField.PROVIDER -> {
-                if (_sortOrder.value == SortOrder.ASCENDING) {
-                    transactions.sortedBy { it.provider ?: "" }
-                } else {
-                    transactions.sortedByDescending { it.provider ?: "" }
-                }
-            }
-            TransactionSortField.NONE -> transactions
         }
     }
     
     /**
-     * Update the sort field and order
-     * If the same field is selected again, toggle the order
+     * Update sort parameters and apply sorting
      */
-    fun updateSort(field: TransactionSortField) {
-        if (_sortField.value == field) {
-            // Toggle order if same field
+    fun updateSort(field: TransactionSortField, order: SortOrder? = null) {
+        if (_sortField.value == field && order == null) {
+            // Toggle sort order if same field selected
             _sortOrder.value = if (_sortOrder.value == SortOrder.ASCENDING) 
                 SortOrder.DESCENDING else SortOrder.ASCENDING
         } else {
-            // New field, default to descending
+            // Set new field and provided order (or default to ASCENDING)
             _sortField.value = field
-            _sortOrder.value = SortOrder.DESCENDING
+            _sortOrder.value = order ?: SortOrder.ASCENDING
         }
         
-        // Re-sort current transactions
-        _categoryTransactions.value = sortTransactions(_categoryTransactions.value)
+        // Apply sort to current transaction list
+        applySorting()
     }
     
     /**
-     * Assign category to transaction
+     * Apply sorting to the current transaction list
      */
-    fun assignCategoryToTransaction(transaction: TransactionData, category: Category) {
-        viewModelScope.launch {
-            // First, assign the category to this specific transaction
-            val transactionId = generateTransactionKey(transaction)
-            categoryRepository.setCategoryForTransaction(transactionId, category.id)
-            
-            // Update the transaction in memory
-            transaction.categoryId = category.id
-            
-            // If transaction has a provider, assign same category to all transactions 
-            // from this provider
-            transaction.provider?.let { provider ->
-                if (provider.isNotEmpty()) {
-                    assignCategoryToProvider(provider, category.id)
+    private fun applySorting() {
+        val sortedList = when (_sortField.value) {
+            TransactionSortField.DATE -> {
+                if (_sortOrder.value == SortOrder.ASCENDING) {
+                    _categoryTransactions.value.sortedBy { it.date }
+                } else {
+                    _categoryTransactions.value.sortedByDescending { it.date }
                 }
             }
-            
-            // Reload data to reflect changes
-            loadCategorySpending()
-            
-            // If we're viewing a category's transactions, reload them too
-            if (_categoryTransactions.value.isNotEmpty()) {
-                val firstTransaction = _categoryTransactions.value.firstOrNull()
-                firstTransaction?.categoryId?.let { loadTransactionsForCategory(it) }
+            TransactionSortField.AMOUNT -> {
+                if (_sortOrder.value == SortOrder.ASCENDING) {
+                    _categoryTransactions.value.sortedBy { it.amount }
+                } else {
+                    _categoryTransactions.value.sortedByDescending { it.amount }
+                }
+            }
+            TransactionSortField.DESCRIPTION -> {
+                if (_sortOrder.value == SortOrder.ASCENDING) {
+                    _categoryTransactions.value.sortedBy { it.description ?: "" }
+                } else {
+                    _categoryTransactions.value.sortedByDescending { it.description ?: "" }
+                }
+            }
+        }
+        
+        _categoryTransactions.value = sortedList
+    }
+    
+    /**
+     * Add a new category
+     */
+    fun addCategory(category: Category) {
+        viewModelScope.launch {
+            try {
+                categoryRepository.addCategory(category)
+                loadCategories()
+                loadCategorySpending()
+            } catch (e: Exception) {
+                Log.e("CategoriesViewModel", "Error adding category", e)
             }
         }
     }
     
     /**
-     * Assign category to all transactions from the same provider
+     * Update an existing category
      */
-    private suspend fun assignCategoryToProvider(provider: String, categoryId: String) {
-        // Get all transactions
-        val allTransactions = transactionRepository.getTransactions()
-        
-        // Find all transactions with the same provider
-        val matchingTransactions = allTransactions.filter { 
-            it.provider == provider 
-        }
-        
-        // Assign the category to each matching transaction
-        for (transaction in matchingTransactions) {
-            val transactionId = generateTransactionKey(transaction)
-            categoryRepository.setCategoryForTransaction(transactionId, categoryId)
-            
-            // Update in-memory transaction data if found
-            transaction.categoryId = categoryId
+    fun updateCategory(category: Category) {
+        viewModelScope.launch {
+            try {
+                categoryRepository.updateCategory(category)
+                loadCategories()
+                loadCategorySpending()
+            } catch (e: Exception) {
+                Log.e("CategoriesViewModel", "Error updating category", e)
+            }
         }
     }
     
     /**
-     * Get category for transaction
+     * Delete a category
+     */
+    fun deleteCategory(categoryId: String) {
+        viewModelScope.launch {
+            try {
+                categoryRepository.deleteCategory(categoryId)
+                loadCategories()
+                loadCategorySpending()
+            } catch (e: Exception) {
+                Log.e("CategoriesViewModel", "Error deleting category", e)
+            }
+        }
+    }
+    
+    /**
+     * Save a category (either new or existing)
+     */
+    fun saveCategory(category: Category) {
+        viewModelScope.launch {
+            try {
+                if (category.id == null) {
+                    categoryRepository.addCategory(category)
+                } else {
+                    categoryRepository.updateCategory(category)
+                }
+                loadCategories()
+                loadCategorySpending()
+            } catch (e: Exception) {
+                Log.e("CategoriesViewModel", "Error saving category", e)
+            }
+        }
+    }
+    
+    /**
+     * Assign a category to a transaction (for direct transaction and category objects)
+     */
+    fun assignCategoryToTransaction(transaction: TransactionData, category: Category) {
+        val transactionId = transaction.id
+        val categoryId = category.id
+        Log.d("CAT_ASSIGN_VM", "-> assignCategoryToTransaction(Tx: ${transactionId}, Cat: ${categoryId})")
+        if (transactionId == null || categoryId == null) {
+            Log.e("CAT_ASSIGN_VM", "<- Aborting: Transaction ID or Category ID is null.")
+            return
+        }
+        viewModelScope.launch { // Runs asynchronously
+            try {
+                Log.d("CAT_ASSIGN_VM", "   Calling CategoryRepository.setCategoryForTransaction...")
+                val success = categoryRepository.setCategoryForTransaction(transactionId, categoryId) 
+                Log.d("CAT_ASSIGN_VM", "   CategoryRepository returned: $success")
+                
+                if (success) {
+                    Log.d("CAT_ASSIGN_VM", "   Assignment successful. Triggering data reloads.")
+                    loadCategorySpending()
+                    loadAllTransactions() 
+                    _selectedCategory.value?.let { loadTransactionsForCategory(it) }
+                    // Consider adding a success message/state for the UI?
+                } else {
+                     Log.e("CAT_ASSIGN_VM", "   Assignment failed according to repository.")
+                     // Consider adding an error message/state for the UI
+                }
+
+            } catch (e: Exception) { 
+                 Log.e("CAT_ASSIGN_VM", "   Exception during category assignment.", e)
+                 // Consider adding an error message/state for the UI
+            } finally {
+                Log.d("CAT_ASSIGN_VM", "<- assignCategoryToTransaction(Tx: ${transactionId}, Cat: ${categoryId}) finished.")
+            }
+        }
+    }
+    
+    /**
+     * Assign a category to a transaction by IDs
+     */
+    fun assignCategoryToTransaction(transactionId: String, categoryId: String) {
+         Log.d("CAT_ASSIGN_VM", "-> assignCategoryToTransaction(TxID: ${transactionId}, CatID: ${categoryId})")
+        viewModelScope.launch { // Runs asynchronously
+             try {
+                 Log.d("CAT_ASSIGN_VM", "   Calling CategoryRepository.setCategoryForTransaction...")
+                 val success = categoryRepository.setCategoryForTransaction(transactionId, categoryId) 
+                 Log.d("CAT_ASSIGN_VM", "   CategoryRepository returned: $success")
+                 
+                 if (success) {
+                     Log.d("CAT_ASSIGN_VM", "   Assignment successful. Triggering data reloads.")
+                     loadCategorySpending()
+                     loadAllTransactions()
+                     _selectedCategory.value?.let { loadTransactionsForCategory(it) }
+                     // Consider adding a success message/state for the UI?
+                 } else {
+                      Log.e("CAT_ASSIGN_VM", "   Assignment failed according to repository.")
+                      // Consider adding an error message/state for the UI
+                 }
+ 
+             } catch (e: Exception) { 
+                  Log.e("CAT_ASSIGN_VM", "   Exception during category assignment by ID.", e)
+                  // Consider adding an error message/state for the UI
+             } finally {
+                 Log.d("CAT_ASSIGN_VM", "<- assignCategoryToTransaction(TxID: ${transactionId}, CatID: ${categoryId}) finished.")
+             }
+        }
+    }
+    
+    /**
+     * Get category for a transaction
      */
     suspend fun getCategoryForTransaction(transaction: TransactionData): Category? {
-        val transactionId = generateTransactionKey(transaction)
-        val categoryId = transaction.categoryId ?: categoryRepository.getCategoryIdForTransaction(transactionId)
-        return if (categoryId != null) {
-            _categories.value.find { it.id == categoryId }
-        } else {
-            null
+        return transaction.categoryId?.let { categoryId ->
+            categoryRepository.getCategories().find { it.id == categoryId }
         }
     }
     
     /**
-     * Refresh transaction data from SMS
-     * @param limitToRecentMonths Number of months to limit the SMS data refresh to
+     * Save a transaction
      */
-    fun refreshTransactionData(limitToRecentMonths: Int = 1) {
+    fun saveTransaction(transaction: TransactionData) {
         viewModelScope.launch {
-            _isLoading.value = true
             try {
-                Log.d("CATEGORIES_VM", "Refreshing transaction data for last $limitToRecentMonths months")
-                
-                // Initialize transactions with saved categories
-                transactionRepository.initializeTransactions()
-                
-                // Refresh SMS data with month limit
-                transactionRepository.refreshSmsData(limitToRecentMonths)
-                
-                // Load transactions and update categories
-                loadAllTransactions()
+                transactionRepository.saveTransactionToFirestore(transaction)
+                // If this transaction has a category, update the view
+                transaction.categoryId?.let { categoryId ->
+                    val category = categoryRepository.getCategories().find { it.id == categoryId }
+                    category?.let { loadTransactionsForCategory(it) }
+                }
                 loadCategorySpending()
-            } finally {
-                _isLoading.value = false
+                loadAllTransactions()
+            } catch (e: Exception) {
+                Log.e("CategoriesViewModel", "Error saving transaction", e)
             }
         }
     }
-    
-    /**
-     * Generate a unique key for a transaction
-     */
-    private fun generateTransactionKey(transaction: TransactionData): String {
-        val message = transaction.originalMessage
-        val input = "${message.address}_${message.body}_${message.dateTime?.time}"
-        return UUID.nameUUIDFromBytes(input.toByteArray()).toString()
-    }
-} 
+}

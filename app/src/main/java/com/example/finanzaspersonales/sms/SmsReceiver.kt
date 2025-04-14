@@ -115,7 +115,7 @@ class SmsReceiver : BroadcastReceiver() {
                 date = smsMessage.dateTime ?: Date(),
                 amount = amount,
                 isIncome = isIncome,
-                originalMessage = smsMessage,
+                description = smsMessage.body,
                 provider = smsMessage.provider,
                 contactName = smsMessage.recipientContact,
                 accountInfo = smsMessage.detectedAccount,

@@ -53,4 +53,29 @@ interface TransactionRepository {
      * Initialize transactions with saved categories
      */
     suspend fun initializeTransactions()
+    
+    /**
+     * Save transaction to Firestore
+     */
+    suspend fun saveTransactionToFirestore(transaction: TransactionData): Result<Unit>
+    
+    /**
+     * Get transactions from Firestore
+     */
+    suspend fun getTransactionsFromFirestore(userId: String): Result<List<TransactionData>>
+    
+    /**
+     * Update transaction in Firestore
+     */
+    suspend fun updateTransactionInFirestore(transaction: TransactionData): Result<Unit>
+    
+    /**
+     * Delete transaction from Firestore
+     */
+    suspend fun deleteTransactionFromFirestore(transactionId: String, userId: String): Result<Unit>
+    
+    /**
+     * Perform initial transaction sync
+     */
+    suspend fun performInitialTransactionSync(userId: String, syncStartDate: Long): Result<Unit>
 } 

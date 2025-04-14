@@ -204,7 +204,7 @@ fun TransactionDetailScreen(
                     
                     // Original message
                     Text(
-                        text = "Original SMS",
+                        text = "Original Message Details",
                         style = MaterialTheme.typography.titleMedium
                     )
                     
@@ -218,7 +218,7 @@ fun TransactionDetailScreen(
                     ) {
                         Column(modifier = Modifier.padding(16.dp)) {
                             Text(
-                                text = "From: ${transaction.originalMessage.address}",
+                                text = "From: ${transaction.provider ?: "Unknown"}",
                                 style = MaterialTheme.typography.bodySmall,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant
                             )
@@ -226,7 +226,7 @@ fun TransactionDetailScreen(
                             Spacer(modifier = Modifier.height(4.dp))
                             
                             Text(
-                                text = transaction.originalMessage.body,
+                                text = transaction.description ?: "No description available",
                                 style = MaterialTheme.typography.bodyMedium
                             )
                         }

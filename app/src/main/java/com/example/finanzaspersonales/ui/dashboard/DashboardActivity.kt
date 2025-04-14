@@ -83,11 +83,15 @@ import java.util.Locale
 import com.example.finanzaspersonales.data.auth.AuthRepository
 import com.example.finanzaspersonales.data.auth.AuthRepositoryImpl
 import com.example.finanzaspersonales.ui.auth.LoginScreen
+import androidx.compose.ui.platform.LocalContext
+import com.example.finanzaspersonales.ui.transaction_list.TransactionListActivity
 
 class DashboardActivity : ComponentActivity() {
     
     private lateinit var viewModel: DashboardViewModel
     private lateinit var authRepository: AuthRepository
+    private lateinit var categoryRepository: CategoryRepository
+    private lateinit var sharedPrefsManager: SharedPrefsManager
     
     // Permission launcher for SMS read permission
     private val requestPermissionLauncher = registerForActivityResult(
@@ -115,36 +119,40 @@ class DashboardActivity : ComponentActivity() {
         // Instantiate AuthRepository (TODO: Replace with DI later)
         authRepository = AuthRepositoryImpl()
         
-        // Create dependencies
-        val sharedPrefsManager = SharedPrefsManager(this)
-        val smsDataSource = SmsDataSource(this)
-        val extractTransactionDataUseCase = ExtractTransactionDataUseCase(this)
-        
-        // Create a "dummy" transaction repository first for the CategoryRepository
-        val dummyTransactionRepository = object : TransactionRepository {
+        // Instantiate SharedPrefsManager
+        sharedPrefsManager = SharedPrefsManager(this)
+
+        // --- Instantiate Repositories (Needs proper DI later) ---
+        // Create TransactionRepo first (as dummy for CategoryRepo)
+        val dummyTransactionRepository = object : TransactionRepository { 
             override suspend fun getAllSmsMessages(): List<SmsMessage> = emptyList()
             override suspend fun getTransactions(): List<TransactionData> = emptyList()
             override suspend fun filterTransactions(transactions: List<TransactionData>, year: Int?, month: Int?, isIncome: Boolean?): List<TransactionData> = emptyList()
             override suspend fun getTransactionById(id: String): TransactionData? = null
             override suspend fun getTransactionsByCategory(categoryId: String): List<TransactionData> = emptyList()
             override suspend fun assignCategoryToTransaction(transactionId: String, categoryId: String): Boolean = false
-            override suspend fun refreshSmsData(limitToRecentMonths: Int) {
-                // Dummy implementation - do nothing
-            }
-            override suspend fun initializeTransactions() {
-                // Dummy implementation
-            }
+            override suspend fun refreshSmsData(limitToRecentMonths: Int) { /* Dummy */ }
+            override suspend fun initializeTransactions() { /* Dummy */ }
+            // Add stubs for new Firestore/Sync functions to satisfy interface
+            override suspend fun saveTransactionToFirestore(transaction: TransactionData): Result<Unit> = Result.failure(NotImplementedError())
+            override suspend fun getTransactionsFromFirestore(userId: String): Result<List<TransactionData>> = Result.failure(NotImplementedError())
+            override suspend fun updateTransactionInFirestore(transaction: TransactionData): Result<Unit> = Result.failure(NotImplementedError())
+            override suspend fun deleteTransactionFromFirestore(transactionId: String, userId: String): Result<Unit> = Result.failure(NotImplementedError())
+            override suspend fun performInitialTransactionSync(userId: String, syncStartDate: Long): Result<Unit> = Result.failure(NotImplementedError())
         }
         
-        // Create CategoryRepository
-        val categoryRepository = CategoryRepositoryImpl(
+        // Create CategoryRepository (using dummy TransactionRepo)
+        categoryRepository = CategoryRepositoryImpl(
             context = this,
             sharedPrefsManager = sharedPrefsManager,
-            transactionRepository = dummyTransactionRepository
+            transactionRepository = dummyTransactionRepository, // Use dummy for now
+            authRepository = authRepository // Provide the AuthRepository instance
         )
-        
-        // Create CategoryAssignmentUseCase with the CategoryRepository
-        val categoryAssignmentUseCase = CategoryAssignmentUseCase(categoryRepository)
+
+        // Create dependencies needed for Real TransactionRepository
+        val smsDataSource = SmsDataSource(this)
+        val extractTransactionDataUseCase = ExtractTransactionDataUseCase(this)
+        val categoryAssignmentUseCase = CategoryAssignmentUseCase(categoryRepository) // Use the real CategoryRepo
         
         // Now create the real TransactionRepository
         val transactionRepository = TransactionRepositoryImpl(
@@ -154,11 +162,12 @@ class DashboardActivity : ComponentActivity() {
             categoryAssignmentUseCase = categoryAssignmentUseCase,
             sharedPrefsManager = sharedPrefsManager
         )
+        // -----------------------------------------------------------
         
-        // Create ViewModel
+        // Create ViewModel using the Factory with all dependencies
         viewModel = ViewModelProvider(
             this,
-            DashboardViewModelFactory(transactionRepository)
+            DashboardViewModelFactory(transactionRepository, categoryRepository, sharedPrefsManager)
         )[DashboardViewModel::class.java]
         
         setContent {
@@ -169,45 +178,64 @@ class DashboardActivity : ComponentActivity() {
                 ) {
                     // --- Authentication State Check ---
                     val currentUser by authRepository.currentUserState.collectAsState()
+                    val context = LocalContext.current // Get context for passing down
 
                     if (currentUser == null) {
                         // --- User Not Logged In: Show Login Screen ---
                         LoginScreen(
                             onLoginSuccess = {
-                                // Login is handled by ViewModel, state flow update will trigger recomposition
-                                // to show DashboardScreen automatically. No explicit navigation needed here.
                                 Log.d("DashboardActivity", "Login successful, auth state should update.")
                             }
-                            // TODO: Add onNavigateToRegister callback later
                         )
                     } else {
-                        // --- User Logged In: Show Dashboard Screen ---
-                        Log.d("DashboardActivity", "User logged in: ${currentUser?.uid}, showing Dashboard")
-                        // Collect necessary states for DashboardScreen
-                        val monthlyExpenses by viewModel.monthlyExpenses.collectAsState()
-                        val monthlyIncome by viewModel.monthlyIncome.collectAsState()
-                        val recentTransactions by viewModel.recentTransactions.collectAsState()
-                        val isLoading by viewModel.isLoading.collectAsState()
+                        // --- User Logged In: Check Sync Status & Show appropriate screen ---
+                        val userId = currentUser!!.uid // Safe non-null access here
+                        val isSyncing by viewModel.isSyncing.collectAsState()
+                        val syncError by viewModel.syncError.collectAsState()
 
-                        DashboardScreen(
-                            monthlyExpenses = monthlyExpenses,
-                            monthlyIncome = monthlyIncome,
-                            recentTransactions = recentTransactions,
-                            isLoading = isLoading,
-                            onRefresh = { checkAndRequestPermissions() },
-                            onCategoriesClick = {
-                                startActivity(Intent(this, CategoriesActivity::class.java))
-                            },
-                            onSmsTestClick = {
-                                startActivity(Intent(this, SmsPermissionActivity::class.java))
+                        // Trigger sync check when user becomes non-null
+                        LaunchedEffect(userId) { 
+                            viewModel.checkAndPerformInitialSync(userId)
+                        }
+
+                        // --- Display Sync State or Dashboard ---
+                        Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                            when {
+                                isSyncing -> {
+                                    // Show Syncing indicator
+                                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                                         CircularProgressIndicator()
+                                         Spacer(modifier = Modifier.height(8.dp))
+                                         Text("Performing initial sync...")
+                                    }
+                                }
+                                syncError != null -> {
+                                     // Show Sync Error message
+                                     Text("Error during sync: $syncError", color = MaterialTheme.colorScheme.error)
+                                     // TODO: Add a retry button?
+                                }
+                                else -> {
+                                    // Sync complete (or not needed), show Dashboard
+                                     Log.d("DashboardActivity", "User logged in: $userId, Sync complete/not needed, showing Dashboard")
+                                     // Collect necessary states for DashboardScreen
+                                    val monthlyExpenses by viewModel.monthlyExpenses.collectAsState()
+                                    val monthlyIncome by viewModel.monthlyIncome.collectAsState()
+                                    val recentTransactions by viewModel.recentTransactions.collectAsState()
+                                    val isLoading by viewModel.isLoading.collectAsState() // Main dashboard loading
+
+                                    DashboardScreen(
+                                        monthlyExpenses = monthlyExpenses,
+                                        monthlyIncome = monthlyIncome,
+                                        recentTransactions = recentTransactions,
+                                        isLoading = isLoading, // Use dashboard loading state here
+                                        onRefresh = { checkAndRequestPermissions() },
+                                        onCategoriesClick = {
+                                            context.startActivity(Intent(context, CategoriesActivity::class.java))
+                                        },
+                                        onSmsTestClick = {}
+                                    )
+                                }
                             }
-                            // TODO: Add a way to Sign Out from the DashboardScreen later
-                        )
-                        
-                        // Load data only if user is logged in and permissions are checked
-                        // Moved permission check here to ensure it runs only when dashboard is shown
-                        LaunchedEffect(Unit) { // Run only once when DashboardScreen is composed
-                           checkAndRequestPermissions()
                         }
                     }
                 }
@@ -253,6 +281,7 @@ fun DashboardScreen(
     onSmsTestClick: () -> Unit
 ) {
     val currencyFormat = NumberFormat.getCurrencyInstance(Locale("es", "CO"))
+    val context = LocalContext.current // Get context inside the composable
     
     Scaffold(
         topBar = {
@@ -385,7 +414,7 @@ fun DashboardScreen(
                     title = "Transactions",
                     backgroundColor = MaterialTheme.colorScheme.secondaryContainer,
                     modifier = Modifier.weight(1f),
-                    onClick = {}
+                    onClick = { context.startActivity(Intent(context, TransactionListActivity::class.java)) }
                 )
             }
             
@@ -408,7 +437,7 @@ fun DashboardScreen(
                     title = "SMS Test",
                     backgroundColor = MaterialTheme.colorScheme.errorContainer,
                     modifier = Modifier.weight(1f),
-                    onClick = onSmsTestClick
+                    onClick = { context.startActivity(Intent(context, SmsPermissionActivity::class.java)) }
                 )
             }
             
