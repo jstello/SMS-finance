@@ -58,4 +58,4 @@ For any file or media management needs, Supabase's storage system can easily be 
 
 ---
 
-Integrating Supabase can modernize your application infrastructure, reduce development overhead, and streamline the path toward a competitively robust commercial product.
+Integrating Supabase can modernize your application infrastructure, reduce development overhead, and streamline the path toward a competitively robust commercial product. 

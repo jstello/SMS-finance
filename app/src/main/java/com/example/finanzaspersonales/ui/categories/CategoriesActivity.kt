@@ -1,4 +1,4 @@
-package com.example.finanzaspersonales
+package com.example.finanzaspersonales.ui.categories
 
 import android.Manifest
 import android.content.Intent
@@ -36,14 +36,11 @@ import com.example.finanzaspersonales.data.repository.TransactionRepository
 import com.example.finanzaspersonales.data.repository.TransactionRepositoryImpl
 import com.example.finanzaspersonales.domain.usecase.CategoryAssignmentUseCase
 import com.example.finanzaspersonales.domain.usecase.ExtractTransactionDataUseCase
-import com.example.finanzaspersonales.ui.categories.CategoriesScreen
-import com.example.finanzaspersonales.ui.categories.CategoriesViewModel
-import com.example.finanzaspersonales.ui.categories.CategoryDetailScreen
-import com.example.finanzaspersonales.ui.categories.CategoryEditScreen
-import com.example.finanzaspersonales.ui.categories.TransactionDetailScreen
 import com.example.finanzaspersonales.ui.theme.FinanzasPersonalesTheme
+import com.example.finanzaspersonales.R
+import com.example.finanzaspersonales.FinanzasApp
 import com.example.finanzaspersonales.data.auth.AuthRepositoryImpl
-import com.example.finanzaspersonales.sms.SmsPermissionActivity
+import com.example.finanzaspersonales.ui.sms.SmsPermissionActivity
 
 /**
  * Activity for the Categories feature
@@ -136,7 +133,8 @@ class CategoriesActivity : ComponentActivity() {
      * Launch the SMS test activity
      */
     private fun launchSmsTestActivity() {
-        val intent = Intent(this, SmsPermissionActivity::class.java)
+        // Use fully qualified name to avoid ambiguity
+        val intent = Intent(this, com.example.finanzaspersonales.ui.sms.SmsPermissionActivity::class.java) 
         startActivity(intent)
     }
     
@@ -250,60 +248,45 @@ fun CategoriesApp(onBack: () -> Unit) {
         is CategoriesNavState.Categories -> {
             CategoriesScreen(
                 viewModel = categoriesViewModel,
-                onBack = onBack,
-                onCategoryClick = { category ->
-                    navState = CategoriesNavState.CategoryDetail(category)
-                },
-                onAddCategory = {
-                    navState = CategoriesNavState.CategoryEdit()
-                }
+                onCategoryClick = { category -> navState = CategoriesNavState.CategoryDetail(category) },
+                onAddCategory = { navState = CategoriesNavState.CategoryEdit() },
+                onBack = onBack
             )
         }
-        
         is CategoriesNavState.CategoryDetail -> {
             CategoryDetailScreen(
-                viewModel = categoriesViewModel,
                 category = currentState.category,
-                onBack = { navState = CategoriesNavState.Categories },
-                onTransactionClick = { transaction ->
-                    navState = CategoriesNavState.TransactionDetail(transaction)
-                }
+                viewModel = categoriesViewModel,
+                onTransactionClick = { transaction -> navState = CategoriesNavState.TransactionDetail(transaction) },
+                onBack = { navState = CategoriesNavState.Categories }
             )
         }
-        
         is CategoriesNavState.TransactionDetail -> {
             TransactionDetailScreen(
-                viewModel = categoriesViewModel,
                 transaction = currentState.transaction,
-                onBack = { 
-                    // Go back to the appropriate screen based on where we came from
-                    val previousState = navState
-                    if (previousState is CategoriesNavState.CategoryDetail) {
-                        navState = previousState
-                    } else {
-                        navState = CategoriesNavState.Categories
+                viewModel = categoriesViewModel,
+                onBack = { navState = CategoriesNavState.Categories },
+                onCategorySelected = { transactionData, selectedCategory ->
+                    transactionData.id?.let { transactionId ->
+                        selectedCategory.id?.let { categoryId ->
+                            categoriesViewModel.assignCategoryToTransaction(transactionId, categoryId)
+                        }
+                    } ?: run {
+                        Log.e("CategoriesApp", "Cannot assign category: Transaction ID or Category ID is null")
                     }
-                },
-                onCategorySelected = { transaction, category ->
-                    Log.d("CAT_ASSIGN_UI", "-> onCategorySelected triggered. TxID: ${transaction.id}, New Cat: ${category.name} (${category.id})")
-                    categoriesViewModel.assignCategoryToTransaction(transaction, category)
-                    // Log before navigation
-                    Log.d("CAT_ASSIGN_UI", "<- Navigating back to Categories list after triggering VM.")
-                    navState = CategoriesNavState.Categories
                 }
             )
         }
-        
         is CategoriesNavState.CategoryEdit -> {
             CategoryEditScreen(
-                viewModel = categoriesViewModel,
                 category = currentState.category,
-                onBack = { navState = CategoriesNavState.Categories },
-                onSave = { category ->
-                    categoriesViewModel.saveCategory(category)
+                viewModel = categoriesViewModel,
+                onSave = { categoryToSave ->
+                    categoriesViewModel.saveCategory(categoryToSave)
                     navState = CategoriesNavState.Categories
-                }
+                },
+                onBack = { navState = CategoriesNavState.Categories }
             )
         }
     }
-} 
+}

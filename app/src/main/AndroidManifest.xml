@@ -34,7 +34,7 @@
         
         <!-- Categories Activity -->
         <activity
-            android:name=".CategoriesActivity"
+            android:name=".ui.categories.CategoriesActivity"
             android:exported="true"
             android:label="Categories"
             android:theme="@style/Theme.FinanzasPersonales">
@@ -62,7 +62,7 @@
         
         <!-- SMS Permission Test Activity -->
         <activity
-            android:name=".sms.SmsPermissionActivity"
+            android:name=".ui.sms.SmsPermissionActivity"
             android:exported="true"
             android:label="SMS Test"
             android:theme="@style/Theme.FinanzasPersonales">
@@ -74,7 +74,7 @@
         
         <!-- SMS Receiver for detecting transaction messages -->
         <receiver
-            android:name=".sms.SmsReceiver"
+            android:name=".data.sms.SmsReceiver"
             android:enabled="true"
             android:exported="true"
             android:permission="android.permission.BROADCAST_SMS">

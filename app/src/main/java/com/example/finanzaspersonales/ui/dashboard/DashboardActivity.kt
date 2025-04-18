@@ -63,7 +63,7 @@ import androidx.compose.ui.unit.sp
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewmodel.compose.viewModel
-import com.example.finanzaspersonales.CategoriesActivity
+import com.example.finanzaspersonales.ui.categories.CategoriesActivity
 import com.example.finanzaspersonales.data.local.SharedPrefsManager
 import com.example.finanzaspersonales.data.local.SmsDataSource
 import com.example.finanzaspersonales.data.model.SmsMessage
@@ -74,7 +74,7 @@ import com.example.finanzaspersonales.data.repository.TransactionRepository
 import com.example.finanzaspersonales.data.repository.TransactionRepositoryImpl
 import com.example.finanzaspersonales.domain.usecase.CategoryAssignmentUseCase
 import com.example.finanzaspersonales.domain.usecase.ExtractTransactionDataUseCase
-import com.example.finanzaspersonales.sms.SmsPermissionActivity
+import com.example.finanzaspersonales.ui.sms.SmsPermissionActivity
 import com.example.finanzaspersonales.ui.theme.FinanzasPersonalesTheme
 import java.text.NumberFormat
 import java.text.SimpleDateFormat
@@ -232,7 +232,9 @@ class DashboardActivity : ComponentActivity() {
                                         onCategoriesClick = {
                                             context.startActivity(Intent(context, CategoriesActivity::class.java))
                                         },
-                                        onSmsTestClick = {}
+                                        onSmsTestClick = {
+                                            context.startActivity(Intent(context, SmsPermissionActivity::class.java))
+                                        }
                                     )
                                 }
                             }
