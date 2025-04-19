@@ -6,7 +6,6 @@ import com.example.finanzaspersonales.data.local.SmsDataSource
 import com.example.finanzaspersonales.data.model.SmsMessage
 import com.example.finanzaspersonales.data.model.TransactionData
 import com.example.finanzaspersonales.data.model.Category
-import com.example.finanzaspersonales.data.local.SharedPrefsManager
 import com.example.finanzaspersonales.domain.usecase.CategoryAssignmentUseCase
 import com.example.finanzaspersonales.domain.usecase.ExtractTransactionDataUseCase
 import com.example.finanzaspersonales.domain.util.DateTimeUtils.toMonth
@@ -23,6 +22,16 @@ import com.google.firebase.firestore.ktx.toObjects
 import com.google.firebase.ktx.Firebase
 import kotlinx.coroutines.tasks.await
 import java.util.Date
+import com.example.finanzaspersonales.data.local.SharedPrefsManager
+import com.google.android.gms.tasks.Task
+import com.google.firebase.firestore.DocumentReference
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.launch
+import com.example.finanzaspersonales.data.auth.AuthRepository
+import kotlinx.coroutines.flow.firstOrNull
 
 /**
  * Implementation of the TransactionRepository
@@ -32,7 +41,8 @@ class TransactionRepositoryImpl(
     private val smsDataSource: SmsDataSource,
     private val extractTransactionDataUseCase: ExtractTransactionDataUseCase,
     private val categoryAssignmentUseCase: CategoryAssignmentUseCase,
-    private val sharedPrefsManager: SharedPrefsManager
+    private val sharedPrefsManager: SharedPrefsManager,
+    private val authRepository: AuthRepository
 ) : TransactionRepository {
     
     private val db: FirebaseFirestore = Firebase.firestore
@@ -66,6 +76,7 @@ class TransactionRepositoryImpl(
         Log.d("CAT_ASSIGN_REPO_T", "-> loadTransactionCategoryCache() called [SharedPreferences].")
         // Load the cache from SharedPreferences using the correct method
         try {
+            // Correctly load from sharedPrefsManager
             transactionCategoryCache = sharedPrefsManager.loadTransactionCategories().toMutableMap()
         } catch (e: Exception) {
              Log.e("CAT_ASSIGN_REPO_T", "   Error loading transaction category cache from SharedPreferences", e)
@@ -81,6 +92,7 @@ class TransactionRepositoryImpl(
         Log.d("CAT_ASSIGN_REPO_T", "-> saveTransactionCategoryCache() called [SharedPreferences]. Saving ${transactionCategoryCache.size} entries.")
         // Save the cache to SharedPreferences using the correct method
         try {
+            // Uncomment the save operation
             sharedPrefsManager.saveTransactionCategories(transactionCategoryCache)
              Log.d("CAT_ASSIGN_REPO_T", "<- saveTransactionCategoryCache() finished.")
         } catch (e: Exception) {
@@ -105,13 +117,14 @@ class TransactionRepositoryImpl(
         Log.d("CAT_ASSIGN_REPO_T", "-> getTransactions() called.")
         if (cachedTransactions.isEmpty()) {
             Log.d("CAT_ASSIGN_REPO_T", "   Cache empty, calling refreshSmsData...")
-            refreshSmsData(0) // Assuming this populates cachedTransactions
+            refreshSmsData(0) // Assuming this populates cachedTransactions and calls applyCategoryAssignments internally
         } else {
-            Log.d("CAT_ASSIGN_REPO_T", "   Cache not empty, calling applyCategoryAssignments...")
-            applyCategoryAssignments(cachedTransactions) // Apply SharedPreferences categories
+            Log.d("CAT_ASSIGN_REPO_T", "   Cache not empty, applying category assignments...")
+            // Apply SharedPreferences categories and update the cache with the result
+            cachedTransactions = applyCategoryAssignments(cachedTransactions) 
         }
          Log.d("CAT_ASSIGN_REPO_T", "<- getTransactions() returning ${cachedTransactions.size} items.")
-        cachedTransactions
+        cachedTransactions // Return the potentially updated cached list
     }
     
     /**
@@ -225,102 +238,50 @@ class TransactionRepositoryImpl(
     }
     
     /**
-     * Apply category assignments to transactions
+     * Apply category assignments (from SharedPreferences cache) to transactions
+     * and return the modified list.
      */
-    private suspend fun applyCategoryAssignments(transactions: List<TransactionData>) {
+    private suspend fun applyCategoryAssignments(transactions: List<TransactionData>): List<TransactionData> { // Return type changed
          Log.d("CAT_ASSIGN_REPO_T", "-> applyCategoryAssignments called for ${transactions.size} transactions.") 
         // Load the SharedPreferences cache
         loadTransactionCategoryCache() // Make sure this is loaded before applying
         Log.d("CAT_ASSIGN_REPO_T", "   Loaded transactionCategoryCache (SharedPreferences). Size: ${transactionCategoryCache.size}") 
-        var changesApplied = 0
-        var checkedCount = 0 
-        transactions.forEach { transaction ->
-            // Use transaction.id (UUID) as the key, matching how it's saved
+        var changesMade = false // Flag to track if any changes were made
+        
+        // Use map to create a new list with potentially updated items
+        val updatedList = transactions.map { transaction ->
             val txId = transaction.id
-            if (txId != null) { // Check if transaction has an ID
-                 checkedCount++ // Increment checked counter
-                 val savedCategoryId = transactionCategoryCache[txId] // Lookup by UUID
+            if (txId != null) {
+                 val savedCategoryId = transactionCategoryCache[txId] // Lookup saved category
                  
-                 // ADDED: Log every check, regardless of outcome
                  Log.d("CAT_ASSIGN_REPO_T", "   Loop Check - TxID: $txId, Found in Cache: ${savedCategoryId != null} (SavedValue: $savedCategoryId), Current Tx CatID: ${transaction.categoryId}") 
 
-                 if (savedCategoryId != null) {
-                     // Log details when a saved category IS found
-                     // Log.d("CAT_ASSIGN_REPO_T", "   Checking TxID: $txId - Current CatID: ${transaction.categoryId} - Saved CatID: $savedCategoryId") // Redundant now
-                     if (transaction.categoryId != savedCategoryId) {
-                         Log.d("CAT_ASSIGN_REPO_T", "      DIFFERENT! Applying category from SharedPreferences.") 
-                         transaction.categoryId = savedCategoryId
-                         changesApplied++
-                     } else {
-                         // Log when they are the same
-                         Log.d("CAT_ASSIGN_REPO_T", "      SAME! No change needed.")
-                     }
+                 if (savedCategoryId != null && transaction.categoryId != savedCategoryId) {
+                     // If a saved category exists and it's different from the current one
+                     Log.i("CAT_ASSIGN_REPO_T", "   Applying saved category: TxID $txId changing from '${transaction.categoryId}' to '$savedCategoryId'")
+                     changesMade = true
+                     transaction.copy(categoryId = savedCategoryId) // Return a copied object with the new categoryId
                  } else {
-                    // ADDED: Explicit log when ID is checked but not found in cache
-                    // Log.d("CAT_ASSIGN_REPO_T", "   Loop Check - TxID: $txId - Not found in SharedPreferences cache (Size: ${transactionCategoryCache.size}).") // Covered by main log above
+                     transaction // No change needed, return original object
                  }
-            } else { // Log if transaction ID is null
-                 Log.w("CAT_ASSIGN_REPO_T", "   Loop Check - Skipping transaction with NULL ID: ${transaction.provider} / ${transaction.amount}")
+            } else {
+                transaction // No ID, return original object
             }
         }
-        Log.d("CAT_ASSIGN_REPO_T", "<- applyCategoryAssignments finished. Checked: $checkedCount, Changes applied: $changesApplied") 
+        Log.i("CAT_ASSIGN_REPO_T", "<- applyCategoryAssignments finished. Changes made: $changesMade. Returning list of size ${updatedList.size}.")
+        return updatedList // Return the new list (may or may not be different from the original)
     }
     
     /**
-     * Get transactions by category ID
+     * Get transactions by category ID (Simplified - expects caller to handle special logic)
      */
     override suspend fun getTransactionsByCategory(categoryId: String): List<TransactionData> = 
         withContext(Dispatchers.Default) {
+            Log.d("TX_REPO_GET_BY_CAT", "(TransactionRepo) getTransactionsByCategory called for ID: $categoryId - Performing simple filter.")
             val transactions = getTransactions()
-            val categories = sharedPrefsManager.loadCategories()
-            
-            // Get the requested category
-            val category = categories.find { it.id == categoryId }
-            
-            // Check if this is the "Other" category by name
-            val isOtherCategory = category?.name?.equals("Other", ignoreCase = true) ?: false
-            
-            // Enhanced debug logging
-            Log.d("CATEGORY_TRANSACTIONS", "========== Category Transaction Debug ==========")
-            Log.d("CATEGORY_TRANSACTIONS", "Category: ${category?.name} (id: $categoryId)")
-            Log.d("CATEGORY_TRANSACTIONS", "Is Other category: $isOtherCategory")
-            Log.d("CATEGORY_TRANSACTIONS", "Total transactions available: ${transactions.size}")
-            
-            // Handle "Other" category differently from regular categories
-            if (isOtherCategory) {
-                // For "Other" category, include both:
-                // 1. Transactions explicitly assigned to the Other category
-                // 2. Transactions with null categoryId (uncategorized)
-                Log.d("CATEGORY_TRANSACTIONS", "Special handling for Other category")
-                
-                // Count uncategorized transactions
-                val uncategorizedCount = transactions.count { it.categoryId == null }
-                Log.d("CATEGORY_TRANSACTIONS", "Uncategorized transactions: $uncategorizedCount")
-                
-                // Count transactions explicitly assigned to Other
-                val otherCount = transactions.count { it.categoryId == categoryId }
-                Log.d("CATEGORY_TRANSACTIONS", "Explicitly Other transactions: $otherCount")
-                
-                // Create result including both uncategorized and explicitly Other
-                val result = transactions.filter { 
-                    it.categoryId == null || it.categoryId == categoryId 
-                }
-                
-                Log.d("CATEGORY_TRANSACTIONS", "Combined Other category transactions: ${result.size}")
-                
-                // Sample some transactions for debugging
-                result.take(5).forEach { tx ->
-                    Log.d("CATEGORY_TRANSACTIONS", "Sample Other tx: ${tx.provider}, Amount: ${tx.amount}, " +
-                      "Date: ${tx.date}, CategoryId: ${tx.categoryId ?: "null"}")
-                }
-                
-                return@withContext result
-            } else {
-                // Normal filtering for other categories
-                val result = transactions.filter { it.categoryId == categoryId }
-                Log.d("CATEGORY_TRANSACTIONS", "Regular category transactions: ${result.size}")
-                return@withContext result
-            }
+            val result = transactions.filter { it.categoryId == categoryId }
+            Log.d("TX_REPO_GET_BY_CAT", "(TransactionRepo) Returning ${result.size} transactions strictly matching ID: $categoryId")
+            result
         }
     
     /**
@@ -348,20 +309,37 @@ class TransactionRepositoryImpl(
         categoryId: String
     ): Boolean = withContext(Dispatchers.IO) {
         Log.d("CAT_ASSIGN_REPO_T", "-> assignCategoryToTransaction(TxID: $transactionId, CatID: $categoryId)")
+        
+        // 1. Get the current User ID
+        val userId = authRepository.currentUserState.firstOrNull()?.uid
+        if (userId == null) {
+            Log.e("CAT_ASSIGN_REPO_T", "   Cannot assign category: User not logged in.")
+            return@withContext false // Cannot update Firestore without user ID
+        }
+        Log.d("CAT_ASSIGN_REPO_T", "   Current User ID: $userId")
+        
+        // 2. Find transaction in local cache
         val transaction = getTransactionById(transactionId) // Find in cache
         Log.d("CAT_ASSIGN_REPO_T", "   Transaction found in cache: ${transaction != null} (Current CatID: ${transaction?.categoryId})")
 
         if (transaction != null) {
-            val originalCatId = transaction.categoryId // Store original for logging
-            transaction.categoryId = categoryId // Update object reference in cache
-            Log.d("CAT_ASSIGN_REPO_T", "   Updated transaction object in cache (Old CatID: $originalCatId, New CatID: $categoryId)")
+            // 3. Create the updated object WITH UserId for Firestore
+            val updatedTransactionForFirestore = transaction.copy(categoryId = categoryId, userId = userId)
+            Log.d("CAT_ASSIGN_REPO_T", "   Prepared transaction for Firestore with CatID: ${updatedTransactionForFirestore.categoryId}, UserID: ${updatedTransactionForFirestore.userId}")
+            
+            // 4. Update local cache reference's categoryId
+            // Note: Directly modifying cached objects can be risky if immutability is expected.
+            transaction.categoryId = categoryId
+            // Remove direct modification of userId on cached object
+            // transaction.userId = userId 
+            Log.d("CAT_ASSIGN_REPO_T", "   Updated local cached transaction object categoryId reference.")
 
-            // Log before saving to SharedPreferences
-            saveCategoryForTransaction(transactionId, categoryId) // Update SharedPreferences
+            // 5. Save mapping to SharedPreferences
+            saveCategoryForTransaction(transactionId, categoryId)
 
-            // Log before Firestore update
+            // 6. Update Firestore using the copy that includes the userId
             Log.d("CAT_ASSIGN_REPO_T", "   Calling updateTransactionInFirestore...")
-            val updateResult = updateTransactionInFirestore(transaction.copy(categoryId = categoryId)) 
+            val updateResult = updateTransactionInFirestore(updatedTransactionForFirestore) 
 
             val success = updateResult.isSuccess
             Log.d("CAT_ASSIGN_REPO_T", "   Firestore update result: ${if(success) "Success" else "Failure"}")
@@ -369,7 +347,7 @@ class TransactionRepositoryImpl(
                  Log.e("CAT_ASSIGN_REPO_T", "   Firestore update error: ", updateResult.exceptionOrNull()) // Log error details
             }
             Log.d("CAT_ASSIGN_REPO_T", "<- assignCategoryToTransaction returning: $success")
-            success // Return success/failure
+            success // Return success/failure based on Firestore update
         } else {
             Log.w("CAT_ASSIGN_REPO_T", "   Transaction with ID $transactionId not found in cache.")
             Log.d("CAT_ASSIGN_REPO_T", "<- assignCategoryToTransaction returning: false (transaction not found)")

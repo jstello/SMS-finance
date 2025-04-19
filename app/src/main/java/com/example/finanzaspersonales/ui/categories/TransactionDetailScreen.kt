@@ -50,6 +50,14 @@ import com.example.finanzaspersonales.domain.util.StringUtils
 import kotlinx.coroutines.launch
 import java.text.SimpleDateFormat
 import java.util.Locale
+import androidx.compose.runtime.*
+import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.SnackbarHostState
+import androidx.compose.material3.SnackbarHost
+import androidx.compose.material.icons.filled.Check
+import androidx.compose.material.icons.filled.ErrorOutline
+import androidx.compose.ui.platform.LocalContext
+import android.util.Log
 
 /**
  * Screen showing details of a transaction
@@ -63,22 +71,52 @@ fun TransactionDetailScreen(
     onCategorySelected: (TransactionData, Category) -> Unit
 ) {
     val scope = rememberCoroutineScope()
+    val context = LocalContext.current
     val categories by viewModel.categories.collectAsState()
+    val isAssigning by viewModel.isAssigningCategory.collectAsState()
+    val assignmentResult by viewModel.assignmentResult.collectAsState()
     
     var currentCategory by remember { mutableStateOf<Category?>(null) }
     var showCategorySelector by remember { mutableStateOf(false) }
+    var pendingCategoryChange by remember { mutableStateOf<Category?>(null) }
+    val snackbarHostState = remember { SnackbarHostState() }
     
     // Load the category for this transaction
-    LaunchedEffect(transaction) {
+    LaunchedEffect(transaction.id, transaction.categoryId) {
         currentCategory = viewModel.getCategoryForTransaction(transaction)
     }
     
+    // Handle assignment result
+    LaunchedEffect(assignmentResult) {
+        val result = assignmentResult
+        if (result != null) {
+            if (result.isSuccess) {
+                // Success! Update the displayed category
+                currentCategory = pendingCategoryChange
+                pendingCategoryChange = null // Clear pending state
+                snackbarHostState.showSnackbar("Category updated successfully!")
+            } else {
+                // Failure! Show error message
+                val errorMessage = result.exceptionOrNull()?.message ?: "Failed to update category"
+                Log.e("TransactionDetailScreen", "Category assignment failed", result.exceptionOrNull())
+                snackbarHostState.showSnackbar("Error: $errorMessage")
+                pendingCategoryChange = null // Clear pending state on failure too
+            }
+            // Clear the result in the ViewModel so this effect doesn't re-trigger
+            viewModel.clearAssignmentResult()
+        }
+    }
+    
     Scaffold(
+        snackbarHost = { SnackbarHost(hostState = snackbarHostState) },
         topBar = {
             TopAppBar(
                 title = { Text("Transaction Details") },
                 navigationIcon = {
-                    IconButton(onClick = onBack) {
+                    IconButton(
+                        onClick = onBack,
+                        enabled = !isAssigning
+                    ) {
                         Icon(
                             imageVector = Icons.AutoMirrored.Filled.ArrowBack,
                             contentDescription = "Back"
@@ -92,17 +130,14 @@ fun TransactionDetailScreen(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(padding)
+                .padding(16.dp)
         ) {
             // Transaction details card
             Card(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(16.dp),
+                modifier = Modifier.fillMaxWidth(),
                 elevation = CardDefaults.cardElevation(defaultElevation = 4.dp)
             ) {
-                Column(
-                    modifier = Modifier.padding(16.dp)
-                ) {
+                Column(modifier = Modifier.padding(16.dp)) {
                     // Amount
                     Text(
                         text = "$${StringUtils.formatAmount(transaction.amount)}",
@@ -163,30 +198,40 @@ fun TransactionDetailScreen(
                             modifier = Modifier.width(100.dp)
                         )
                         
-                        if (currentCategory != null) {
-                            Row(
-                                verticalAlignment = Alignment.CenterVertically
-                            ) {
-                                Box(
-                                    modifier = Modifier
-                                        .size(16.dp)
-                                        .clip(CircleShape)
-                                        .background(Color(currentCategory!!.color))
-                                )
-                                
+                        Spacer(modifier = Modifier.width(8.dp))
+                        
+                        if (isAssigning) {
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                CircularProgressIndicator(modifier = Modifier.size(20.dp))
                                 Spacer(modifier = Modifier.width(8.dp))
-                                
                                 Text(
-                                    text = currentCategory!!.name,
-                                    style = MaterialTheme.typography.bodyMedium
+                                    text = "Updating...",
+                                    style = MaterialTheme.typography.bodyMedium,
+                                    color = MaterialTheme.colorScheme.primary
                                 )
                             }
                         } else {
-                            Text(
-                                text = "Uncategorized",
-                                style = MaterialTheme.typography.bodyMedium,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant
-                            )
+                            if (currentCategory != null) {
+                                Row(verticalAlignment = Alignment.CenterVertically) {
+                                    Box(
+                                        modifier = Modifier
+                                            .size(16.dp)
+                                            .clip(CircleShape)
+                                            .background(Color(currentCategory!!.color))
+                                    )
+                                    Spacer(modifier = Modifier.width(8.dp))
+                                    Text(
+                                        text = currentCategory!!.name,
+                                        style = MaterialTheme.typography.bodyMedium
+                                    )
+                                }
+                            } else {
+                                Text(
+                                    text = "Uncategorized",
+                                    style = MaterialTheme.typography.bodyMedium,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                            }
                         }
                     }
                     
@@ -195,6 +240,7 @@ fun TransactionDetailScreen(
                     // Change category button
                     OutlinedButton(
                         onClick = { showCategorySelector = true },
+                        enabled = !isAssigning,
                         modifier = Modifier.fillMaxWidth()
                     ) {
                         Text("Change Category")
@@ -241,13 +287,15 @@ fun TransactionDetailScreen(
         CategorySelectorDialog(
             categories = categories,
             currentCategory = currentCategory,
-            onDismiss = { showCategorySelector = false },
-            onCategorySelected = { category ->
-                scope.launch {
-                    onCategorySelected(transaction, category)
-                    currentCategory = category
-                    showCategorySelector = false
-                }
+            onDismiss = { if (!isAssigning) showCategorySelector = false },
+            onCategorySelected = { selectedCategory ->
+                // Store the choice temporarily
+                pendingCategoryChange = selectedCategory
+                Log.d("CAT_ASSIGN_UI", "Attempting assignment: TxID='${transaction.id}', Selected CatID='${selectedCategory.id}'")
+                // Trigger the ViewModel assignment (which sets isAssigning = true)
+                viewModel.assignCategoryToTransaction(transaction, selectedCategory)
+                // Close the dialog immediately (or could keep it open until success/failure)
+                showCategorySelector = false
             }
         )
     }

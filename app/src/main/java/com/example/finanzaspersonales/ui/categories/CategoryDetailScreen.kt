@@ -77,24 +77,13 @@ fun CategoryDetailScreen(
         Log.d("CAT_DETAIL_EFFECT", "Category Name: ${category.name}, Category ID: ${category.id}")
         Log.d("CAT_DETAIL_EFFECT", "Selected Year: $selectedYear, Selected Month: $selectedMonth")
         
-        // Ensure category.id is not null before proceeding
-        category.id?.let { categoryId -> // Use let to safely access category when id is not null
-            Log.d("CAT_DETAIL_EFFECT", "Category ID ($categoryId) is not null. Calling loadTransactionsForCategory.")
-            Log.d("CATEGORY_DETAIL", "Loading transactions for '${category.name}' (ID: ${category.id})")
-            Log.d("CATEGORY_DETAIL", "Filters - Year: $selectedYear, Month: $selectedMonth")
-            
-            // Call the existing loadTransactionsForCategory with the category object
-            viewModel.loadTransactionsForCategory(category)
-            
-            // Note: The filtering by isIncome=false and year/month 
-            // is handled *inside* the ViewModel's loadTransactionsForCategory method now.
-            
-        } ?: run {
-             Log.e("CAT_DETAIL_EFFECT", "LaunchedEffect - Category ID is NULL for category name '${category.name}'")
-             Log.e("CATEGORY_DETAIL", "Cannot load transactions: Category ID is null for category name '${category.name}'")
-             // Optionally clear transactions list or show an error state in the ViewModel if needed
-             // viewModel.clearCategoryTransactions()
-        }
+        // Always call loadTransactionsForCategory, let the ViewModel handle null ID logic
+        Log.d("CATEGORY_DETAIL", "Loading transactions for '${category.name}' (ID: ${category.id})")
+        Log.d("CATEGORY_DETAIL", "Filters - Year: $selectedYear, Month: $selectedMonth")
+        viewModel.loadTransactionsForCategory(category)
+
+        // Note: The filtering by isIncome=false and year/month 
+        // is handled *inside* the ViewModel's loadTransactionsForCategory method now.
     }
     
     Scaffold(

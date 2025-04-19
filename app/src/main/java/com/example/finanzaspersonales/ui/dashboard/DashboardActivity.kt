@@ -160,7 +160,8 @@ class DashboardActivity : ComponentActivity() {
             smsDataSource = smsDataSource,
             extractTransactionDataUseCase = extractTransactionDataUseCase,
             categoryAssignmentUseCase = categoryAssignmentUseCase,
-            sharedPrefsManager = sharedPrefsManager
+            sharedPrefsManager = sharedPrefsManager,
+            authRepository = authRepository // Add authRepository parameter
         )
         // -----------------------------------------------------------
         

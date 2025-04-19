@@ -5,6 +5,7 @@ import com.example.finanzaspersonales.data.model.AccountInfo
 import com.example.finanzaspersonales.data.model.Category
 import com.google.gson.Gson
 import com.google.gson.reflect.TypeToken
+import java.util.UUID
 
 /**
  * Manager for SharedPreferences
@@ -72,7 +73,7 @@ class SharedPrefsManager(private val context: Context) {
      */
     fun saveTransactionCategories(transactionCategoryMap: Map<String, String>) {
         val json = gson.toJson(transactionCategoryMap)
-        transactionPrefs.edit().putString(KEY_TRANSACTION_CATEGORIES, json).apply()
+        transactionPrefs.edit().putString(KEY_TRANSACTION_CATEGORIES, json).commit()
     }
     
     /**
@@ -118,21 +119,21 @@ class SharedPrefsManager(private val context: Context) {
         private const val KEY_TRANSACTION_CATEGORIES = "transaction_categories"
         private const val KEY_INITIAL_SYNC_STATUS_PREFIX = "initial_sync_status"
         
-        // Default categories
+        // Default categories with stable UUIDs
         val DEFAULT_CATEGORIES = listOf(
-            Category(name = "Food & Dining", color = 0xFF4CAF50.toInt()),
-            Category(name = "Transportation", color = 0xFF2196F3.toInt()),
-            Category(name = "Shopping", color = 0xFFF44336.toInt()),
-            Category(name = "Entertainment", color = 0xFF9C27B0.toInt()),
-            Category(name = "Housing", color = 0xFF795548.toInt()),
-            Category(name = "Utilities", color = 0xFF607D8B.toInt()),
-            Category(name = "Health", color = 0xFFE91E63.toInt()),
-            Category(name = "Personal", color = 0xFFFF9800.toInt()),
-            Category(name = "Education", color = 0xFF3F51B5.toInt()),
-            Category(name = "Investments", color = 0xFF009688.toInt()),
-            Category(name = "Payroll", color = 0xFF4CAF50.toInt()),  // Green for income
-            Category(name = "Pets", color = 0xFFFF9800.toInt()),     // Orange for pets
-            Category(name = "Other", color = 0xFF9E9E9E.toInt())
+            Category(id = "d5f1e4a3-9a86-4f9c-9a7b-1c9e3d5a7b1f", name = "Food & Dining", color = 0xFF4CAF50.toInt()),
+            Category(id = "b8e2d7c6-5b9a-4e8f-8c3d-2b7e6a5d9c4e", name = "Transportation", color = 0xFF2196F3.toInt()),
+            Category(id = "a1c3b5d7-8e2f-4a9c-9b8e-3d7c1b5a9e6d", name = "Shopping", color = 0xFFF44336.toInt()),
+            Category(id = "f4e8d2a6-7b1c-4f9a-8d5c-4e9b1a8d3c7b", name = "Entertainment", color = 0xFF9C27B0.toInt()),
+            Category(id = "c9b7e3d1-5a6f-4c8e-9a2b-5d1c7e9a3b8d", name = "Housing", color = 0xFF795548.toInt()),
+            Category(id = "e2d6c8b4-9f3a-4a7d-8b1e-6c9a5b3d1e7f", name = "Utilities", color = 0xFF607D8B.toInt()),
+            Category(id = "a7b3c9d5-8e1f-4b6a-9c4d-7e3b1a9d5c2e", name = "Health", color = 0xFFE91E63.toInt()),
+            Category(id = "d1e7f3b9-6a4c-4d8e-a1b9-8c5d7e3a1b9d", name = "Personal", color = 0xFFFF9800.toInt()),
+            Category(id = "b3c7a1d9-5e8f-4a2c-8b6d-9e5c3a1b7d4e", name = "Education", color = 0xFF3F51B5.toInt()),
+            Category(id = "e9f1d7b3-a4c8-4e6f-9a1d-b5c8e3a7d1b9", name = "Investments", color = 0xFF009688.toInt()),
+            Category(id = "c5d9e1a7-8b3f-4c5e-a9d1-f3b7c5e1a9d3", name = "Payroll", color = 0xFF4CAF50.toInt()),
+            Category(id = "f8a3d9c1-7e5b-4f1a-8c9d-e1b7a5d9c3e7", name = "Pets", color = 0xFFFF9800.toInt()),
+            Category(id = "a0a0a0a0-a0a0-a0a0-a0a0-a0a0a0a0a0a0", name = "Other", color = 0xFF9E9E9E.toInt()) // Special ID for Other
         )
     }
 } 

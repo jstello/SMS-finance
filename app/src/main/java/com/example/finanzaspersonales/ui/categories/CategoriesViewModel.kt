@@ -77,6 +77,14 @@ class CategoriesViewModel(
     // Loading state
     private val _isLoading = MutableStateFlow(false)
     val isLoading: StateFlow<Boolean> = _isLoading.asStateFlow()
+
+    // Loading state for category assignment
+    private val _isAssigningCategory = MutableStateFlow(false)
+    val isAssigningCategory: StateFlow<Boolean> = _isAssigningCategory.asStateFlow()
+
+    // Result state for category assignment (Success or Failure)
+    private val _assignmentResult = MutableStateFlow<Result<Unit>?>(null)
+    val assignmentResult: StateFlow<Result<Unit>?> = _assignmentResult.asStateFlow()
     
     init {
         loadCategories()
@@ -208,49 +216,55 @@ class CategoriesViewModel(
         viewModelScope.launch {
             val categoryId = category.id
             Log.i("CAT_DETAIL_VM", "Loading transactions for category: ${category.name} (ID: $categoryId)")
-            
-            if (categoryId == null) {
-                Log.e("CAT_DETAIL_VM", "Category ID is null, cannot load transactions.")
-                _transactions.value = emptyList()
-                _categoryTransactions.value = emptyList()
-                return@launch
-            }
-            
+
             _isLoading.value = true
             try {
-                // Step 1: Get all transactions for this category ID from the repo
-                Log.d("CAT_DETAIL_VM", "Fetching transactions for categoryId: $categoryId from CategoryRepository")
-                val allTransactionsForCategory = categoryRepository.getTransactionsByCategory(categoryId)
-                Log.d("CAT_DETAIL_VM", "Fetched ${allTransactionsForCategory.size} raw transactions for categoryId: $categoryId")
-                
+                // Step 1: Get relevant transactions (either by ID or uncategorized)
+                val allTransactionsForCategory = if (categoryId == null) {
+                    // Handle the 'Other'/Uncategorized case
+                    Log.d("CAT_DETAIL_VM", "Fetching uncategorized transactions (categoryId is null)")
+                    // Assuming getTransactions() returns all, and filterTransactions handles the rest
+                    // Or potentially a specific repo function: transactionRepository.getUncategorizedTransactions()
+                    // Let's assume filtering all transactions is the current approach
+                    // Fetch ALL transactions first, then filter by null/empty categoryId *locally* if needed,
+                    // or rely on filterTransactions to handle it.
+                    // Let's refine: Get all transactions and filter locally for null categoryId
+                    val allTrans = transactionRepository.getTransactions() // Need all to find uncategorized
+                    allTrans.filter { 
+                        val id = it.categoryId // Capture the value locally
+                        id == null || id.isEmpty() // Use the local variable for both checks
+                    }
+                } else {
+                    // Handle regular categories
+                    Log.d("CAT_DETAIL_VM", "Fetching transactions for categoryId: $categoryId from CategoryRepository")
+                    categoryRepository.getTransactionsByCategory(categoryId)
+                }
+                Log.d("CAT_DETAIL_VM", "Fetched ${allTransactionsForCategory.size} raw/uncategorized transactions for category: ${category.name}")
+
                 // Step 2: Apply year/month filters and isIncome=false using TransactionRepository
                 val filterYear = _selectedYear.value
                 val filterMonth = _selectedMonth.value
-                // *** We consistently filter for isIncome = false here for the detail screen ***
-                val filterIsIncome = false 
+                val filterIsIncome = false
                 Log.d("CAT_DETAIL_VM", "Applying filters: Year=$filterYear, Month=$filterMonth, IsIncome=$filterIsIncome")
-                
+
                 val filteredTransactions = transactionRepository.filterTransactions(
-                    transactions = allTransactionsForCategory,
+                    transactions = allTransactionsForCategory, // Pass the fetched list (either categorized or uncategorized)
                     year = filterYear,
                     month = filterMonth,
                     isIncome = filterIsIncome
                 )
                 Log.d("CAT_DETAIL_VM", "After filtering: ${filteredTransactions.size} transactions remain")
-                
-                _transactions.value = filteredTransactions // Keep original _transactions update if needed elsewhere
+
                 _categoryTransactions.value = filteredTransactions // Update the specific flow for the detail screen
                 Log.i("CAT_DETAIL_VM", "Final transaction list size for UI: ${filteredTransactions.size}")
-                
+
                 // Step 3: Apply current sorting
-                applySorting()
+                applySorting() // This sorts _categoryTransactions
             } catch (e: Exception) {
                 Log.e("CAT_DETAIL_VM", "Error loading transactions for category ${category.name}", e)
-                _transactions.value = emptyList()
                 _categoryTransactions.value = emptyList()
             } finally {
                 _isLoading.value = false
-                Log.d("CAT_DETAIL_VM", "Finished loading transactions for category ${category.name}")
             }
         }
     }
@@ -377,30 +391,39 @@ class CategoriesViewModel(
         Log.d("CAT_ASSIGN_VM", "-> assignCategoryToTransaction(Tx: ${transactionId}, Cat: ${categoryId})")
         if (transactionId == null || categoryId == null) {
             Log.e("CAT_ASSIGN_VM", "<- Aborting: Transaction ID or Category ID is null.")
+            _assignmentResult.value = Result.failure(IllegalArgumentException("Transaction or Category ID is null"))
             return
         }
+
         viewModelScope.launch { // Runs asynchronously
+            _isAssigningCategory.value = true
+            _assignmentResult.value = null // Clear previous result
+            var success = false // Track success locally
+
             try {
                 Log.d("CAT_ASSIGN_VM", "   Calling CategoryRepository.setCategoryForTransaction...")
-                val success = categoryRepository.setCategoryForTransaction(transactionId, categoryId) 
+                success = categoryRepository.setCategoryForTransaction(transactionId, categoryId) 
                 Log.d("CAT_ASSIGN_VM", "   CategoryRepository returned: $success")
                 
                 if (success) {
                     Log.d("CAT_ASSIGN_VM", "   Assignment successful. Triggering data reloads.")
+                    _assignmentResult.value = Result.success(Unit) // Signal success
+                    // Reload data AFTER signaling success
                     loadCategorySpending()
                     loadAllTransactions() 
                     _selectedCategory.value?.let { loadTransactionsForCategory(it) }
-                    // Consider adding a success message/state for the UI?
+                    
                 } else {
                      Log.e("CAT_ASSIGN_VM", "   Assignment failed according to repository.")
-                     // Consider adding an error message/state for the UI
+                     _assignmentResult.value = Result.failure(Exception("Assignment failed in repository")) // Signal failure
                 }
 
             } catch (e: Exception) { 
                  Log.e("CAT_ASSIGN_VM", "   Exception during category assignment.", e)
-                 // Consider adding an error message/state for the UI
+                 _assignmentResult.value = Result.failure(e) // Signal failure
             } finally {
-                Log.d("CAT_ASSIGN_VM", "<- assignCategoryToTransaction(Tx: ${transactionId}, Cat: ${categoryId}) finished.")
+                Log.d("CAT_ASSIGN_VM", "<- assignCategoryToTransaction(Tx: ${transactionId}, Cat: ${categoryId}) finished. Success: $success")
+                _isAssigningCategory.value = false // Signal loading finished
             }
         }
     }
@@ -411,29 +434,43 @@ class CategoriesViewModel(
     fun assignCategoryToTransaction(transactionId: String, categoryId: String) {
          Log.d("CAT_ASSIGN_VM", "-> assignCategoryToTransaction(TxID: ${transactionId}, CatID: ${categoryId})")
         viewModelScope.launch { // Runs asynchronously
+            _isAssigningCategory.value = true
+            _assignmentResult.value = null // Clear previous result
+            var success = false // Track success locally
+
              try {
                  Log.d("CAT_ASSIGN_VM", "   Calling CategoryRepository.setCategoryForTransaction...")
-                 val success = categoryRepository.setCategoryForTransaction(transactionId, categoryId) 
+                 success = categoryRepository.setCategoryForTransaction(transactionId, categoryId) 
                  Log.d("CAT_ASSIGN_VM", "   CategoryRepository returned: $success")
                  
                  if (success) {
                      Log.d("CAT_ASSIGN_VM", "   Assignment successful. Triggering data reloads.")
+                     _assignmentResult.value = Result.success(Unit) // Signal success
+                     // Reload data AFTER signaling success
                      loadCategorySpending()
                      loadAllTransactions()
                      _selectedCategory.value?.let { loadTransactionsForCategory(it) }
-                     // Consider adding a success message/state for the UI?
+                     
                  } else {
                       Log.e("CAT_ASSIGN_VM", "   Assignment failed according to repository.")
-                      // Consider adding an error message/state for the UI
+                      _assignmentResult.value = Result.failure(Exception("Assignment failed in repository")) // Signal failure
                  }
  
              } catch (e: Exception) { 
                   Log.e("CAT_ASSIGN_VM", "   Exception during category assignment by ID.", e)
-                  // Consider adding an error message/state for the UI
+                  _assignmentResult.value = Result.failure(e) // Signal failure
              } finally {
-                 Log.d("CAT_ASSIGN_VM", "<- assignCategoryToTransaction(TxID: ${transactionId}, CatID: ${categoryId}) finished.")
+                 Log.d("CAT_ASSIGN_VM", "<- assignCategoryToTransaction(TxID: ${transactionId}, CatID: ${categoryId}) finished. Success: $success")
+                 _isAssigningCategory.value = false // Signal loading finished
              }
         }
+    }
+
+    /**
+     * Clears the assignment result state, e.g., after handling it in the UI.
+     */
+    fun clearAssignmentResult() {
+        _assignmentResult.value = null
     }
     
     /**

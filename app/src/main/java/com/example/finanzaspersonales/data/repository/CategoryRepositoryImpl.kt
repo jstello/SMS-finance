@@ -137,26 +137,34 @@ class CategoryRepositoryImpl(
     
     /**
      * Get transactions by category
+     * Handles 'Other' category specially to include uncategorized items.
      */
     override suspend fun getTransactionsByCategory(categoryId: String): List<TransactionData> = withContext(Dispatchers.Default) {
-        Log.d("CAT_REPO", "-> getTransactionsByCategory called for categoryId: $categoryId")
+        Log.d("CAT_REPO", "-> (CategoryRepo) getTransactionsByCategory called for categoryId: $categoryId")
         // Fetch ALL transactions first
         Log.d("CAT_REPO", "   Calling transactionRepository.getTransactions()")
         val allTransactions = transactionRepository.getTransactions()
         Log.d("CAT_REPO", "   Total transactions fetched: ${allTransactions.size}")
         
-        // --- Log category IDs present in the fetched transactions ---
-        val presentCategoryIds = allTransactions.mapNotNull { it.categoryId }.distinct()
-        Log.d("CAT_REPO", "   Category IDs present in fetched transactions: $presentCategoryIds")
-        if (!presentCategoryIds.contains(categoryId)) {
-             Log.w("CAT_REPO", "   WARNING: Requested categoryId '$categoryId' is NOT present in any fetched transaction!")
-        }
-        // -----------------------------------------------------------
+        // Find the predefined ID for the "Other" category
+        val otherCategoryId = SharedPrefsManager.DEFAULT_CATEGORIES.find { it.name == "Other" }?.id
+        Log.d("CAT_REPO", "   Requested CatID: $categoryId, Predefined Other CatID: $otherCategoryId")
 
-        // Filter by the provided categoryId
-        Log.d("CAT_REPO", "   Filtering ${allTransactions.size} transactions for categoryId: $categoryId")
-        val categoryTransactions = allTransactions.filter { it.categoryId == categoryId }
-        Log.i("CAT_REPO", "<- Found ${categoryTransactions.size} transactions matching categoryId: $categoryId. Returning list.")
+        // Filter logic based on whether the requested ID is the special "Other" ID
+        val categoryTransactions = if (categoryId == otherCategoryId && otherCategoryId != null) {
+            // If requesting the specific "Other" category ID
+            Log.d("CAT_REPO", "   Filtering for 'Other' category (ID: $categoryId) including null/empty")
+            allTransactions.filter { 
+                val id = it.categoryId // Capture local immutable variable
+                id == categoryId || id == null || id.isEmpty() // Use local variable for checks
+            }
+        } else {
+            // For any other specific category ID
+            Log.d("CAT_REPO", "   Filtering for specific category ID: $categoryId")
+            allTransactions.filter { it.categoryId == categoryId }
+        }
+
+        Log.i("CAT_REPO", "<- (CategoryRepo) Found ${categoryTransactions.size} transactions for requested categoryId: $categoryId. Returning list.")
         categoryTransactions
     }
     

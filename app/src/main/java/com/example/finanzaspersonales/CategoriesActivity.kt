@@ -226,7 +226,8 @@ fun CategoriesApp(onBack: () -> Unit) {
                     smsDataSource = smsDataSource,
                     extractTransactionDataUseCase = extractTransactionDataUseCase,
                     categoryAssignmentUseCase = categoryAssignmentUseCase,
-                    sharedPrefsManager = sharedPrefsManager
+                    sharedPrefsManager = sharedPrefsManager,
+                    authRepository = authRepository // Pass AuthRepository here too
                 )
                 
                 // Replace the temporary repository with the real one, including AuthRepository
