@@ -6,6 +6,7 @@ import com.example.finanzaspersonales.data.model.Category
 import com.google.gson.Gson
 import com.google.gson.reflect.TypeToken
 import java.util.UUID
+import android.util.Log
 
 /**
  * Manager for SharedPreferences
@@ -73,7 +74,13 @@ class SharedPrefsManager(private val context: Context) {
      */
     fun saveTransactionCategories(transactionCategoryMap: Map<String, String>) {
         val json = gson.toJson(transactionCategoryMap)
-        transactionPrefs.edit().putString(KEY_TRANSACTION_CATEGORIES, json).commit()
+        Log.d("SharedPrefsManager", "Saving transaction categories JSON: $json (Size: ${transactionCategoryMap.size})")
+        try {
+            transactionPrefs.edit().putString(KEY_TRANSACTION_CATEGORIES, json).apply()
+            Log.d("SharedPrefsManager", "Successfully applied transaction categories save.")
+        } catch (e: Exception) {
+            Log.e("SharedPrefsManager", "Error saving transaction categories to SharedPreferences", e)
+        }
     }
     
     /**

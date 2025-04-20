@@ -133,7 +133,7 @@ class DashboardViewModel(
                 
                 // Get current month's transactions
                 val calendar = Calendar.getInstance()
-                val currentMonth = calendar.get(Calendar.MONTH)
+                val currentMonth = calendar.get(Calendar.MONTH) + 1
                 val currentYear = calendar.get(Calendar.YEAR)
                 
                 val currentMonthTransactions = transactionRepository.filterTransactions(

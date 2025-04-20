@@ -117,11 +117,14 @@ class TransactionRepositoryImpl(
         Log.d("CAT_ASSIGN_REPO_T", "-> getTransactions() called.")
         if (cachedTransactions.isEmpty()) {
             Log.d("CAT_ASSIGN_REPO_T", "   Cache empty, calling refreshSmsData...")
-            refreshSmsData(0) // Assuming this populates cachedTransactions and calls applyCategoryAssignments internally
+            refreshSmsData(0) // This populates cachedTransactions
+            // **Crucial Fix:** Explicitly apply assignments AFTER refreshing data for the first time
+            Log.d("CAT_ASSIGN_REPO_T", "   Applying category assignments after initial refresh...")
+            cachedTransactions = applyCategoryAssignments(cachedTransactions)
         } else {
             Log.d("CAT_ASSIGN_REPO_T", "   Cache not empty, applying category assignments...")
             // Apply SharedPreferences categories and update the cache with the result
-            cachedTransactions = applyCategoryAssignments(cachedTransactions) 
+            cachedTransactions = applyCategoryAssignments(cachedTransactions)
         }
          Log.d("CAT_ASSIGN_REPO_T", "<- getTransactions() returning ${cachedTransactions.size} items.")
         cachedTransactions // Return the potentially updated cached list
@@ -218,21 +221,36 @@ class TransactionRepositoryImpl(
     
     private suspend fun processChunk(chunk: List<SmsMessage>) {
         withContext(Dispatchers.Default) {
-            chunk.mapNotNull { sms ->
+            val processedTransactions = chunk.mapNotNull { sms ->
                 try {
-                    // Extract transaction data from SMS
-                    extractTransactionDataUseCase.execute(listOf(sms)).firstOrNull()
+                    // Extract transaction data from SMS (might have a random ID)
+                    val extractedTransaction = extractTransactionDataUseCase.execute(listOf(sms)).firstOrNull()
+                    if (extractedTransaction != null) {
+                        // Generate a stable ID based on content
+                        val stableId = generateTransactionKey(extractedTransaction)
+                        // Return a copy with the stable ID
+                        extractedTransaction.copy(id = stableId)
+                    } else {
+                        null // Skip if extraction failed
+                    }
                 } catch (e: Exception) {
                     Log.e("SMS_PROCESSING", "Error processing SMS: ${sms.body}", e)
                     null
                 }
-            }.also { transactions ->
-                withContext(Dispatchers.Main) {
-                    // Merge with existing transactions
-                    cachedTransactions = (cachedTransactions + transactions).distinctBy { 
-                        generateTransactionKey(it) 
-                    }
-                }
+            }
+            
+            // Update the main cache on the main thread
+            withContext(Dispatchers.Main) {
+                // Create a map of existing transactions by their stable key for efficient lookup
+                val existingKeys = cachedTransactions.associateBy { generateTransactionKey(it) }
+                // Filter out new transactions that already exist based on the stable key
+                val newUniqueTransactions = processedTransactions.filterNot { existingKeys.containsKey(generateTransactionKey(it)) }
+                
+                // Merge the new unique transactions with the existing cache
+                cachedTransactions = cachedTransactions + newUniqueTransactions
+                
+                // Log the outcome
+                Log.d("SMS_PROCESSING", "Processed chunk: Added ${newUniqueTransactions.size} new unique transactions. Cache size: ${cachedTransactions.size}")
             }
         }
     }
@@ -252,6 +270,9 @@ class TransactionRepositoryImpl(
         val updatedList = transactions.map { transaction ->
             val txId = transaction.id
             if (txId != null) {
+                 // Add these two lines for debugging
+                 Log.d("CAT_ASSIGN_REPO_T", "   Loop Apply Check - Current Tx.id: $txId")
+                 Log.d("CAT_ASSIGN_REPO_T", "   Loop Apply Check - Cache Keys: ${transactionCategoryCache.keys}")
                  val savedCategoryId = transactionCategoryCache[txId] // Lookup saved category
                  
                  Log.d("CAT_ASSIGN_REPO_T", "   Loop Check - TxID: $txId, Found in Cache: ${savedCategoryId != null} (SavedValue: $savedCategoryId), Current Tx CatID: ${transaction.categoryId}") 
