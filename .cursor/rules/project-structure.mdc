@@ -1,0 +1,45 @@
+---
+description: Whenever it is helpful to understand the high level structure of the application or the role different files play.
+globs: 
+alwaysApply: false
+---
+# Project Structure Guide
+
+This Android app is organized under the `app` module. Key locations:
+
+- **Build & Settings**
+  - `app/build.gradle.kts` (mdc:app/build.gradle.kts): Kotlin DSL build script defining plugins and dependencies.
+  - `app/google-services.json` (mdc:app/google-services.json): Firebase configuration.
+  - `app/proguard-rules.pro` (mdc:app/proguard-rules.pro): ProGuard/R8 rules.
+
+- **Data Layer** (`app/src/main/java/com/example/finanzaspersonales/data`)
+  - **Local**
+    - `local/SharedPrefsManager.kt` (mdc:app/src/main/java/com/example/finanzaspersonales/data/local/SharedPrefsManager.kt): Persists accounts, categories, and transaction‐category mappings.
+    - `local/SmsDataSource.kt` (mdc:app/src/main/java/com/example/finanzaspersonales/data/local/SmsDataSource.kt): Reads SMS messages.
+  - **Model**
+    - `model/TransactionData.kt` (mdc:app/src/main/java/com/example/finanzaspersonales/data/model/TransactionData.kt): Core transaction data class with mutable `categoryId`.
+    - `model/Category.kt` (mdc:app/src/main/java/com/example/finanzaspersonales/data/model/Category.kt): Category definition.
+  - **Repository**
+    - `repository/TransactionRepositoryImpl.kt` (mdc:app/src/main/java/com/example/finanzaspersonales/data/repository/TransactionRepositoryImpl.kt): Extracts, caches, and assigns categories to transactions.
+    - `repository/CategoryRepositoryImpl.kt` (mdc:app/src/main/java/com/example/finanzaspersonales/data/repository/CategoryRepositoryImpl.kt): Loads categories, assigns categories to transactions, calculates spending.
+
+- **Domain Layer** (`app/src/main/java/com/example/finanzaspersonales/domain`)
+  - `usecase/ExtractTransactionDataUseCase.kt` (mdc:app/src/main/java/com/example/finanzaspersonales/domain/usecase/ExtractTransactionDataUseCase.kt): Converts SMS into `TransactionData`.
+  - `usecase/CategoryAssignmentUseCase.kt` (mdc:app/src/main/java/com/example/finanzaspersonales/domain/usecase/CategoryAssignmentUseCase.kt): Rule‐based category assignment.
+  - `util/DateTimeUtils.kt` (mdc:app/src/main/java/com/example/finanzaspersonales/domain/util/DateTimeUtils.kt): Date helpers.
+
+- **UI Layer** (`app/src/main/java/com/example/finanzaspersonales/ui`)
+  - **Dashboard**
+    - `ui/dashboard/DashboardActivity.kt` (mdc:app/src/main/java/com/example/finanzaspersonales/ui/dashboard/DashboardActivity.kt)
+    - `ui/dashboard/DashboardViewModel.kt` (mdc:app/src/main/java/com/example/finanzaspersonales/ui/dashboard/DashboardViewModel.kt)
+  - **Categories**
+    - `ui/categories/CategoriesActivity.kt` (mdc:app/src/main/java/com/example/finanzaspersonales/ui/categories/CategoriesActivity.kt)
+    - `ui/categories/TransactionDetailScreen.kt` (mdc:app/src/main/java/com/example/finanzaspersonales/ui/categories/TransactionDetailScreen.kt)
+  - **Transactions List**
+    - `ui/transaction_list/TransactionListActivity.kt` (mdc:app/src/main/java/com/example/finanzaspersonales/ui/transaction_list/TransactionListActivity.kt)
+
+- **Resources & Manifest**
+  - `src/main/AndroidManifest.xml` (mdc:app/src/main/AndroidManifest.xml)
+  - `res/` folders (drawables, layouts, values, etc.)
+
+Use this guide when jumping between layers and features.

@@ -85,6 +85,17 @@ import com.example.finanzaspersonales.data.auth.AuthRepositoryImpl
 import com.example.finanzaspersonales.ui.auth.LoginScreen
 import androidx.compose.ui.platform.LocalContext
 import com.example.finanzaspersonales.ui.transaction_list.TransactionListActivity
+import kotlin.math.abs
+import kotlin.math.round
+
+// Helper function to format large numbers to millions with one decimal place
+private fun formatToMillions(value: Float): String {
+    val millions = value / 1_000_000.0
+    val sign = if (value < 0) "-" else ""
+    // Format to one decimal place
+    val formattedValue = String.format(Locale.US, "%.1f", abs(millions))
+    return "$sign$${formattedValue}M"
+}
 
 class DashboardActivity : ComponentActivity() {
     
@@ -285,6 +296,7 @@ fun DashboardScreen(
 ) {
     val currencyFormat = NumberFormat.getCurrencyInstance(Locale("es", "CO"))
     val context = LocalContext.current // Get context inside the composable
+    val monthlyBalance = monthlyIncome - monthlyExpenses // Calculate balance
     
     Scaffold(
         topBar = {
@@ -344,13 +356,13 @@ fun DashboardScreen(
                         }
                     } else {
                         Text(
-                            text = currencyFormat.format(monthlyExpenses),
+                            text = formatToMillions(monthlyBalance),
                             fontSize = 36.sp,
                             fontWeight = FontWeight.Bold,
-                            color = MaterialTheme.colorScheme.primary
+                            color = if (monthlyBalance >= 0) MaterialTheme.colorScheme.primary else Color.Red
                         )
                         Text(
-                            text = "Total Expenses",
+                            text = "This Month's Balance",
                             fontSize = 14.sp,
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
@@ -361,7 +373,7 @@ fun DashboardScreen(
                         ) {
                             Column {
                                 Text(
-                                    text = currencyFormat.format(monthlyIncome),
+                                    text = formatToMillions(monthlyIncome),
                                     fontSize = 18.sp,
                                     fontWeight = FontWeight.Medium,
                                     color = Color.Green
@@ -374,7 +386,7 @@ fun DashboardScreen(
                             }
                             Column {
                                 Text(
-                                    text = currencyFormat.format(monthlyExpenses),
+                                    text = formatToMillions(monthlyExpenses),
                                     fontSize = 18.sp,
                                     fontWeight = FontWeight.Medium,
                                     color = Color.Red
