@@ -37,8 +37,8 @@ A Colombian SMS-based finance tracker for Bancolombia & Nequi transactions
   - Basic total calculations
 
 - **Technical Base**
-  - Jetpack Compose (Material3 1.2.0)
-  - Kotlin 2.0 + JDK 17
+  - Jetpack Compose (BOM 2024.06.00 + Material3 1.2.1)
+  - Kotlin 2.0 + JDK 17 (targeting JVM 11)
   - Gradle Version Catalog
   - SMS permission runtime request
 
@@ -68,10 +68,17 @@ That's it! When you build and run, the app will automatically connect to *your* 
 ## ⚙️ Code Verified
 
 - **Dependencies**
-  ```kotlin
-  implementation(libs.androidx.material3) // 1.2.0-alpha11
-  implementation(libs.androidx.material.icons.extended)
-  ```
+```kotlin
+// Compose BOM + Material3
+implementation(platform("androidx.compose:compose-bom:2024.06.00"))
+implementation(libs.androidx.material3) // 1.2.1
+implementation(libs.androidx.material.icons.extended) // 1.6.7
+
+// Firebase (via BOM)
+implementation(platform("com.google.firebase:firebase-bom:33.1.1"))
+implementation("com.google.firebase:firebase-auth-ktx")
+implementation("com.google.firebase:firebase-firestore-ktx")
+```
 
 - **Architecture**
   - Single Activity
@@ -91,7 +98,6 @@ That's it! When you build and run, the app will automatically connect to *your* 
 
 - **Localization**
   - Spanish SMS only
-  - App UI in Spanish
 
 ## 🌟 Future Enhancements
 
