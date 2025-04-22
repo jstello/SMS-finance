@@ -221,24 +221,32 @@ class TransactionRepositoryImpl(
     
     private suspend fun processChunk(chunk: List<SmsMessage>) {
         withContext(Dispatchers.Default) {
+            Log.d("SMS_CHUNK_IN", "Processing chunk of ${chunk.size} messages.")
             val processedTransactions = chunk.mapNotNull { sms ->
+                Log.v("SMS_PROCESS_ITEM", "Attempting to process SMS body: ${sms.body?.take(100)}...") // Log start of processing
                 try {
                     // Extract transaction data from SMS (might have a random ID)
                     val extractedTransaction = extractTransactionDataUseCase.execute(listOf(sms)).firstOrNull()
                     if (extractedTransaction != null) {
                         // Generate a stable ID based on content
                         val stableId = generateTransactionKey(extractedTransaction)
+                        // Log the generated ID
+                        Log.d("STABLE_ID_GEN", "Generated stable ID: $stableId for Tx Date: ${extractedTransaction.date}, Amt: ${extractedTransaction.amount}")
+                        Log.v("SMS_PROCESS_ITEM", "Successfully processed SMS. Tx ID: $stableId")
                         // Return a copy with the stable ID
                         extractedTransaction.copy(id = stableId)
                     } else {
+                        Log.w("SMS_PROCESS_ITEM", "Extraction returned null for SMS body: ${sms.body?.take(100)}...")
                         null // Skip if extraction failed
                     }
                 } catch (e: Exception) {
                     Log.e("SMS_PROCESSING", "Error processing SMS: ${sms.body}", e)
+                    Log.e("SMS_PROCESS_ITEM", "EXCEPTION during processing SMS body: ${sms.body?.take(100)}...")
                     null
                 }
             }
-            
+            Log.d("SMS_CHUNK_OUT", "Chunk resulted in ${processedTransactions.size} processed transactions.")
+
             // Update the main cache on the main thread
             withContext(Dispatchers.Main) {
                 // Create a map of existing transactions by their stable key for efficient lookup
@@ -263,30 +271,39 @@ class TransactionRepositoryImpl(
          Log.d("CAT_ASSIGN_REPO_T", "-> applyCategoryAssignments called for ${transactions.size} transactions.") 
         // Load the SharedPreferences cache
         loadTransactionCategoryCache() // Make sure this is loaded before applying
-        Log.d("CAT_ASSIGN_REPO_T", "   Loaded transactionCategoryCache (SharedPreferences). Size: ${transactionCategoryCache.size}") 
+        Log.d("CAT_ASSIGN_REPO_T", "   Loaded transactionCategoryCache (SharedPreferences). Size: ${transactionCategoryCache.size}")
+        // Log first 5 entries of the cache for inspection
+        transactionCategoryCache.entries.take(5).forEachIndexed { index, entry ->
+            Log.d("CAT_ASSIGN_CACHE_INSPECT", "   Cache[$index]: Key=${entry.key}, Value=${entry.value}")
+        }
         var changesMade = false // Flag to track if any changes were made
         
         // Use map to create a new list with potentially updated items
         val updatedList = transactions.map { transaction ->
-            val txId = transaction.id
+            val txId = transaction.id // This is the NEW stable ID (Date_Amount_IsIncome)
+            var logPrefix = "   ApplyCheck [TxID: $txId]"
             if (txId != null) {
-                 // Add these two lines for debugging
-                 Log.d("CAT_ASSIGN_REPO_T", "   Loop Apply Check - Current Tx.id: $txId")
-                 Log.d("CAT_ASSIGN_REPO_T", "   Loop Apply Check - Cache Keys: ${transactionCategoryCache.keys}")
-                 val savedCategoryId = transactionCategoryCache[txId] // Lookup saved category
-                 
-                 Log.d("CAT_ASSIGN_REPO_T", "   Loop Check - TxID: $txId, Found in Cache: ${savedCategoryId != null} (SavedValue: $savedCategoryId), Current Tx CatID: ${transaction.categoryId}") 
+                 val savedCategoryId = transactionCategoryCache[txId] // Lookup using NEW stable ID
+                 val lookupResult = if (savedCategoryId != null) "FOUND (CatID: $savedCategoryId)" else "NOT FOUND"
+                 Log.d("CAT_ASSIGN_REPO_T", "$logPrefix - Lookup in cache: $lookupResult | Current Tx CatID: ${transaction.categoryId}")
 
                  if (savedCategoryId != null && transaction.categoryId != savedCategoryId) {
                      // If a saved category exists and it's different from the current one
-                     Log.i("CAT_ASSIGN_REPO_T", "   Applying saved category: TxID $txId changing from '${transaction.categoryId}' to '$savedCategoryId'")
+                     Log.i("CAT_ASSIGN_REPO_T", "$logPrefix - Applying saved category: Changing from '${transaction.categoryId}' to '$savedCategoryId'")
                      changesMade = true
                      transaction.copy(categoryId = savedCategoryId) // Return a copied object with the new categoryId
                  } else {
+                     // Log why no change is made
+                     if (savedCategoryId == null) {
+                         // Log.d("CAT_ASSIGN_REPO_T", "$logPrefix - No change: Category not found in cache.")
+                     } else { // savedCategoryId == transaction.categoryId
+                         // Log.d("CAT_ASSIGN_REPO_T", "$logPrefix - No change: Transaction already has the correct category.")
+                     }
                      transaction // No change needed, return original object
                  }
             } else {
-                transaction // No ID, return original object
+                 Log.w("CAT_ASSIGN_REPO_T", "$logPrefix - Skipping application: Transaction ID is null.")
+                 transaction // No ID, return original object
             }
         }
         Log.i("CAT_ASSIGN_REPO_T", "<- applyCategoryAssignments finished. Changes made: $changesMade. Returning list of size ${updatedList.size}.")
@@ -381,8 +398,8 @@ class TransactionRepositoryImpl(
      * Note: This key is primarily for local caching/linking. Firestore uses its own document ID.
      */
     private fun generateTransactionKey(transaction: TransactionData): String {
-        // Use available fields instead of the removed originalMessage
-        val input = "${transaction.date.time}_${transaction.amount}_${transaction.isIncome}_${transaction.provider ?: "N/A"}"
+        // Use only immutable fields (date, amount, isIncome) to ensure ID stability
+        val input = "${transaction.date.time}_${transaction.amount}_${transaction.isIncome}"
         return UUID.nameUUIDFromBytes(input.toByteArray()).toString()
     }
 

@@ -9,12 +9,14 @@ import android.view.Menu
 import android.view.MenuItem
 import android.widget.Toast
 import androidx.activity.ComponentActivity
+import androidx.activity.compose.BackHandler
 import androidx.activity.compose.setContent
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -108,7 +110,20 @@ class CategoriesActivity : ComponentActivity() {
                     modifier = Modifier.fillMaxSize(),
                     color = MaterialTheme.colorScheme.background
                 ) {
-                    CategoriesApp(onBack = { finish() })
+                    // --- State Management for Navigation --- 
+                    var navState by remember { mutableStateOf<CategoriesNavState>(CategoriesNavState.Categories) }
+
+                    CategoriesApp(
+                        navState = navState, // Pass the current state
+                        onNavStateChange = { newState -> 
+                            Log.d("NAV_ACTIVITY", "Changing navState to: $newState")
+                            navState = newState // Update the state
+                        },
+                        onBack = { 
+                            Log.d("NAV_ACTIVITY", "Executing onBack (finish) from CategoriesApp")
+                            finish() // Finish activity when back is pressed on the main screen
+                        }
+                    )
                 }
             }
         }
@@ -134,7 +149,7 @@ class CategoriesActivity : ComponentActivity() {
      */
     private fun launchSmsTestActivity() {
         // Use fully qualified name to avoid ambiguity
-        val intent = Intent(this, com.example.finanzaspersonales.ui.sms.SmsPermissionActivity::class.java) 
+        val intent = Intent(this, com.example.finanzaspersonales.ui.sms.SmsPermissionActivity::class.java)
         startActivity(intent)
     }
     
@@ -174,11 +189,12 @@ sealed class CategoriesNavState {
  * Main composable for the Categories feature
  */
 @Composable
-fun CategoriesApp(onBack: () -> Unit) {
+fun CategoriesApp(
+    navState: CategoriesNavState,
+    onNavStateChange: (CategoriesNavState) -> Unit,
+    onBack: () -> Unit
+) {
     val context = LocalContext.current
-    
-    // Navigation state
-    var navState by remember { mutableStateOf<CategoriesNavState>(CategoriesNavState.Categories) }
     
     val categoriesViewModel: CategoriesViewModel = viewModel(
         factory = object : ViewModelProvider.Factory {
@@ -244,13 +260,25 @@ fun CategoriesApp(onBack: () -> Unit) {
         }
     )
     
-    // Handle navigation state
+    // Handle back press within CategoriesApp
+    BackHandler(enabled = navState != CategoriesNavState.Categories) {
+        Log.d("NAV_BACK", "Back handled within CategoriesApp, going to Categories list.")
+        onNavStateChange(CategoriesNavState.Categories)
+    }
+
+    // Handle navigation state using the passed parameter
     when (val currentState = navState) {
         is CategoriesNavState.Categories -> {
             CategoriesScreen(
                 viewModel = categoriesViewModel,
-                onCategoryClick = { category -> navState = CategoriesNavState.CategoryDetail(category) },
-                onAddCategory = { navState = CategoriesNavState.CategoryEdit() },
+                onCategoryClick = { category -> 
+                    Log.d("NAV", "Navigating to detail for category: ${category.name}")
+                    onNavStateChange(CategoriesNavState.CategoryDetail(category))
+                 },
+                onAddCategory = { 
+                    Log.d("NAV", "Navigating to add category screen")
+                    onNavStateChange(CategoriesNavState.CategoryEdit())
+                 },
                 onBack = onBack
             )
         }
@@ -258,35 +286,45 @@ fun CategoriesApp(onBack: () -> Unit) {
             CategoryDetailScreen(
                 category = currentState.category,
                 viewModel = categoriesViewModel,
-                onTransactionClick = { transaction -> navState = CategoriesNavState.TransactionDetail(transaction) },
-                onBack = { navState = CategoriesNavState.Categories }
+                onBack = {
+                    Log.d("NAV_BACK", "Explicit back navigation from Detail screen.")
+                    onNavStateChange(CategoriesNavState.Categories)
+                 },
+                onTransactionClick = { transaction ->
+                    Log.d("NAV", "Navigating to transaction detail for ID: ${transaction.id}")
+                    onNavStateChange(CategoriesNavState.TransactionDetail(transaction))
+                 }
             )
         }
         is CategoriesNavState.TransactionDetail -> {
             TransactionDetailScreen(
-                transaction = currentState.transaction,
                 viewModel = categoriesViewModel,
-                onBack = { navState = CategoriesNavState.Categories },
+                transaction = currentState.transaction,
+                onBack = { 
+                    Log.d("NAV_BACK", "Back from TransactionDetailScreen.")
+                    onNavStateChange(CategoriesNavState.Categories) // Go back to category list for now
+                },
                 onCategorySelected = { transactionData, selectedCategory ->
-                    transactionData.id?.let { transactionId ->
-                        selectedCategory.id?.let { categoryId ->
-                            categoriesViewModel.assignCategoryToTransaction(transactionId, categoryId)
-                        }
-                    } ?: run {
-                        Log.e("CategoriesApp", "Cannot assign category: Transaction ID or Category ID is null")
-                    }
+                    Log.d("NAV_CAT_SELECT", "Category selected in TransactionDetail: ${selectedCategory.name}, navigating back.")
+                    // ViewModel call is likely handled within TransactionDetailScreen
+                    // Just handle navigation back here
+                    onNavStateChange(CategoriesNavState.Categories)
                 }
             )
         }
         is CategoriesNavState.CategoryEdit -> {
             CategoryEditScreen(
-                category = currentState.category,
                 viewModel = categoriesViewModel,
-                onSave = { categoryToSave ->
-                    categoriesViewModel.saveCategory(categoryToSave)
-                    navState = CategoriesNavState.Categories
+                category = currentState.category,
+                onSave = { category ->
+                    Log.d("NAV_SAVE", "Category saved/edited, navigating back to list.")
+                    categoriesViewModel.saveCategory(category)
+                    onNavStateChange(CategoriesNavState.Categories) 
                 },
-                onBack = { navState = CategoriesNavState.Categories }
+                onBack = {
+                    Log.d("NAV_CANCEL", "Category edit cancelled, navigating back to list via onBack.")
+                    onNavStateChange(CategoriesNavState.Categories) 
+                }
             )
         }
     }

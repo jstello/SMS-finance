@@ -104,18 +104,26 @@ class DashboardActivity : ComponentActivity() {
     private lateinit var categoryRepository: CategoryRepository
     private lateinit var sharedPrefsManager: SharedPrefsManager
     
-    // Permission launcher for SMS read permission
+    // Permission launcher - updated to handle READ_CONTACTS
     private val requestPermissionLauncher = registerForActivityResult(
         ActivityResultContracts.RequestMultiplePermissions()
     ) { permissions ->
         val smsPermissionGranted = permissions[Manifest.permission.READ_SMS] ?: false
         val receiveSmsPermissionGranted = permissions[Manifest.permission.RECEIVE_SMS] ?: false
-        
+        val contactsPermissionGranted = permissions[Manifest.permission.READ_CONTACTS] ?: false
+
         if (smsPermissionGranted && receiveSmsPermissionGranted) {
-            // Permissions granted, load data
+            // Core SMS permissions granted, load data regardless of contacts permission
             viewModel.loadDashboardData()
+            if (!contactsPermissionGranted) {
+                Toast.makeText(
+                    this,
+                    "Contacts permission needed to show names for phone transfers",
+                    Toast.LENGTH_SHORT
+                ).show()
+            }
         } else {
-            // Permissions denied
+            // Essential SMS Permissions denied
             Toast.makeText(
                 this,
                 "SMS permissions are required to detect transactions",
@@ -255,30 +263,37 @@ class DashboardActivity : ComponentActivity() {
                 }
             }
         }
+        // Request permissions *after* setting content
+        checkAndRequestPermissions()
     }
     
     private fun checkAndRequestPermissions() {
-        val readSmsPermission = ContextCompat.checkSelfPermission(
-            this, 
-            Manifest.permission.READ_SMS
+        val readSmsGranted = ContextCompat.checkSelfPermission(
+            this, Manifest.permission.READ_SMS
         ) == PackageManager.PERMISSION_GRANTED
-        
-        val receiveSmsPermission = ContextCompat.checkSelfPermission(
-            this,
-            Manifest.permission.RECEIVE_SMS
+
+        val receiveSmsGranted = ContextCompat.checkSelfPermission(
+            this, Manifest.permission.RECEIVE_SMS
         ) == PackageManager.PERMISSION_GRANTED
-        
-        if (readSmsPermission && receiveSmsPermission) {
-            // Permissions already granted, load data
-            viewModel.loadDashboardData()
+
+        val readContactsGranted = ContextCompat.checkSelfPermission(
+            this, Manifest.permission.READ_CONTACTS
+        ) == PackageManager.PERMISSION_GRANTED
+
+        val permissionsToRequest = mutableListOf<String>()
+        if (!readSmsGranted) permissionsToRequest.add(Manifest.permission.READ_SMS)
+        if (!receiveSmsGranted) permissionsToRequest.add(Manifest.permission.RECEIVE_SMS)
+        if (!readContactsGranted) permissionsToRequest.add(Manifest.permission.READ_CONTACTS)
+
+        if (permissionsToRequest.isEmpty()) {
+            // All permissions already granted, load data
+            Log.d("PERMISSIONS", "All required permissions already granted.")
+            viewModel.loadDashboardData() // Ensure data loads if permissions already exist
         } else {
-            // Request permissions
-            requestPermissionLauncher.launch(
-                arrayOf(
-                    Manifest.permission.READ_SMS,
-                    Manifest.permission.RECEIVE_SMS
-                )
-            )
+            // Request the missing permissions
+            Log.d("PERMISSIONS", "Requesting missing permissions: ${permissionsToRequest.joinToString()}")
+            requestPermissionLauncher.launch(permissionsToRequest.toTypedArray())
+            // Consider showing rationale here if needed, though the first-time OS dialog is usually sufficient
         }
     }
 }

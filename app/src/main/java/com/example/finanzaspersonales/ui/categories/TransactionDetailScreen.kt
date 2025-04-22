@@ -1,6 +1,7 @@
 package com.example.finanzaspersonales.ui.categories
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -14,7 +15,10 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material3.AlertDialog
@@ -176,18 +180,11 @@ fun TransactionDetailScreen(
                         )
                     }
                     
-                    // Account info if available
-                    transaction.accountInfo?.let {
-                        DetailRow(
-                            label = "Account",
-                            value = it
-                        )
-                    }
-                    
-                    // Category
+                    // Category - Now Clickable
                     Row(
                         modifier = Modifier
                             .fillMaxWidth()
+                            .clickable(enabled = !isAssigning) { showCategorySelector = true } // Make row clickable
                             .padding(vertical = 8.dp),
                         verticalAlignment = Alignment.CenterVertically
                     ) {
@@ -235,20 +232,9 @@ fun TransactionDetailScreen(
                         }
                     }
                     
-                    Spacer(modifier = Modifier.height(16.dp))
+                    Spacer(modifier = Modifier.height(24.dp)) // Increased spacing
                     
-                    // Change category button
-                    OutlinedButton(
-                        onClick = { showCategorySelector = true },
-                        enabled = !isAssigning,
-                        modifier = Modifier.fillMaxWidth()
-                    ) {
-                        Text("Change Category")
-                    }
-                    
-                    Spacer(modifier = Modifier.height(16.dp))
-                    
-                    // Original message
+                    // Original message - Now in a scrollable box
                     Text(
                         text = "Original Message Details",
                         style = MaterialTheme.typography.titleMedium
@@ -256,26 +242,20 @@ fun TransactionDetailScreen(
                     
                     Spacer(modifier = Modifier.height(8.dp))
                     
-                    Card(
-                        modifier = Modifier.fillMaxWidth(),
-                        colors = CardDefaults.cardColors(
-                            containerColor = MaterialTheme.colorScheme.surfaceVariant
-                        )
+                    // Scrollable Box for the message
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(120.dp) // Fixed height for scroll area
+                            .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f), RoundedCornerShape(8.dp))
+                            .border(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.5f), RoundedCornerShape(8.dp))
+                            .padding(horizontal = 12.dp, vertical = 8.dp)
                     ) {
-                        Column(modifier = Modifier.padding(16.dp)) {
-                            Text(
-                                text = "From: ${transaction.provider ?: "Unknown"}",
-                                style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant
-                            )
-                            
-                            Spacer(modifier = Modifier.height(4.dp))
-                            
-                            Text(
-                                text = transaction.description ?: "No description available",
-                                style = MaterialTheme.typography.bodyMedium
-                            )
-                        }
+                        Text(
+                            text = transaction.description ?: "No original message available",
+                            style = MaterialTheme.typography.bodyMedium,
+                            modifier = Modifier.verticalScroll(rememberScrollState()) // Make text scrollable
+                        )
                     }
                 }
             }
