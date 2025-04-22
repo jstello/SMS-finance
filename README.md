@@ -2,6 +2,11 @@
 
 A Colombian SMS-based finance tracker for Bancolombia & Nequi transactions
 
+<p align="center">
+  <img src="assets/Categorize.gif" alt="Categorize Demo" width="200"/>
+</p>
+
+
 ## 🎉 Recent Updates
 
 ### New Dashboard Home Screen
