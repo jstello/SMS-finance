@@ -10,6 +10,9 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -21,6 +24,8 @@ import com.example.finanzaspersonales.data.model.TransactionData
 import java.text.NumberFormat
 import java.text.SimpleDateFormat
 import java.util.Locale
+import androidx.activity.ComponentActivity
+import androidx.compose.ui.platform.LocalContext
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -29,13 +34,21 @@ fun TransactionListScreen(viewModel: TransactionListViewModel) {
     val isLoading by viewModel.isLoading.collectAsState()
     val error by viewModel.error.collectAsState()
 
+    // Search state and filter transactions
+    var searchQuery by remember { mutableStateOf("") }
+    val filteredTransactions = if (searchQuery.isBlank()) transactions else transactions.filter {
+        (it.provider ?: "").contains(searchQuery, ignoreCase = true) ||
+        (it.id ?: "").contains(searchQuery, ignoreCase = true)
+    }
+
     Scaffold(
         topBar = {
             TopAppBar(
                 title = { Text("All Transactions") },
                 navigationIcon = {
+                    val context = LocalContext.current
                     // Simple back arrow for now, assumes Activity handles finish()
-                    IconButton(onClick = { /* TODO: Handle back navigation */ }) {
+                    IconButton(onClick = { (context as? ComponentActivity)?.finish() }) {
                         Icon(Icons.Filled.ArrowBack, contentDescription = "Back")
                     }
                 },
@@ -47,7 +60,16 @@ fun TransactionListScreen(viewModel: TransactionListViewModel) {
             )
         }
     ) { paddingValues ->
-        Column(modifier = Modifier.padding(paddingValues)) {
+        Column(modifier = Modifier
+            .padding(paddingValues)
+            .padding(16.dp)) {
+            OutlinedTextField(
+                value = searchQuery,
+                onValueChange = { searchQuery = it },
+                label = { Text("Search") },
+                modifier = Modifier.fillMaxWidth()
+            )
+            Spacer(modifier = Modifier.height(8.dp))
             when {
                 isLoading -> {
                     Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
@@ -59,14 +81,14 @@ fun TransactionListScreen(viewModel: TransactionListViewModel) {
                         Text("Error: $error", color = MaterialTheme.colorScheme.error)
                     }
                 }
-                transactions.isEmpty() -> {
-                     Box(modifier = Modifier.fillMaxSize().padding(16.dp), contentAlignment = Alignment.Center) {
-                        Text("No transactions found.")
+                filteredTransactions.isEmpty() -> {
+                    Box(modifier = Modifier.fillMaxSize().padding(16.dp), contentAlignment = Alignment.Center) {
+                        Text(if (searchQuery.isBlank()) "No transactions found." else "No results for \"$searchQuery\"")
                     }
                 }
                 else -> {
                     LazyColumn(modifier = Modifier.fillMaxSize()) {
-                        items(transactions, key = { it.id!! }) { transaction ->
+                        items(filteredTransactions, key = { it.id!! }) { transaction ->
                             TransactionListItem(transaction = transaction) { transactionId ->
                                 // TODO: Implement click action to show category assignment dialog/screen
                                 // For now, just log

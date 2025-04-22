@@ -82,6 +82,14 @@
                 <action android:name="android.provider.Telephony.SMS_RECEIVED" />
             </intent-filter>
         </receiver>
+        
+        <!-- Transaction List Activity -->
+        <activity
+            android:name=".ui.transaction_list.TransactionListActivity"
+            android:exported="true"
+            android:label="Transactions"
+            android:theme="@style/Theme.FinanzasPersonales">
+        </activity>
     </application>
 
 </manifest>

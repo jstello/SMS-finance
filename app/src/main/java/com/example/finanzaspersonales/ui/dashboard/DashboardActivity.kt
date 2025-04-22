@@ -32,6 +32,8 @@ import androidx.compose.material.icons.filled.Category
 import androidx.compose.material.icons.filled.Notifications
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Settings
+import androidx.compose.material.icons.filled.Storefront
+import androidx.compose.material.icons.filled.Savings
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
@@ -452,22 +454,22 @@ fun DashboardScreen(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween
             ) {
-                // Reports
+                // Providers (renamed from Reports)
                 DashboardActionItem(
-                    icon = Icons.Default.Assessment,
-                    title = "Reports",
+                    icon = Icons.Default.Storefront,
+                    title = "Providers",
                     backgroundColor = MaterialTheme.colorScheme.tertiaryContainer,
                     modifier = Modifier.weight(1f),
-                    onClick = {}
+                    onClick = { Toast.makeText(context, "Coming Soon: View spending by provider/merchant!", Toast.LENGTH_SHORT).show() }
                 )
                 
-                // SMS Notifications
+                // Jars (renamed from SMS Test)
                 DashboardActionItem(
-                    icon = Icons.Default.Notifications,
-                    title = "SMS Test",
+                    icon = Icons.Default.Savings,
+                    title = "Jars",
                     backgroundColor = MaterialTheme.colorScheme.errorContainer,
                     modifier = Modifier.weight(1f),
-                    onClick = { context.startActivity(Intent(context, SmsPermissionActivity::class.java)) }
+                    onClick = { Toast.makeText(context, "Coming Soon: Manage your savings jars/goals!", Toast.LENGTH_SHORT).show() }
                 )
             }
             
