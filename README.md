@@ -51,6 +51,20 @@ git clone https://github.com/yourusername/finanzas-personales.git
 - Android Studio 2022.1+
 - API 24+ device/emulator
 
+### 🔧 Using Your Own Firebase (Optional, for Privacy)
+
+If you'd like to run the app locally without sharing any data with the main project's Firebase backend, you can easily set up your own! This ensures your SMS data and transaction history stay completely private to your device and your own Firebase instance.
+
+Here's how:
+
+1.  Visit the [Firebase console](https://console.firebase.google.com/) and create a new Firebase project (or use an existing one).
+2.  Inside your project, register a new Android app.
+3.  Make sure to use the package name: `com.example.finanzaspersonales`.
+4.  Download the `google-services.json` configuration file that Firebase provides.
+5.  Place this downloaded file directly into the `app/` folder of your cloned project.
+
+That's it! When you build and run, the app will automatically connect to *your* private Firebase project.
+
 ## ⚙️ Code Verified
 
 - **Dependencies**
@@ -126,49 +140,3 @@ git clone https://github.com/yourusername/finanzas-personales.git
 
 - **Collaboration Features**
   - Allow multiple users to manage shared finances collaboratively.
-
-## 🌱 User Acquisition & Growth Strategy
-
-To transform "Finanzas Personales" into a sustainable source of income, we have outlined a comprehensive user acquisition and growth strategy:
-
-### 1. Product Refinement & Launch
-- Enhance the app by addressing current limitations and integrating future features.
-- Conduct a closed beta to gather user feedback and testimonials.
-
-### 2. Brand Positioning & Messaging
-- Develop a clear value proposition emphasizing the app's unique features for Colombian users.
-- Create a professional website and optimize app store listings.
-
-### 3. Marketing & User Acquisition Strategy
-- **Content Marketing**: Start a blog or YouTube channel focused on personal finance.
-- **Social Media**: Build a presence on platforms like Facebook and Instagram.
-- **App Store Optimization**: Use targeted keywords and encourage user reviews.
-- **Paid Advertising**: Test localized ads and partner with influencers.
-
-### 4. Monetization Strategy
-- Implement a freemium model with premium features available via subscription.
-- Offer value-added services such as data export and API access.
-
-### 5. Retention & Growth Tactics
-- Create a seamless onboarding process and provide excellent customer support.
-- Regularly update the app with new features based on user feedback.
-- Launch a referral program to incentivize user growth.
-
-### 6. Scaling & Long-Term Vision
-- Explore geographical expansion into other Latin American markets.
-- Build partnerships with local banks and fintech companies.
-- Focus on creating a recurring revenue model that supports ongoing development.
-
-### Long-Term Goals
-- Achieve steady monthly active user growth (targeting 10,000 MAUs within 12–18 months).
-- Convert 5–10% of free users to premium subscribers.
-- Expand the app's reach and integrate with financial institutions.
-- Build a sustainable recurring revenue model to cover operational costs and fund future enhancements.
-
-By following this strategy, we aim to create a robust user base and establish "Finanzas Personales" as a leading personal finance management tool in Colombia and beyond.
-
-## 📜 Version History
-
-1.1.0 - Material3 UI, Filter Chips, Sorting  
-1.0.1 - Stability fixes, Dependency cleanup  
-1.0.0 - Core SMS parsing & list UI 
