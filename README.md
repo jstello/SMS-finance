@@ -50,7 +50,7 @@ A Colombian SMS-based finance tracker for Bancolombia & Nequi transactions
 ## 📥 Installation
 
 ```bash
-git clone https://github.com/yourusername/finanzas-personales.git
+git clone https://github.com/jstello/SMS-finance.git
 ```
 **Requirements:**
 - Android Studio 2022.1+
