@@ -1,15 +1,16 @@
-package com.example.finanzaspersonales.ui.transaction_list
+package com.example.finanzaspersonales.ui.providers
 
+import android.content.Intent
 import android.os.Bundle
+import android.util.Log
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
-import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.tooling.preview.Preview
 import androidx.lifecycle.ViewModelProvider
+import com.example.finanzaspersonales.data.auth.AuthRepositoryImpl
 import com.example.finanzaspersonales.data.local.SharedPrefsManager
 import com.example.finanzaspersonales.data.local.SmsDataSource
 import com.example.finanzaspersonales.data.repository.CategoryRepositoryImpl
@@ -17,26 +18,30 @@ import com.example.finanzaspersonales.data.repository.TransactionRepositoryImpl
 import com.example.finanzaspersonales.domain.usecase.CategoryAssignmentUseCase
 import com.example.finanzaspersonales.domain.usecase.ExtractTransactionDataUseCase
 import com.example.finanzaspersonales.ui.theme.FinanzasPersonalesTheme
-import com.example.finanzaspersonales.data.auth.AuthRepositoryImpl // Import AuthRepositoryImpl
-import com.example.finanzaspersonales.data.repository.ProviderStat // Import ProviderStat
-import com.example.finanzaspersonales.ui.transaction_list.TransactionListScreen // <-- ADDED IMPORT
-import com.example.finanzaspersonales.data.repository.CategoryRepository
+import com.example.finanzaspersonales.ui.transaction_list.TransactionListActivity
 
-class TransactionListActivity : ComponentActivity() {
+class ProvidersActivity : ComponentActivity() {
 
-    private lateinit var viewModel: TransactionListViewModel
+    private lateinit var viewModel: ProvidersViewModel
+
+    // Define a constant for the Intent extra key
+    companion object {
+        const val EXTRA_PROVIDER_FILTER = "com.example.finanzaspersonales.PROVIDER_FILTER"
+    }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
         // --- Instantiate Dependencies (Needs proper DI later) ---
-        val authRepository = AuthRepositoryImpl() // Added instantiation
+        // This setup mirrors TransactionListActivity for now.
+        // Consider a proper Dependency Injection solution (like Hilt) later.
+        val authRepository = AuthRepositoryImpl()
         val sharedPrefsManager = SharedPrefsManager(this)
         val smsDataSource = SmsDataSource(this)
         val extractTransactionDataUseCase = ExtractTransactionDataUseCase(this)
         
-        // Dummy Transaction Repo needed for Category Repo init (cyclic dependency issue without DI)
-         val dummyTransactionRepository = object : com.example.finanzaspersonales.data.repository.TransactionRepository {
+        // Dummy Transaction Repo for Category Repo init (avoids cyclic dependency)
+         val dummyTransactionRepository = object : com.example.finanzaspersonales.data.repository.TransactionRepository { /* ... stubs ... */ 
             override suspend fun getAllSmsMessages(): List<com.example.finanzaspersonales.data.model.SmsMessage> = emptyList()
             override suspend fun getTransactions(): List<com.example.finanzaspersonales.data.model.TransactionData> = emptyList()
             override suspend fun filterTransactions(transactions: List<com.example.finanzaspersonales.data.model.TransactionData>, year: Int?, month: Int?, isIncome: Boolean?): List<com.example.finanzaspersonales.data.model.TransactionData> = emptyList()
@@ -50,14 +55,14 @@ class TransactionListActivity : ComponentActivity() {
             override suspend fun updateTransactionInFirestore(transaction: com.example.finanzaspersonales.data.model.TransactionData): Result<Unit> = Result.failure(NotImplementedError())
             override suspend fun deleteTransactionFromFirestore(transactionId: String, userId: String): Result<Unit> = Result.failure(NotImplementedError())
             override suspend fun performInitialTransactionSync(userId: String, syncStartDate: Long): Result<Unit> = Result.failure(NotImplementedError())
-            override suspend fun getProviderStats(from: Long, to: Long): List<ProviderStat> = emptyList() // Dummy implementation
-        }
+            override suspend fun getProviderStats(from: Long, to: Long): List<com.example.finanzaspersonales.data.repository.ProviderStat> = emptyList() // Dummy implementation
+         }
 
         val categoryRepository = CategoryRepositoryImpl(
             context = this,
             sharedPrefsManager = sharedPrefsManager,
-            transactionRepository = dummyTransactionRepository, // Use dummy for now
-            authRepository = authRepository // Provide the AuthRepository instance
+            transactionRepository = dummyTransactionRepository, 
+            authRepository = authRepository
         )
         val categoryAssignmentUseCase = CategoryAssignmentUseCase(categoryRepository)
 
@@ -68,19 +73,13 @@ class TransactionListActivity : ComponentActivity() {
             extractTransactionDataUseCase = extractTransactionDataUseCase,
             categoryAssignmentUseCase = categoryAssignmentUseCase,
             sharedPrefsManager = sharedPrefsManager,
-            authRepository = authRepository // Add authRepository parameter
+            authRepository = authRepository
         )
         // -----------------------------------------------------------
 
-        // Create ViewModel using the Factory with CategoryRepository
-        val viewModelFactory = TransactionListViewModelFactory(
-            this,
-            transactionRepository,
-            categoryRepository,
-            intent.extras
-        )
-        // ViewModelProvider correctly associates the factory with the Activity's lifecycle and SavedStateRegistry
-        viewModel = ViewModelProvider(this, viewModelFactory)[TransactionListViewModel::class.java]
+        // Create ViewModel using the Factory
+        val viewModelFactory = ProvidersViewModelFactory(transactionRepository)
+        viewModel = ViewModelProvider(this, viewModelFactory)[ProvidersViewModel::class.java]
 
         setContent {
             FinanzasPersonalesTheme {
@@ -88,19 +87,20 @@ class TransactionListActivity : ComponentActivity() {
                     modifier = Modifier.fillMaxSize(),
                     color = MaterialTheme.colorScheme.background
                 ) {
-                    TransactionListScreen(viewModel = viewModel)
+                    ProvidersScreen(
+                        viewModel = viewModel,
+                        onBackClick = { finish() },
+                        onProviderClick = { providerName ->
+                            // Log the provider name being clicked
+                            Log.d("PROVIDERS_ACTIVITY", "Provider clicked: '$providerName'")
+                            val intent = Intent(this, TransactionListActivity::class.java).apply {
+                                putExtra(EXTRA_PROVIDER_FILTER, providerName)
+                            }
+                            startActivity(intent)
+                        }
+                    )
                 }
             }
         }
-    }
-}
-
-// Preview function remains the same if needed for TransactionListScreen itself
-@Preview(showBackground = true)
-@Composable
-fun DefaultPreview() {
-    FinanzasPersonalesTheme {
-        // You might need a mock ViewModel for preview
-        // TransactionListScreen(viewModel = MockViewModel())
     }
 } 

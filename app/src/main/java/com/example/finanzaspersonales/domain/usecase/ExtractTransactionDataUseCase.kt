@@ -31,6 +31,11 @@ class ExtractTransactionDataUseCase(private val context: Context) {
                 val phoneNumberFromAccount = sourceAccount?.let { TextExtractors.extractPhoneNumberFromAccount(it) }
                 var contactName = phoneNumberFromAccount?.let { TextExtractors.lookupContactName(context, it) }
                 
+                // If provider not found from body but we have a contactName, use that as provider
+                if (provider == null && contactName != null) {
+                    provider = contactName
+                }
+                
                 // --- New Direct Phone Number Check ---
                 val directPhoneMatch = directPhonePattern.find(message.body)
                 if (directPhoneMatch != null) {

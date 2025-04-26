@@ -30,6 +30,7 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
+import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -62,6 +63,8 @@ import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.ErrorOutline
 import androidx.compose.ui.platform.LocalContext
 import android.util.Log
+import androidx.compose.foundation.text.selection.SelectionContainer
+import androidx.compose.foundation.layout.Arrangement
 
 /**
  * Screen showing details of a transaction
@@ -84,6 +87,9 @@ fun TransactionDetailScreen(
     var showCategorySelector by remember { mutableStateOf(false) }
     var pendingCategoryChange by remember { mutableStateOf<Category?>(null) }
     val snackbarHostState = remember { SnackbarHostState() }
+    var showProviderEditor by remember { mutableStateOf(false) }
+    var editedProvider by remember { mutableStateOf(transaction.provider ?: "") }
+    var providerState by remember { mutableStateOf(transaction.provider) }
     
     // Load the category for this transaction
     LaunchedEffect(transaction.id, transaction.categoryId) {
@@ -151,11 +157,64 @@ fun TransactionDetailScreen(
                     
                     Spacer(modifier = Modifier.height(16.dp))
                     
-                    // Provider info
-                    DetailRow(
-                        label = "Provider",
-                        value = transaction.provider ?: "Unknown"
-                    )
+                    // Provider info (editable)
+                    if (!showProviderEditor) {
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clickable { showProviderEditor = true }
+                                .padding(vertical = 8.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Text(
+                                text = "Provider",
+                                style = MaterialTheme.typography.bodyMedium,
+                                fontWeight = FontWeight.Bold,
+                                modifier = Modifier.width(100.dp)
+                            )
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Text(
+                                text = providerState ?: "Unknown",
+                                style = MaterialTheme.typography.bodyMedium
+                            )
+                        }
+                    } else {
+                        Column(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(vertical = 8.dp)
+                        ) {
+                            OutlinedTextField(
+                                value = editedProvider,
+                                onValueChange = { editedProvider = it },
+                                label = { Text("Provider") },
+                                singleLine = true,
+                                modifier = Modifier.fillMaxWidth()
+                            )
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.End
+                            ) {
+                                TextButton(onClick = {
+                                    editedProvider = providerState ?: ""
+                                    showProviderEditor = false
+                                }) {
+                                    Text("Cancel")
+                                }
+                                Spacer(modifier = Modifier.width(8.dp))
+                                TextButton(onClick = {
+                                    providerState = editedProvider
+                                    showProviderEditor = false
+                                    scope.launch {
+                                        viewModel.saveTransaction(transaction.copy(provider = editedProvider))
+                                        snackbarHostState.showSnackbar("Provider updated")
+                                    }
+                                }) {
+                                    Text("Save")
+                                }
+                            }
+                        }
+                    }
                     
                     // Date info
                     val dateFormat = SimpleDateFormat("MMMM dd, yyyy 'at' HH:mm", Locale.getDefault())
@@ -251,11 +310,13 @@ fun TransactionDetailScreen(
                             .border(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.5f), RoundedCornerShape(8.dp))
                             .padding(horizontal = 12.dp, vertical = 8.dp)
                     ) {
-                        Text(
-                            text = transaction.description ?: "No original message available",
-                            style = MaterialTheme.typography.bodyMedium,
-                            modifier = Modifier.verticalScroll(rememberScrollState()) // Make text scrollable
-                        )
+                        SelectionContainer {
+                            Text(
+                                text = transaction.description ?: "No original message available",
+                                style = MaterialTheme.typography.bodyMedium,
+                                modifier = Modifier.verticalScroll(rememberScrollState()) // Make text scrollable
+                            )
+                        }
                     }
                 }
             }

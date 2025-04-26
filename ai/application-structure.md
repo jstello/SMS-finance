@@ -51,6 +51,11 @@ app/
         │               │       └── TextExtractors.kt
         │               └── ui/
         │                   ├── accounts/ (empty)
+        │                   ├── providers/
+        │                   │   ├── ProvidersActivity.kt
+        │                   │   ├── ProvidersScreen.kt
+        │                   │   ├── ProvidersViewModel.kt
+        │                   │   └── ProvidersViewModelFactory.kt
         │                   ├── auth/
         │                   │   ├── AuthViewModel.kt
         │                   │   └── LoginScreen.kt
@@ -108,7 +113,7 @@ app/
     *   `com/example/finanzaspersonales/`: The main package for the application code.
         *   `data/`: Contains data source implementations (local, remote, SMS receiver), repositories, and data models.
         *   `domain/`: Contains business logic (use cases) and utility classes.
-        *   `ui/`: Contains UI-related code (Activities, Composables, ViewModels, themes), organized by feature (accounts, auth, categories, dashboard, sms, transaction_list).
+        *   `ui/`: Contains UI-related code (Activities, Composables, ViewModels, themes), organized by feature (accounts, auth, categories, dashboard, providers, sms, transaction_list).
         *   `FinanzasApp.kt`: The custom `Application` class, used for application-level initialization.
 *   `res/`: Contains application resources (drawables, layouts, menus, icons, values, XML).
 *   `ic_launcher-playstore.png`: The high-resolution launcher icon for the Play Store listing.

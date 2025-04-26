@@ -2,6 +2,7 @@ package com.example.finanzaspersonales.domain.util
 
 import java.util.Locale
 import java.text.DecimalFormat
+import kotlin.math.abs
 
 /**
  * Utility functions for string operations
@@ -40,5 +41,25 @@ object StringUtils {
         val matchResult = regex.find(providerString)
         
         return matchResult?.groupValues?.get(1)
+    }
+
+    /**
+     * Formats a Float value representing a currency amount into a compact string
+     * showing millions (M) with one decimal place.
+     *
+     * Example:
+     * - 1,234,567.89f -> "$1.2M"
+     * - -500,000f -> "-$0.5M"
+     * - 123,456f -> "$0.1M"
+     *
+     * @param value The Float value to format.
+     * @return A formatted string like "$X.YM" or "-$X.YM".
+     */
+    fun formatToMillions(value: Float): String {
+        val millions = value / 1_000_000.0
+        val sign = if (value < 0) "-" else ""
+        // Format to one decimal place using US Locale to ensure '.' as decimal separator
+        val formattedValue = String.format(Locale.US, "%.1f", abs(millions))
+        return "$sign$${formattedValue}M"
     }
 } 

@@ -3,6 +3,9 @@ package com.example.finanzaspersonales.data.repository
 import com.example.finanzaspersonales.data.model.SmsMessage
 import com.example.finanzaspersonales.data.model.TransactionData
 
+// Data class to hold aggregated spending per provider
+data class ProviderStat(val provider: String, val total: Float)
+
 /**
  * Repository interface for handling transactions
  */
@@ -78,4 +81,13 @@ interface TransactionRepository {
      * Perform initial transaction sync
      */
     suspend fun performInitialTransactionSync(userId: String, syncStartDate: Long): Result<Unit>
+    
+    /**
+     * Aggregates transaction amounts by provider within a given date range.
+     *
+     * @param from Start timestamp (inclusive).
+     * @param to End timestamp (inclusive).
+     * @return A list of ProviderStat objects, sorted descending by total amount.
+     */
+    suspend fun getProviderStats(from: Long, to: Long): List<ProviderStat>
 } 

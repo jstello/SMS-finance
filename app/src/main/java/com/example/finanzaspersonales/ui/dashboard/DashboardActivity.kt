@@ -72,6 +72,7 @@ import com.example.finanzaspersonales.data.model.SmsMessage
 import com.example.finanzaspersonales.data.model.TransactionData
 import com.example.finanzaspersonales.data.repository.CategoryRepository
 import com.example.finanzaspersonales.data.repository.CategoryRepositoryImpl
+import com.example.finanzaspersonales.data.repository.ProviderStat
 import com.example.finanzaspersonales.data.repository.TransactionRepository
 import com.example.finanzaspersonales.data.repository.TransactionRepositoryImpl
 import com.example.finanzaspersonales.domain.usecase.CategoryAssignmentUseCase
@@ -89,6 +90,7 @@ import androidx.compose.ui.platform.LocalContext
 import com.example.finanzaspersonales.ui.transaction_list.TransactionListActivity
 import kotlin.math.abs
 import kotlin.math.round
+import com.example.finanzaspersonales.ui.providers.ProvidersActivity
 
 // Helper function to format large numbers to millions with one decimal place
 private fun formatToMillions(value: Float): String {
@@ -160,6 +162,7 @@ class DashboardActivity : ComponentActivity() {
             override suspend fun updateTransactionInFirestore(transaction: TransactionData): Result<Unit> = Result.failure(NotImplementedError())
             override suspend fun deleteTransactionFromFirestore(transactionId: String, userId: String): Result<Unit> = Result.failure(NotImplementedError())
             override suspend fun performInitialTransactionSync(userId: String, syncStartDate: Long): Result<Unit> = Result.failure(NotImplementedError())
+            override suspend fun getProviderStats(from: Long, to: Long): List<ProviderStat> = emptyList() // Dummy implementation
         }
         
         // Create CategoryRepository (using dummy TransactionRepo)
@@ -460,7 +463,7 @@ fun DashboardScreen(
                     title = "Providers",
                     backgroundColor = MaterialTheme.colorScheme.tertiaryContainer,
                     modifier = Modifier.weight(1f),
-                    onClick = { Toast.makeText(context, "Coming Soon: View spending by provider/merchant!", Toast.LENGTH_SHORT).show() }
+                    onClick = { context.startActivity(Intent(context, ProvidersActivity::class.java)) }
                 )
                 
                 // Jars (renamed from SMS Test)

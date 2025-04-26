@@ -126,7 +126,21 @@ class TransactionRepositoryImpl(
             // Apply SharedPreferences categories and update the cache with the result
             cachedTransactions = applyCategoryAssignments(cachedTransactions)
         }
-         Log.d("CAT_ASSIGN_REPO_T", "<- getTransactions() returning ${cachedTransactions.size} items.")
+        
+        // Ensure provider field is populated from contactName if null
+        val updatedTransactions = cachedTransactions.map { transaction ->
+            if (transaction.provider == null && transaction.contactName != null) {
+                Log.d("TX_REPO_GET_TX", "Updating provider from contactName for TxID: ${transaction.id} - Provider: ${transaction.contactName}")
+                transaction.copy(provider = transaction.contactName)
+            } else {
+                transaction
+            }
+        }
+
+        // Update the cache with the potentially modified list
+        cachedTransactions = updatedTransactions
+
+        Log.d("CAT_ASSIGN_REPO_T", "<- getTransactions() returning ${cachedTransactions.size} items.")
         cachedTransactions // Return the potentially updated cached list
     }
     
@@ -408,12 +422,21 @@ class TransactionRepositoryImpl(
     override suspend fun saveTransactionToFirestore(transaction: TransactionData): Result<Unit> {
         return withContext(Dispatchers.IO) {
             try {
-                val userId = transaction.userId ?: throw IllegalArgumentException("User ID is required to save transaction")
+                // Use passed userId or fall back to current authenticated user
+                val userId = transaction.userId
+                    ?: authRepository.currentUserState.firstOrNull()?.uid
+                    ?: throw IllegalArgumentException("User ID is required to save transaction")
                 // Ensure an ID exists, generate if null (Firestore doesn't need this if using .add())
                 val docId = transaction.id ?: UUID.randomUUID().toString()
                 val docRef = db.collection("users").document(userId).collection("transactions").document(docId)
-                // Use the model potentially updated with the generated ID
-                docRef.set(transaction.copy(id = docId, userId = userId)).await()
+                // Prepare the transaction object with the correct ID and userId
+                val savedTransaction = transaction.copy(id = docId, userId = userId)
+                // Persist to Firestore
+                docRef.set(savedTransaction).await()
+                // Update in-memory cache so future reads reflect the updated provider
+                cachedTransactions = cachedTransactions.map { existing ->
+                    if (existing.id == savedTransaction.id) savedTransaction else existing
+                }
                 Result.success(Unit)
             } catch (e: Exception) {
                 Log.e("FIRESTORE_TX", "Error saving transaction ${transaction.id}", e)
@@ -535,5 +558,39 @@ class TransactionRepositoryImpl(
                 Result.failure(e)
             }
         }
+    }
+
+    /**
+     * Aggregates transaction amounts by provider within a given date range.
+     */
+    override suspend fun getProviderStats(from: Long, to: Long): List<ProviderStat> = withContext(Dispatchers.IO) {
+        Log.d("PROVIDER_STATS", "-> getProviderStats called. From: $from, To: $to")
+        val transactions = getTransactions() // Ensure transactions are loaded and categories applied
+        Log.d("PROVIDER_STATS", "   Total transactions fetched: ${transactions.size}")
+
+        val filteredTransactions = transactions.filter {
+            it.date.time in from..to && !it.isIncome // Filter by date range and only expenses
+        }
+        Log.d("PROVIDER_STATS", "   Filtered transactions (date & expenses): ${filteredTransactions.size}")
+
+        if (filteredTransactions.isEmpty()) {
+            Log.d("PROVIDER_STATS", "   No relevant transactions found in range.")
+            return@withContext emptyList()
+        }
+
+        // Group by contactName if available, else by provider, handle nulls
+        val stats = filteredTransactions
+            .groupBy { transaction ->
+                transaction.contactName ?: transaction.provider ?: "Unknown"
+            }
+            .map { (provider, list) ->
+                // Sum amounts (assuming amount is always positive for expenses)
+                val totalAmount = list.sumOf { it.amount.toDouble() }.toFloat()
+                ProviderStat(provider = provider, total = totalAmount)
+            }
+            .sortedByDescending { it.total } // Sort by total spending, highest first
+        
+        Log.d("PROVIDER_STATS", "<- getProviderStats returning ${stats.size} stats.")
+        stats
     }
 } 

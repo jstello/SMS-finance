@@ -90,6 +90,14 @@
             android:label="Transactions"
             android:theme="@style/Theme.FinanzasPersonales">
         </activity>
+        
+        <!-- Providers Activity -->
+        <activity
+            android:name=".ui.providers.ProvidersActivity"
+            android:exported="true" 
+            android:label="Providers"
+            android:theme="@style/Theme.FinanzasPersonales">
+        </activity>
     </application>
 
 </manifest>

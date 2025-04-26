@@ -1,6 +1,5 @@
 package com.example.finanzaspersonales.ui.transaction_list
 
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -15,36 +14,39 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.example.finanzaspersonales.data.model.TransactionData
+import com.example.finanzaspersonales.ui.transaction_list.TransactionUiModel
 import java.text.NumberFormat
 import java.text.SimpleDateFormat
 import java.util.Locale
 import androidx.activity.ComponentActivity
 import androidx.compose.ui.platform.LocalContext
+import com.example.finanzaspersonales.ui.providers.ProvidersActivity
+import androidx.compose.foundation.background
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.draw.clip
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun TransactionListScreen(viewModel: TransactionListViewModel) {
-    val transactions by viewModel.transactions.collectAsState()
+    // Observe UI models with category names
+    val transactions by viewModel.transactionItems.collectAsState()
     val isLoading by viewModel.isLoading.collectAsState()
     val error by viewModel.error.collectAsState()
 
-    // Search state and filter transactions
-    var searchQuery by remember { mutableStateOf("") }
-    val filteredTransactions = if (searchQuery.isBlank()) transactions else transactions.filter {
-        (it.provider ?: "").contains(searchQuery, ignoreCase = true) ||
-        (it.id ?: "").contains(searchQuery, ignoreCase = true)
-    }
+    // Access the filter directly from the ViewModel
+    val providerFilter = viewModel.providerFilter
 
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("All Transactions") },
+                title = {
+                    Text(if (providerFilter != null) "Transactions for $providerFilter" else "All Transactions")
+                },
                 navigationIcon = {
                     val context = LocalContext.current
                     // Simple back arrow for now, assumes Activity handles finish()
@@ -63,13 +65,6 @@ fun TransactionListScreen(viewModel: TransactionListViewModel) {
         Column(modifier = Modifier
             .padding(paddingValues)
             .padding(16.dp)) {
-            OutlinedTextField(
-                value = searchQuery,
-                onValueChange = { searchQuery = it },
-                label = { Text("Search") },
-                modifier = Modifier.fillMaxWidth()
-            )
-            Spacer(modifier = Modifier.height(8.dp))
             when {
                 isLoading -> {
                     Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
@@ -81,19 +76,21 @@ fun TransactionListScreen(viewModel: TransactionListViewModel) {
                         Text("Error: $error", color = MaterialTheme.colorScheme.error)
                     }
                 }
-                filteredTransactions.isEmpty() -> {
+                transactions.isEmpty() -> {
                     Box(modifier = Modifier.fillMaxSize().padding(16.dp), contentAlignment = Alignment.Center) {
-                        Text(if (searchQuery.isBlank()) "No transactions found." else "No results for \"$searchQuery\"")
+                        Text(
+                            if (providerFilter == null) "No transactions found."
+                            else "No transactions found for '$providerFilter'."
+                        )
                     }
                 }
                 else -> {
-                    LazyColumn(modifier = Modifier.fillMaxSize()) {
-                        items(filteredTransactions, key = { it.id!! }) { transaction ->
-                            TransactionListItem(transaction = transaction) { transactionId ->
-                                // TODO: Implement click action to show category assignment dialog/screen
-                                // For now, just log
-                                println("Clicked transaction: $transactionId")
-                            }
+                    LazyColumn(
+                        modifier = Modifier.fillMaxSize(),
+                        verticalArrangement = Arrangement.spacedBy(12.dp)
+                    ) {
+                        items(transactions, key = { it.transaction.id!! }) { item ->
+                            TransactionListItem(item = item)
                             Divider()
                         }
                     }
@@ -105,8 +102,7 @@ fun TransactionListScreen(viewModel: TransactionListViewModel) {
 
 @Composable
 fun TransactionListItem(
-    transaction: TransactionData,
-    onClick: (String) -> Unit // Pass transaction ID on click
+    item: TransactionUiModel
 ) {
     val currencyFormat = NumberFormat.getCurrencyInstance(Locale("es", "CO"))
     val dateFormat = SimpleDateFormat("dd MMM yyyy, HH:mm", Locale.getDefault())
@@ -114,39 +110,50 @@ fun TransactionListItem(
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .clickable { transaction.id?.let { onClick(it) } } // Call onClick with the ID
             .padding(16.dp),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.SpaceBetween
     ) {
         Column(modifier = Modifier.weight(1f).padding(end = 8.dp)) {
             Text(
-                text = transaction.provider ?: "Unknown Provider",
+                text = item.transaction.contactName ?: item.transaction.provider ?: "Unknown Provider",
                 fontWeight = FontWeight.Bold,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis
             )
             Spacer(modifier = Modifier.height(4.dp))
             Text(
-                text = dateFormat.format(transaction.date),
+                text = dateFormat.format(item.transaction.date),
                 fontSize = 12.sp,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
             Spacer(modifier = Modifier.height(4.dp))
-            // Display Category ID if available (placeholder for now)
-            Text(
-                text = "Category: ${transaction.categoryId ?: "Unassigned"}",
-                fontSize = 12.sp,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                maxLines = 1,
-                 overflow = TextOverflow.Ellipsis
-            )
+            // Display Category Name with Color Indicator
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                // Show color circle if category and color exist
+                if (item.categoryColor != null) {
+                    Box(
+                        modifier = Modifier
+                            .size(8.dp)
+                            .clip(CircleShape)
+                            .background(Color(item.categoryColor))
+                    )
+                    Spacer(modifier = Modifier.width(4.dp))
+                }
+                Text(
+                    text = "Category: ${item.categoryName ?: "Unassigned"}",
+                    fontSize = 12.sp,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    maxLines = 1,
+                     overflow = TextOverflow.Ellipsis
+                )
+            }
         }
         Text(
-            text = currencyFormat.format(transaction.amount),
+            text = currencyFormat.format(item.transaction.amount),
             fontWeight = FontWeight.Bold,
             fontSize = 16.sp,
-            color = if (transaction.isIncome) Color(0xFF008000) else MaterialTheme.colorScheme.error // Darker Green
+            color = if (item.transaction.isIncome) Color(0xFF008000) else MaterialTheme.colorScheme.error // Darker Green
         )
     }
 } 

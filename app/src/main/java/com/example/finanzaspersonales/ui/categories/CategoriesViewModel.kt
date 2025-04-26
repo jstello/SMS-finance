@@ -510,6 +510,12 @@ class CategoriesViewModel(
         viewModelScope.launch {
             try {
                 transactionRepository.saveTransactionToFirestore(transaction)
+                // Update in-memory lists so UI immediately reflects provider edits
+                transaction.id?.let { txId ->
+                    transaction.provider?.let { newProv ->
+                        updateLocalTransactionProvider(txId, newProv)
+                    }
+                }
                 // If this transaction has a category, update the view
                 transaction.categoryId?.let { categoryId ->
                     val category = categoryRepository.getCategories().find { it.id == categoryId }
@@ -520,6 +526,20 @@ class CategoriesViewModel(
             } catch (e: Exception) {
                 Log.e("CategoriesViewModel", "Error saving transaction", e)
             }
+        }
+    }
+
+    /**
+     * Update transaction provider in local state lists
+     */
+    private fun updateLocalTransactionProvider(transactionId: String, newProvider: String) {
+        // Update overall transactions cache
+        _allTransactions.value = _allTransactions.value.map { tx ->
+            if (tx.id == transactionId) tx.copy(provider = newProvider) else tx
+        }
+        // Update category-specific transactions cache
+        _categoryTransactions.value = _categoryTransactions.value.map { tx ->
+            if (tx.id == transactionId) tx.copy(provider = newProvider) else tx
         }
     }
 }
