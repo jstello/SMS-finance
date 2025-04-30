@@ -185,7 +185,7 @@ class CategoryRepositoryImpl(
         val transactions = transactionRepository.getTransactions()
         Log.d("CATEGORY_SPENDING", "Total transactions: ${transactions.size}")
         
-        // IMPORTANT: Filter transactions by year/month AND isIncome first
+        // Filter transactions by year, month, and type
         val filteredTransactions = transactionRepository.filterTransactions(
             transactions = transactions,
             year = year,

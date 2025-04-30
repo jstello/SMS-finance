@@ -202,11 +202,10 @@ object TextExtractors {
     }
     
     /**
-     * Determines if a transaction is income based on presence of "Recibiste".
+     * Determines if a transaction is income based solely on the presence of "recibiste" keyword.
      */
     fun isIncome(body: String): Boolean {
-        // Classify income based on multiple keywords
-        return INCOME_KEYWORDS.any { keyword -> body.contains(keyword, ignoreCase = true) }
+        return body.contains("recibiste", ignoreCase = true)
     }
     
     /**

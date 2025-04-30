@@ -39,6 +39,7 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -231,13 +232,16 @@ fun CategoriesScreen(
                         onClick = {
                             val type = if (index == 0) TransactionType.EXPENSE else TransactionType.INCOME
                             viewModel.selectTransactionType(type)
-                            viewModel.refreshTransactionData()
                          },
                         text = { Text(title) }
                     )
                 }
             }
-            // --- End Tabs ---
+
+            // Automatically refresh data when the tab changes
+            LaunchedEffect(selectedTransactionType) {
+                viewModel.refreshTransactionData()
+            }
 
             if (isLoading) {
                 Box(

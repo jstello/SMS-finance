@@ -1,6 +1,7 @@
 package com.example.finanzaspersonales.domain.usecase
 
 import android.content.Context
+import android.util.Log
 import com.example.finanzaspersonales.data.model.SmsMessage
 import com.example.finanzaspersonales.data.model.TransactionData
 import com.example.finanzaspersonales.domain.util.TextExtractors
@@ -21,6 +22,9 @@ class ExtractTransactionDataUseCase(private val context: Context) {
         return messages.mapNotNull { message ->
             // Basic validation: ensure date and amount are present
             if (message.dateTime != null && message.numericAmount != null) {
+                // --- DEBUG LOG: Show message body and income flag ---
+                val incomeFlag = TextExtractors.isIncome(message.body)
+                Log.d("INCOME_DEBUG", "SMS Body: ${message.body.take(100)} | isIncome: $incomeFlag")
                 // Extract provider name
                 var provider = TextExtractors.extractProviderFromBody(message.body)
                 
