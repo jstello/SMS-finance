@@ -17,6 +17,9 @@ android {
         versionName = "1.0"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
+        vectorDrawables {
+            useSupportLibrary = true
+        }
     }
 
     buildTypes {
@@ -29,11 +32,12 @@ android {
         }
     }
     compileOptions {
-        sourceCompatibility = JavaVersion.VERSION_11
-        targetCompatibility = JavaVersion.VERSION_11
+        sourceCompatibility = JavaVersion.VERSION_1_8
+        targetCompatibility = JavaVersion.VERSION_1_8
+        isCoreLibraryDesugaringEnabled = true
     }
     kotlinOptions {
-        jvmTarget = "11"
+        jvmTarget = "1.8"
         freeCompilerArgs += listOf(
             "-opt-in=androidx.compose.material3.ExperimentalMaterial3Api",
             "-opt-in=androidx.compose.material.ExperimentalMaterialApi"
@@ -41,6 +45,14 @@ android {
     }
     buildFeatures {
         compose = true
+    }
+    composeOptions {
+        kotlinCompilerExtensionVersion = "1.5.1"
+    }
+    packaging {
+        resources {
+            excludes += "/META-INF/{AL2.0,LGPL2.1}"
+        }
     }
 }
 
@@ -114,4 +126,36 @@ dependencies {
     implementation("androidx.compose.foundation:foundation")
     implementation("androidx.compose.material3:material3")
     implementation("androidx.compose.ui:ui-tooling-preview")
+
+    // Core library desugaring
+    coreLibraryDesugaring(libs.desugar.jdk.libs)
+
+    // Firebase BOM (Bill of Materials)
+    implementation(platform(libs.firebase.bom))
+    // Firebase Analytics
+    implementation(libs.firebase.analytics.ktx)
+    // Firebase Authentication
+    implementation(libs.firebase.auth.ktx)
+    // Firebase Firestore
+    implementation(libs.firebase.firestore.ktx)
+    // Google Sign-In for Firebase Authentication
+    implementation(libs.play.services.auth)
+
+    // Hilt for Dependency Injection
+    // implementation(libs.hilt.android)
+    // ksp(libs.hilt.compiler)
+    // implementation(libs.hilt.navigation.compose)
+
+    // Kotlin Coroutines
+    implementation(libs.kotlinx.coroutines.core)
+    implementation(libs.kotlinx.coroutines.android)
+
+    // ViewModel and LiveData
+    implementation(libs.androidx.lifecycle.viewmodel.ktx)
+    implementation(libs.androidx.lifecycle.livedata.ktx)
+
+    // Compose dependencies
+    implementation(libs.androidx.ui.graphics)
+    implementation(libs.androidx.constraintlayout.compose)
+    implementation(libs.androidx.compose.material.icons.core) // Core icons
 }

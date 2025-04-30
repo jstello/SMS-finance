@@ -44,9 +44,13 @@ interface CategoryRepository {
     suspend fun getCategoryIdForTransaction(transactionId: String): String?
     
     /**
-     * Get spending by category
+     * Get spending by category, optionally filtering by income or expense
      */
-    suspend fun getSpendingByCategory(year: Int? = null, month: Int? = null): Map<Category, Float>
+    suspend fun getSpendingByCategory(
+        year: Int? = null,
+        month: Int? = null,
+        isIncome: Boolean? = null
+    ): Map<Category, Float>
 
     /**
      * Save a category to Firestore

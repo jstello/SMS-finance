@@ -62,6 +62,8 @@ import java.util.Locale
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.material3.Divider
+import androidx.compose.material3.Tab
+import androidx.compose.material3.TabRow
 
 /**
  * Categories Screen
@@ -79,6 +81,7 @@ fun CategoriesScreen(
     val isLoading by viewModel.isLoading.collectAsState()
     val selectedYear by viewModel.selectedYear.collectAsState()
     val selectedMonth by viewModel.selectedMonth.collectAsState()
+    val selectedTransactionType by viewModel.selectedTransactionType.collectAsState()
     
     // State for filter dropdowns
     var showYearDropdown by remember { mutableStateOf(false) }
@@ -90,6 +93,12 @@ fun CategoriesScreen(
     val months = Month.values().toList()
     
     val currencyFormat = remember { NumberFormat.getCurrencyInstance(Locale("es", "CO")) }
+    
+    val categoriesToShow = if (selectedTransactionType == TransactionType.INCOME) {
+        categorySpending.keys.toList() // Only categories with income transactions
+    } else {
+        categories // All categories for Expenses tab
+    }
     
     Scaffold(
         topBar = {
@@ -207,6 +216,29 @@ fun CategoriesScreen(
                 }
             }
             
+            // --- Tabs for Income/Expense ---
+            val tabTitles = listOf("Expenses", "Income")
+            val selectedTabIndex = selectedTransactionType.ordinal
+
+            TabRow(
+                selectedTabIndex = selectedTabIndex,
+                containerColor = MaterialTheme.colorScheme.surface,
+                contentColor = MaterialTheme.colorScheme.primary
+            ) {
+                tabTitles.forEachIndexed { index, title ->
+                    Tab(
+                        selected = selectedTabIndex == index,
+                        onClick = {
+                            val type = if (index == 0) TransactionType.EXPENSE else TransactionType.INCOME
+                            viewModel.selectTransactionType(type)
+                            viewModel.refreshTransactionData()
+                         },
+                        text = { Text(title) }
+                    )
+                }
+            }
+            // --- End Tabs ---
+
             if (isLoading) {
                 Box(
                     modifier = Modifier.fillMaxSize().padding(16.dp),
@@ -233,7 +265,7 @@ fun CategoriesScreen(
                          categorySpending = categorySpending, 
                          currencyFormat = currencyFormat,
                          onCategoryClick = onCategoryClick,
-                         allCategories = categories // Pass all categories
+                         allCategories = categoriesToShow // <-- Use filtered list
                     )
                 }
             }

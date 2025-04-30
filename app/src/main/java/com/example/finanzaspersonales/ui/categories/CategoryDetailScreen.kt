@@ -70,17 +70,18 @@ fun CategoryDetailScreen(
     val selectedMonth by viewModel.selectedMonth.collectAsState()
     val sortField by viewModel.sortField.collectAsState()
     val sortOrder by viewModel.sortOrder.collectAsState()
+    val selectedTransactionType by viewModel.selectedTransactionType.collectAsState()
     
     // Load transactions for this category with the same filters
-    LaunchedEffect(category.id, selectedYear, selectedMonth) {
+    LaunchedEffect(category.id, selectedYear, selectedMonth, selectedTransactionType) {
         Log.d("CAT_DETAIL_EFFECT", "LaunchedEffect triggered.")
         Log.d("CAT_DETAIL_EFFECT", "Category Name: ${category.name}, Category ID: ${category.id}")
-        Log.d("CAT_DETAIL_EFFECT", "Selected Year: $selectedYear, Selected Month: $selectedMonth")
+        Log.d("CAT_DETAIL_EFFECT", "Selected Year: $selectedYear, Selected Month: $selectedMonth, Type: $selectedTransactionType")
         
         // Always call loadTransactionsForCategory, let the ViewModel handle null ID logic
         Log.d("CATEGORY_DETAIL", "Loading transactions for '${category.name}' (ID: ${category.id})")
-        Log.d("CATEGORY_DETAIL", "Filters - Year: $selectedYear, Month: $selectedMonth")
-        viewModel.loadTransactionsForCategory(category)
+        Log.d("CATEGORY_DETAIL", "Filters - Year: $selectedYear, Month: $selectedMonth, Type: $selectedTransactionType")
+        viewModel.loadTransactionsForCategory(category, selectedTransactionType)
 
         // Note: The filtering by isIncome=false and year/month 
         // is handled *inside* the ViewModel's loadTransactionsForCategory method now.
@@ -310,6 +311,13 @@ fun TransactionItem(
         transaction.provider != null -> transaction.provider
         transaction.description != null -> transaction.description.take(30) + "..." // Example: use truncated description
         else -> "Unknown Sender"
+    }
+    
+    // Debug logging for the specific transaction
+    if (transaction.id == "61c254cb-0930-3b5a-aa52-f267a559b122") {
+        LaunchedEffect(transaction) {
+            Log.d("CAT_DETAIL_TX_ITEM", "Rendering TxItem: TxID=${transaction.id}, provider=${transaction.provider}, contactName=$contactName, phoneNumber=$phoneNumber, displayText=$displayText")
+        }
     }
     
     Row(

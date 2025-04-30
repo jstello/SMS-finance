@@ -1,6 +1,10 @@
 package com.example.finanzaspersonales.ui.categories
 
 import android.util.Log
+import androidx.compose.material3.Tab
+import androidx.compose.material3.TabRow
+import androidx.compose.material3.Text
+import androidx.compose.runtime.*
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.finanzaspersonales.data.model.Category
@@ -29,12 +33,23 @@ enum class SortOrder {
 }
 
 /**
+ * Enum class for transaction type (Income or Expense)
+ */
+enum class TransactionType {
+    EXPENSE, INCOME
+}
+
+/**
  * ViewModel for the Categories screens
  */
 class CategoriesViewModel(
     private val categoryRepository: CategoryRepository,
     private val transactionRepository: TransactionRepository
 ) : ViewModel() {
+    
+    // State for selected transaction type tab
+    private val _selectedTransactionType = MutableStateFlow(TransactionType.EXPENSE)
+    val selectedTransactionType: StateFlow<TransactionType> = _selectedTransactionType.asStateFlow()
     
     // Categories list
     private val _categories = MutableStateFlow<List<Category>>(emptyList())
@@ -93,6 +108,16 @@ class CategoriesViewModel(
     }
     
     /**
+     * Select the transaction type tab
+     */
+    fun selectTransactionType(type: TransactionType) {
+        if (_selectedTransactionType.value != type) {
+            _selectedTransactionType.value = type
+            loadCategorySpending()
+        }
+    }
+    
+    /**
      * Load all categories
      */
     fun loadCategories() {
@@ -133,16 +158,23 @@ class CategoriesViewModel(
     }
     
     /**
-     * Load spending data for all categories
+     * Load spending data for categories based on selected filters and transaction type
      */
     fun loadCategorySpending() {
         viewModelScope.launch {
             _isLoading.value = true
             try {
+                val isIncomeFilter = when (_selectedTransactionType.value) {
+                    TransactionType.INCOME -> true
+                    TransactionType.EXPENSE -> false
+                }
+                Log.d("ViewModelSpending", "Calling repo.getSpendingByCategory with isIncomeFilter = $isIncomeFilter")
                 _categorySpending.value = categoryRepository.getSpendingByCategory(
                     year = _selectedYear.value,
-                    month = _selectedMonth.value
+                    month = _selectedMonth.value,
+                    isIncome = isIncomeFilter
                 )
+                Log.d("ViewModelSpending", "Loaded spending for type: ${_selectedTransactionType.value}, Year: ${_selectedYear.value}, Month: ${_selectedMonth.value}. Result size: ${_categorySpending.value.size}")
             } catch (e: Exception) {
                 Log.e("CategoriesViewModel", "Error loading category spending", e)
             } finally {
@@ -183,8 +215,8 @@ class CategoriesViewModel(
         viewModelScope.launch {
             _isLoading.value = true
             try {
-                // Refresh SMS data for the most recent month only
-                transactionRepository.refreshSmsData(1)
+                // FULL refresh: reprocess all SMS with updated income logic
+                transactionRepository.refreshSmsData(0)
                 // Initialize transactions with saved categories
                 transactionRepository.initializeTransactions()
                 // Reload all data
@@ -192,7 +224,7 @@ class CategoriesViewModel(
                 loadCategorySpending()
                 
                 // If a category is selected, reload its transactions
-                _selectedCategory.value?.let { loadTransactionsForCategory(it) }
+                _selectedCategory.value?.let { loadTransactionsForCategory(it, _selectedTransactionType.value) }
             } catch (e: Exception) {
                 Log.e("CategoriesViewModel", "Error refreshing transaction data", e)
             } finally {
@@ -206,16 +238,16 @@ class CategoriesViewModel(
      */
     fun selectCategory(category: Category) {
         _selectedCategory.value = category
-        loadTransactionsForCategory(category)
+        loadTransactionsForCategory(category, _selectedTransactionType.value)
     }
     
     /**
-     * Load transactions for a category
+     * Load transactions for a category, filtered by selected transaction type
      */
-    fun loadTransactionsForCategory(category: Category) {
+    fun loadTransactionsForCategory(category: Category, transactionType: TransactionType) {
         viewModelScope.launch {
             val categoryId = category.id
-            Log.i("CAT_DETAIL_VM", "Loading transactions for category: ${category.name} (ID: $categoryId)")
+            Log.i("CAT_DETAIL_VM", "Loading transactions for category: ${category.name} (ID: $categoryId), Type: $transactionType")
 
             _isLoading.value = true
             try {
@@ -244,27 +276,54 @@ class CategoriesViewModel(
                     Log.d("CAT_DETAIL_RAW_TX", "   Raw[$index]: ID=${tx.id}, Date=${tx.date}, Amt=${tx.amount}, CatId=${tx.categoryId ?: "NULL"}, Prov=${tx.provider}")
                 }
 
-                // Step 2: Apply year/month filters and isIncome=false using TransactionRepository
+                // Determine income filter based on the passed parameter
+                val filterIsIncome = when(transactionType) {
+                    TransactionType.INCOME -> true
+                    TransactionType.EXPENSE -> false
+                }
+
+                // Step 2: Apply year/month/income filters using TransactionRepository
                 val filterYear = _selectedYear.value
                 val filterMonth = _selectedMonth.value
-                val filterIsIncome = false
-                Log.d("CAT_DETAIL_VM", "Applying filters: Year=$filterYear, Month=$filterMonth, IsIncome=$filterIsIncome")
+
+                Log.d("CAT_DETAIL_VM", "Applying filters - Year: $filterYear, Month: $filterMonth, IsIncome: $filterIsIncome")
 
                 val filteredTransactions = transactionRepository.filterTransactions(
-                    transactions = allTransactionsForCategory, // Pass the fetched list (either categorized or uncategorized)
+                    transactions = allTransactionsForCategory,
                     year = filterYear,
                     month = filterMonth,
                     isIncome = filterIsIncome
                 )
-                Log.d("CAT_DETAIL_VM", "After filtering: ${filteredTransactions.size} transactions remain")
+                Log.d("CAT_DETAIL_VM", "Filtered transactions count: ${filteredTransactions.size}")
 
-                _categoryTransactions.value = filteredTransactions // Update the specific flow for the detail screen
-                Log.i("CAT_DETAIL_VM", "Final transaction list size for UI: ${filteredTransactions.size}")
-
-                // Step 3: Apply current sorting
-                applySorting() // This sorts _categoryTransactions
+                // Step 3: Sort the filtered transactions directly based on current sort state
+                val sortedTransactions = when (_sortField.value) {
+                    TransactionSortField.DATE -> {
+                        if (_sortOrder.value == SortOrder.ASCENDING) {
+                            filteredTransactions.sortedBy { it.date }
+                        } else {
+                            filteredTransactions.sortedByDescending { it.date }
+                        }
+                    }
+                    TransactionSortField.AMOUNT -> {
+                        if (_sortOrder.value == SortOrder.ASCENDING) {
+                            filteredTransactions.sortedBy { it.amount }
+                        } else {
+                            filteredTransactions.sortedByDescending { it.amount }
+                        }
+                    }
+                    TransactionSortField.DESCRIPTION -> {
+                        if (_sortOrder.value == SortOrder.ASCENDING) {
+                            filteredTransactions.sortedBy { it.description ?: "" }
+                        } else {
+                            filteredTransactions.sortedByDescending { it.description ?: "" }
+                        }
+                    }
+                }
+                _categoryTransactions.value = sortedTransactions
+                Log.d("CAT_DETAIL_VM", "Updated _categoryTransactions with ${sortedTransactions.size} items.")
             } catch (e: Exception) {
-                Log.e("CAT_DETAIL_VM", "Error loading transactions for category ${category.name}", e)
+                Log.e("CategoriesViewModel", "Error loading transactions for category: ${category.name}", e)
                 _categoryTransactions.value = emptyList()
             } finally {
                 _isLoading.value = false
@@ -519,7 +578,7 @@ class CategoriesViewModel(
                 // If this transaction has a category, update the view
                 transaction.categoryId?.let { categoryId ->
                     val category = categoryRepository.getCategories().find { it.id == categoryId }
-                    category?.let { loadTransactionsForCategory(it) }
+                    category?.let { loadTransactionsForCategory(it, _selectedTransactionType.value) }
                 }
                 loadCategorySpending()
                 loadAllTransactions()

@@ -45,7 +45,14 @@ class SmsReceiver : BroadcastReceiver() {
                 val sender = message.displayOriginatingAddress
                 val body = message.messageBody
                 
-                // Log all SMS for debugging
+                // ---> ADDED CHECK: Only process messages starting with "Bancolombia:"
+                if (!body.startsWith("Bancolombia:", ignoreCase = true)) {
+                    Log.d(TAG, "Ignoring SMS not starting with \"Bancolombia:\": $body")
+                    continue // Skip to the next message
+                }
+                // <--- END ADDED CHECK
+                
+                // Log all SMS for debugging (Now only logs Bancolombia ones)
                 Log.d(TAG, "SMS from: $sender")
                 Log.d(TAG, "Body: $body")
                 

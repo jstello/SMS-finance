@@ -42,6 +42,7 @@ import com.example.finanzaspersonales.ui.theme.FinanzasPersonalesTheme
 import com.example.finanzaspersonales.R
 import com.example.finanzaspersonales.FinanzasApp
 import com.example.finanzaspersonales.data.auth.AuthRepositoryImpl
+import com.example.finanzaspersonales.data.repository.ProviderStat
 import com.example.finanzaspersonales.ui.sms.SmsPermissionActivity
 
 /**
@@ -222,6 +223,8 @@ fun CategoriesApp(
                     override suspend fun updateTransactionInFirestore(transaction: TransactionData): Result<Unit> = Result.failure(NotImplementedError("Dummy implementation"))
                     override suspend fun deleteTransactionFromFirestore(transactionId: String, userId: String): Result<Unit> = Result.failure(NotImplementedError("Dummy implementation"))
                     override suspend fun performInitialTransactionSync(userId: String, syncStartDate: Long): Result<Unit> = Result.failure(NotImplementedError("Dummy implementation"))
+                    // --- ADDED MISSING FUNCTION ---
+                    override suspend fun getProviderStats(from: Long, to: Long): List<ProviderStat> = emptyList() // Dummy implementation
                 }
                 
                 // Create temp CategoryRepository with AuthRepository

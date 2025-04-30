@@ -115,6 +115,33 @@ class TransactionRepositoryImpl(
      */
     override suspend fun getTransactions(): List<TransactionData> = withContext(Dispatchers.IO) {
         Log.d("CAT_ASSIGN_REPO_T", "-> getTransactions() called.")
+        // Debug authentication state before Firestore fetch
+        Log.d("FIRESTORE_TX", "AuthRepository.currentUser (sync) = ${authRepository.currentUser?.uid}")
+        val debugUserId = authRepository.currentUserState.firstOrNull()?.uid
+        Log.d("FIRESTORE_TX", "AuthRepository.currentUserState.firstOrNull() = $debugUserId")
+        Log.d("FIRESTORE_TX", "Checking cache before Firestore fetch. cachedTransactions.isEmpty() = ${cachedTransactions.isEmpty()}, size = ${cachedTransactions.size}")
+        // Attempt to load saved transactions from Firestore on first run
+        if (cachedTransactions.isEmpty()) {
+            val userId = debugUserId
+            if (userId != null) {
+                Log.d("FIRESTORE_TX", "Attempting to fetch transactions from Firestore for user $userId")
+                val remoteResult = getTransactionsFromFirestore(userId)
+                if (remoteResult.isSuccess) {
+                    val remoteList = remoteResult.getOrNull().orEmpty()
+                    Log.d("FIRESTORE_TX", "Fetched ${remoteList.size} remote transactions")
+                    // Debug: verify provider for the recently updated transaction
+                    remoteList.firstOrNull { it.id == "61c254cb-0930-3b5a-aa52-f267a559b122" }?.let { tx ->
+                        Log.d("FIRESTORE_TX", "Debug fetch: TxID=${tx.id}, provider='${tx.provider}'")
+                    } ?: Log.w("FIRESTORE_TX", "Debug fetch: TxID=61c254cb-0930-3b5a-aa52-f267a559b122 not found in remoteList")
+                    cachedTransactions = remoteList
+                } else {
+                    Log.e("FIRESTORE_TX", "Failed to fetch transactions from Firestore", remoteResult.exceptionOrNull())
+                }
+            } else {
+                Log.d("FIRESTORE_TX", "No authenticated user, skipping Firestore fetch")
+            }
+        }
+        
         if (cachedTransactions.isEmpty()) {
             Log.d("CAT_ASSIGN_REPO_T", "   Cache empty, calling refreshSmsData...")
             refreshSmsData(0) // This populates cachedTransactions
@@ -129,16 +156,30 @@ class TransactionRepositoryImpl(
         
         // Ensure provider field is populated from contactName if null
         val updatedTransactions = cachedTransactions.map { transaction ->
+            // Debug: Check provider state for the specific transaction *before* the map logic
+            if (transaction.id == "61c254cb-0930-3b5a-aa52-f267a559b122") {
+                Log.d("FIRESTORE_TX", "Provider Check (Before Map): TxID=${transaction.id}, provider=${transaction.provider}, contactName=${transaction.contactName}")
+            }
             if (transaction.provider == null && transaction.contactName != null) {
                 Log.d("TX_REPO_GET_TX", "Updating provider from contactName for TxID: ${transaction.id} - Provider: ${transaction.contactName}")
                 transaction.copy(provider = transaction.contactName)
             } else {
                 transaction
+            }.also {
+                // Debug: Check provider state *after* the map logic
+                if (it.id == "61c254cb-0930-3b5a-aa52-f267a559b122") {
+                    Log.d("FIRESTORE_TX", "Provider Check (After Map): TxID=${it.id}, provider=${it.provider}")
+                }
             }
         }
 
         // Update the cache with the potentially modified list
         cachedTransactions = updatedTransactions
+
+        // Final check before returning from repository
+        cachedTransactions.firstOrNull { it.id == "61c254cb-0930-3b5a-aa52-f267a559b122" }?.let {
+            Log.d("FIRESTORE_TX", "Final Repo Return Check: TxID=${it.id}, provider=${it.provider}")
+        }
 
         Log.d("CAT_ASSIGN_REPO_T", "<- getTransactions() returning ${cachedTransactions.size} items.")
         cachedTransactions // Return the potentially updated cached list
@@ -212,12 +253,16 @@ class TransactionRepositoryImpl(
                 maxResults = 500
             )
             
-            // Clear cache if we're refreshing
-            if (limitToRecentMonths > 0) {
+            // On a full refresh (limit 0), clear both SMS and transaction caches
+            if (limitToRecentMonths == 0) {
+                Log.d("SMS_REFRESH", "Full refresh: clearing SMS and transaction caches")
                 cachedSmsMessages = emptyList()
                 cachedTransactions = emptyList()
+            } else {
+                Log.d("SMS_REFRESH", "Partial refresh: preserving existing transaction cache and only merging new SMS")
             }
             
+            // Always update the SMS message cache
             cachedSmsMessages = messages
             
             Log.d("SMS_REFRESH", "Processing ${messages.size} SMS messages in chunks")
@@ -226,7 +271,7 @@ class TransactionRepositoryImpl(
             }
             
             // Apply category assignments to all transactions after processing
-            applyCategoryAssignments(cachedTransactions)
+            cachedTransactions = applyCategoryAssignments(cachedTransactions)
             
         } catch (e: Exception) {
             Log.e("SMS_REFRESH", "Error processing SMS", e)
@@ -263,16 +308,41 @@ class TransactionRepositoryImpl(
 
             // Update the main cache on the main thread
             withContext(Dispatchers.Main) {
-                // Create a map of existing transactions by their stable key for efficient lookup
-                val existingKeys = cachedTransactions.associateBy { generateTransactionKey(it) }
-                // Filter out new transactions that already exist based on the stable key
-                val newUniqueTransactions = processedTransactions.filterNot { existingKeys.containsKey(generateTransactionKey(it)) }
-                
-                // Merge the new unique transactions with the existing cache
-                cachedTransactions = cachedTransactions + newUniqueTransactions
-                
-                // Log the outcome
-                Log.d("SMS_PROCESSING", "Processed chunk: Added ${newUniqueTransactions.size} new unique transactions. Cache size: ${cachedTransactions.size}")
+                // Deduplicate the processed transactions from this chunk based on ID
+                val uniqueChunkTransactions = processedTransactions.distinctBy { it.id }
+                if (uniqueChunkTransactions.size < processedTransactions.size) {
+                    Log.w("SMS_DUPLICATE_CHUNK", "Removed ${processedTransactions.size - uniqueChunkTransactions.size} duplicates within the same processed SMS chunk.")
+                }
+
+                // Now merge these unique chunk transactions with the main cache
+                val existingTransactionsById = cachedTransactions.associateBy { it.id }
+                val transactionsToMerge = mutableListOf<TransactionData>()
+
+                uniqueChunkTransactions.forEach { smsTx ->
+                    val existingTx = existingTransactionsById[smsTx.id]
+
+                    if (existingTx == null) {
+                        // New unique transaction from SMS chunk
+                        transactionsToMerge.add(smsTx)
+                    } else {
+                        // Transaction already exists in cache. Decide which version to keep.
+                        // Keep existing if it has a non-null provider, otherwise take the SMS version.
+                        val versionToKeep = if (existingTx.provider != null) existingTx else smsTx
+                        transactionsToMerge.add(versionToKeep)
+                        if (versionToKeep.id == "61c254cb-0930-3b5a-aa52-f267a559b122") { // Debug log
+                             Log.d("SMS_MERGE_DECISION_V2", "TxID=${versionToKeep.id}, Kept Version Provider: ${versionToKeep.provider}, Source: ${if (existingTx.provider != null) "ExistingCache" else "SMSChunk"}")
+                        }
+                    }
+                }
+
+                // Update the cache: Filter out existing ones that were replaced, then add the merged ones.
+                val finalCachedList = cachedTransactions.filterNot { existingTx ->
+                    transactionsToMerge.any { mergedTx -> mergedTx.id == existingTx.id }
+                } + transactionsToMerge
+
+                cachedTransactions = finalCachedList.distinctBy { it.id } // Final safety distinct check
+
+                Log.d("SMS_PROCESSING", "Processed chunk: Merged ${uniqueChunkTransactions.size} unique SMS tx. Final cache size: ${cachedTransactions.size}")
             }
         }
     }
@@ -433,6 +503,8 @@ class TransactionRepositoryImpl(
                 val savedTransaction = transaction.copy(id = docId, userId = userId)
                 // Persist to Firestore
                 docRef.set(savedTransaction).await()
+                // Log success of saving transaction with provider name
+                Log.d("FIRESTORE_TX", "Saved transaction provider=${savedTransaction.provider} for TxID=${savedTransaction.id}")
                 // Update in-memory cache so future reads reflect the updated provider
                 cachedTransactions = cachedTransactions.map { existing ->
                     if (existing.id == savedTransaction.id) savedTransaction else existing
@@ -452,7 +524,24 @@ class TransactionRepositoryImpl(
                                 .collection("transactions")
                                 .get()
                                 .await()
+                // Instrumentation: inspect raw snapshot documents
+                val docs = snapshot.documents
+                Log.d("FIRESTORE_TX", "Snapshot docs count: ${docs.size}")
+                Log.d("FIRESTORE_TX", "Snapshot doc IDs (first 5): ${docs.take(5).map { it.id }}")
+                docs.firstOrNull { it.id == "61c254cb-0930-3b5a-aa52-f267a559b122" }?.let { doc ->
+                    Log.d("FIRESTORE_TX", "Firestore raw data for TXID=61c254cb-0930-3b5a-aa52-f267a559b122: ${doc.data}")
+                } ?: Log.d("FIRESTORE_TX", "No Firestore doc for TXID=61c254cb-0930-3b5a-aa52-f267a559b122 in snapshot")
+                // Direct fetch of the transaction document to verify stored fields
+                val txId = "61c254cb-0930-3b5a-aa52-f267a559b122"
+                val txDocRef = db.collection("users").document(userId)
+                    .collection("transactions").document(txId)
+                val txSnap = txDocRef.get().await()
+                Log.d("FIRESTORE_TX", "Direct get() for TXID=$txId => data=${txSnap.data}")
                 val transactions = snapshot.toObjects<TransactionData>()
+                // Debug: check provider for the recently updated TxID
+                transactions.firstOrNull { it.id == "61c254cb-0930-3b5a-aa52-f267a559b122" }?.let { tx ->
+                    Log.d("FIRESTORE_TX", "getTransactionsFromFirestore Debug: TxID=${tx.id}, provider=${tx.provider}")
+                } ?: Log.d("FIRESTORE_TX", "getTransactionsFromFirestore Debug: TxID 61c254cb-0930-3b5a-aa52-f267a559b122 not found in Firestore snapshot")
                 Log.d("FIRESTORE_TX", "Fetched ${transactions.size} transactions for user $userId")
                 Result.success(transactions)
             } catch (e: Exception) {

@@ -171,9 +171,13 @@ class CategoryRepositoryImpl(
     /**
      * Get spending by category
      */
-    override suspend fun getSpendingByCategory(year: Int?, month: Int?): Map<Category, Float> = withContext(Dispatchers.Default) {
+    override suspend fun getSpendingByCategory(
+        year: Int?, 
+        month: Int?,
+        isIncome: Boolean?
+    ): Map<Category, Float> = withContext(Dispatchers.Default) {
         Log.d("CATEGORY_SPENDING", "====== Getting Spending By Category ======")
-        Log.d("CATEGORY_SPENDING", "Filter - Year: $year, Month: $month")
+        Log.d("CATEGORY_SPENDING", "Filter - Year: $year, Month: $month, IsIncome: $isIncome")
         
         val categories = getCategories()
         Log.d("CATEGORY_SPENDING", "Total categories: ${categories.size}")
@@ -181,14 +185,19 @@ class CategoryRepositoryImpl(
         val transactions = transactionRepository.getTransactions()
         Log.d("CATEGORY_SPENDING", "Total transactions: ${transactions.size}")
         
-        // IMPORTANT: Filter transactions by year/month first
+        // IMPORTANT: Filter transactions by year/month AND isIncome first
         val filteredTransactions = transactionRepository.filterTransactions(
             transactions = transactions,
             year = year,
             month = month,
-            isIncome = false // Only expenses
+            isIncome = isIncome
         )
-        Log.d("CATEGORY_SPENDING", "Filtered transactions: ${filteredTransactions.size}")
+        Log.d("CATEGORY_SPENDING", "Filtered transactions (Year: $year, Month: $month, IsIncome: $isIncome): ${filteredTransactions.size}")
+        // Log an example transaction if available
+        if (filteredTransactions.isNotEmpty()) {
+            val example = filteredTransactions.first()
+            Log.d("CATEGORY_SPENDING", "Example Filtered TX: Date=${example.date}, Amt=${example.amount}, isInc=${example.isIncome}, CatId=${example.categoryId}")
+        }
         Log.d("CATEGORY_SPENDING", "Filtered uncategorized transactions: ${filteredTransactions.count { it.categoryId == null }}")
         
         // --- Add Detailed Logging --- 
@@ -199,11 +208,6 @@ class CategoryRepositoryImpl(
         // ---------------------------
 
         val result = mutableMapOf<Category, Float>()
-        
-        // Initialize all categories with 0.0f
-        categories.forEach { category ->
-            result[category] = 0.0f
-        }
         
         // Get "Other" category
         val otherCategory = categories.find { it.name == "Other" } ?: categories.last()

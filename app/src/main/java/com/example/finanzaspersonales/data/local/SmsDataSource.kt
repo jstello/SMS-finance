@@ -129,6 +129,9 @@ class SmsDataSource(private val context: Context) {
                     val address = c.getString(addressIndex)
                     val body = c.getString(bodyIndex)
                     
+                    // ENFORCE: Only process messages starting with 'Bancolombia:'
+                    if (!body.startsWith("Bancolombia:", ignoreCase = true)) continue
+                    
                     // Extract amount with improved logic
                     val amount = TextExtractors.extractAmountFromBody(body)
                     val numericAmount = TextExtractors.parseToFloat(amount)

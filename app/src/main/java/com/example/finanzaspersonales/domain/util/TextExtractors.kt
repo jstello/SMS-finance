@@ -19,12 +19,25 @@ object TextExtractors {
     
     // Compile promotional keywords pattern once
     private val PROMO_KEYWORDS_PATTERN = Pattern.compile(
-        """(promocion|promoción|descuento|oferta|hotsale|sale|ahorra|gana|sorteo|codigo|código|promo|cupon|cupón)""",
+        """\b(?:promocion|promoción|descuento|oferta|hotsale|sale|ahorra|gana|sorteo|codigo|código|promo|cupon|cupón)\b""",
         Pattern.CASE_INSENSITIVE
     )
     
     // Cache for promotional message detection results
     private val promoMessageCache = mutableMapOf<String, Boolean>()
+    
+    // Keywords indicating income transactions
+    private val INCOME_KEYWORDS = listOf(
+        "recibiste",
+        "deposito",
+        "abono",
+        "transferencia recibida",
+        "pago por",
+        "received",
+        "deposit",
+        "credit",
+        "incoming transfer"
+    )
     
     /**
      * Checks if a message contains URLs, which likely indicates
@@ -70,51 +83,89 @@ object TextExtractors {
     }
     
     /**
-     * Extracts provider name from SMS body text
+     * Extracts provider/sender name from SMS body text.
      */
     fun extractProviderFromBody(body: String): String? {
-        // Skip promotional messages - use cached result when possible
-        if (promoMessageCache[body] == true || (promoMessageCache[body] == null && isPromotionalMessage(body))) {
-            return null
-        }
-        
-        // First, try to extract the provider using the common Bancolombia pattern
-        val bancolombiaPattern = Pattern.compile("""(?:Compraste|pagaste)(?:\s[\$\w,.]+\s|\s)en\s((?:[A-Z0-9]|[*])+(?:\s[A-Z0-9]+)*)""")
-        val matcher = bancolombiaPattern.matcher(body)
-        
-        if (matcher.find()) {
-            return matcher.group(1)
-        }
-        
-        // Try to match common banking terms
-        val bankingPattern = Pattern.compile(
-            """(?:confirmaci[óo]n|transferencia|pago|compra)\s(?:(?:a|en|de)\s)?(.+?)(?:\s(?:por|con|desde|de))""",
-            Pattern.CASE_INSENSITIVE
+        // 1. Try finding any words in ALL CAPS first (often reliable for providers)
+        val allCapsPattern = Pattern.compile(
+            """(?<!\\w)([A-Z0-9][A-Z0-9*]{2,}(?:\\s+[A-Z0-9*]+)*)(?!\\w)"""
         )
-        val bankingMatcher = bankingPattern.matcher(body)
-        if (bankingMatcher.find()) {
-            return bankingMatcher.group(1)
-        }
-        
-        // Fallback to finding any words in ALL CAPS with at least 3 characters
-        val allCapsPattern = Pattern.compile("""(?<!\w)([A-Z0-9][A-Z0-9*]+(?:\s[A-Z0-9]+)*)(?!\w)""")
         val allCapsMatcher = allCapsPattern.matcher(body)
-        
+
         // Find the longest all-caps match that's likely to be a provider
-        var bestMatch: String? = null
-        var maxLength = 0
-        
+        var bestAllCapsMatch: String? = null
+        var maxAllCapsLength = 0
+
         while (allCapsMatcher.find()) {
             val match = allCapsMatcher.group(1)
             // Skip known non-provider words often in ALL CAPS (add more as needed)
             val matchLength = match?.length ?: 0
-            if (match != "COP" && match != "USD" && matchLength > 3 && matchLength > maxLength) {
-                maxLength = matchLength
-                bestMatch = match
+            if (match != "COP" && match != "USD" && matchLength > 3 && matchLength > maxAllCapsLength) {
+                maxAllCapsLength = matchLength
+                bestAllCapsMatch = match
+            }
+        }
+
+        // If a good ALL CAPS match is found, return it
+        if (bestAllCapsMatch != null) {
+            return bestAllCapsMatch
+        }
+
+        // 2. If no clear ALL CAPS match, determine if it's income or expense
+        val isIncomeBasedOnRecibiste = isIncome(body)
+
+        // 3. Try specific patterns based on type
+        if (isIncomeBasedOnRecibiste) {
+            // More precise pattern: capture provider between "de" and " a tu cuenta"
+            val specificIncomePattern = Pattern.compile(
+                """de\s+(.+?)\s+a\s+tu\s+cuenta""",
+                Pattern.CASE_INSENSITIVE
+            )
+            val specificMatcher = specificIncomePattern.matcher(body)
+            if (specificMatcher.find()) {
+                val provider = specificMatcher.group(1)?.trim()
+                if (!provider.isNullOrEmpty()) {
+                    return provider
+                }
+            }
+
+            // Look for ALL CAPS string after "de "
+            val allCapsAfterDePattern = Pattern.compile(
+                """de\s+([A-Z][A-Z0-9\s&.]{2,})""",
+                Pattern.CASE_INSENSITIVE
+            )
+            val matcher = allCapsAfterDePattern.matcher(body)
+            if (matcher.find()) {
+                val provider = matcher.group(1)?.trim()
+                if (provider != null && provider.length > 2) {
+                    return provider
+                }
+            }
+        } else {
+            // Patterns for expenses:
+            // Bancolombia specific: "en [Recipient Name]"
+            val expensePattern1 = Pattern.compile(
+                """(?:Compraste|pagaste)(?:\s+[\\$\\w,.]+\s+|\s+)en\s+((?:[A-Z0-9]|[*])+(?:\s+[A-Z0-9*]+)*)""",
+                Pattern.CASE_INSENSITIVE
+            )
+            val expenseMatcher1 = expensePattern1.matcher(body)
+            if (expenseMatcher1.find()) {
+                return expenseMatcher1.group(1)?.trim() // Return recipient name
+            }
+
+            // General expense: "Compra en [Recipient Name]"
+            val expensePattern2 = Pattern.compile(
+                """(?:Compra|Pago)\s+en\s+(.+?)(?:\s+por|\s+con|\s+el|$)""",
+                Pattern.CASE_INSENSITIVE
+            )
+            val expenseMatcher2 = expensePattern2.matcher(body)
+            if (expenseMatcher2.find()) {
+                return expenseMatcher2.group(1)?.trim()
             }
         }
         
-        return bestMatch
+        // 4. If no specific pattern matched, return null (ALL CAPS was already checked)
+        return null
     }
     
     /**
@@ -151,17 +202,11 @@ object TextExtractors {
     }
     
     /**
-     * Determines if a transaction is an income based on SMS body text
+     * Determines if a transaction is income based on presence of "Recibiste".
      */
     fun isIncome(body: String): Boolean {
-        // Skip promotional messages - use cached result
-        if (promoMessageCache[body] == true) {
-            return false
-        }
-        
-        return body.contains(
-            Regex("(recepci[óo]n|recibiste|n[óo]mina|abono|consignaci[óo]n|dep[óo]sito|ingreso)", RegexOption.IGNORE_CASE)
-        )
+        // Classify income based on multiple keywords
+        return INCOME_KEYWORDS.any { keyword -> body.contains(keyword, ignoreCase = true) }
     }
     
     /**
