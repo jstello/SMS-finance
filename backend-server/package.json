@@ -1,0 +1,17 @@
+{
+  "name": "backend-server",
+  "version": "1.0.0",
+  "description": "Sample Node.js app to interact with Firestore",
+  "main": "index.js",
+  "scripts": {
+    "start": "node index.js",
+    "backup": "node index.js --mode=backup"
+  },
+  "dependencies": {
+    "express": "^4.19.2",
+    "fast-csv": "^5.0.2",
+    "firebase-admin": "^12.1.0"
+  },
+  "author": "",
+  "license": "ISC"
+}
