@@ -86,39 +86,26 @@ object TextExtractors {
      * Extracts provider/sender name from SMS body text.
      */
     fun extractProviderFromBody(body: String): String? {
-        // 1. Try finding any words in ALL CAPS first (often reliable for providers)
-        val allCapsPattern = Pattern.compile(
-            """(?<!\\w)([A-Z0-9][A-Z0-9*]{2,}(?:\\s+[A-Z0-9*]+)*)(?!\\w)"""
+        // 1. For Bancolombia income messages, capture provider between 'de ' and '(a|en) tu cuenta'
+        val bancolombiaIncomePattern = Pattern.compile(
+            """de\s+(.+?)\s+(?:a|en)\s+tu\s+cuenta""",
+            Pattern.CASE_INSENSITIVE
         )
-        val allCapsMatcher = allCapsPattern.matcher(body)
-
-        // Find the longest all-caps match that's likely to be a provider
-        var bestAllCapsMatch: String? = null
-        var maxAllCapsLength = 0
-
-        while (allCapsMatcher.find()) {
-            val match = allCapsMatcher.group(1)
-            // Skip known non-provider words often in ALL CAPS (add more as needed)
-            val matchLength = match?.length ?: 0
-            if (match != "COP" && match != "USD" && matchLength > 3 && matchLength > maxAllCapsLength) {
-                maxAllCapsLength = matchLength
-                bestAllCapsMatch = match
+        val bancolombiaMatcher = bancolombiaIncomePattern.matcher(body)
+        if (bancolombiaMatcher.find()) {
+            val provider = bancolombiaMatcher.group(1)?.trim()
+            if (!provider.isNullOrEmpty()) {
+                return provider
             }
         }
-
-        // If a good ALL CAPS match is found, return it
-        if (bestAllCapsMatch != null) {
-            return bestAllCapsMatch
-        }
-
-        // 2. If no clear ALL CAPS match, determine if it's income or expense
+        // 2. Determine if it's income or expense
         val isIncomeBasedOnRecibiste = isIncome(body)
-
+        
         // 3. Try specific patterns based on type
         if (isIncomeBasedOnRecibiste) {
-            // More precise pattern: capture provider between "de" and " a tu cuenta"
+            // More precise pattern: capture provider between "de" and "(a|en) tu cuenta"
             val specificIncomePattern = Pattern.compile(
-                """de\s+(.+?)\s+a\s+tu\s+cuenta""",
+                """de\s+(.+?)\s+(?:a|en)\s+tu\s+cuenta""",
                 Pattern.CASE_INSENSITIVE
             )
             val specificMatcher = specificIncomePattern.matcher(body)
@@ -142,6 +129,30 @@ object TextExtractors {
                 }
             }
         } else {
+            // 4. Bancolombia specific expense: capture provider in 'Pagaste $AMOUNT a PROVIDER desde'
+            val specificExpensePattern = Pattern.compile(
+                """(?:Compraste|Pagaste)\s+(?:\$|COP)\s*[\d.,]+\s+a\s+(.+?)\s+desde""",
+                Pattern.CASE_INSENSITIVE
+            )
+            val specificExpenseMatcher = specificExpensePattern.matcher(body)
+            if (specificExpenseMatcher.find()) {
+                val provider = specificExpenseMatcher.group(1)?.trim()
+                if (!provider.isNullOrEmpty()) {
+                    return provider
+                }
+            }
+            // 4b. Bancolombia specific expense: capture provider in 'Compraste $AMOUNT en PROVIDER con tu'
+            val conTuExpensePattern = Pattern.compile(
+                """(?:Compraste|Pagaste)\s+(?:\$|COP)\s*[\d.,]+\s+en\s+(.+?)\s+con\s+tu""",
+                Pattern.CASE_INSENSITIVE
+            )
+            val conTuExpenseMatcher = conTuExpensePattern.matcher(body)
+            if (conTuExpenseMatcher.find()) {
+                val provider = conTuExpenseMatcher.group(1)?.trim()
+                if (!provider.isNullOrEmpty()) {
+                    return provider
+                }
+            }
             // Patterns for expenses:
             // Bancolombia specific: "en [Recipient Name]"
             val expensePattern1 = Pattern.compile(
@@ -164,7 +175,26 @@ object TextExtractors {
             }
         }
         
-        // 4. If no specific pattern matched, return null (ALL CAPS was already checked)
+        // 5. General ALL CAPS fallback: capture longest uppercase sequence as provider
+        val allCapsPattern = Pattern.compile(
+            """(?<!\\w)([A-Z0-9][A-Z0-9*]{2,}(?:\\s+[A-Z0-9*]+)*)(?!\\w)""",
+            Pattern.CASE_INSENSITIVE
+        )
+        val allCapsMatcher = allCapsPattern.matcher(body)
+        var bestAllCapsMatch: String? = null
+        var maxAllCapsLength = 0
+        while (allCapsMatcher.find()) {
+            val match = allCapsMatcher.group(1)
+            val matchLength = match?.length ?: 0
+            if (match != "COP" && match != "USD" && matchLength > 3 && matchLength > maxAllCapsLength) {
+                maxAllCapsLength = matchLength
+                bestAllCapsMatch = match
+            }
+        }
+        if (bestAllCapsMatch != null) {
+            return bestAllCapsMatch
+        }
+        // Fallback: no provider found
         return null
     }
     

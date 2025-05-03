@@ -153,97 +153,54 @@ private fun loadCustomProviderName(context: Context, key: String): String? {
 val providerName = if (contactName == null) extractProviderFromBody(body) else null
 ```
 
-## Contact Processing Pipeline
-1. **Phone Number Extraction:**
+3. Bancolombia income pattern extraction:
+   - For messages like `Bancolombia: Recibiste un pago por AMOUNT de PROVIDER a tu cuenta ...` or `Bancolombia: Recibiste una transferencia por AMOUNT de PROVIDER en tu cuenta ...`, extract the uppercase provider name immediately after `de ` and before `a tu cuenta` or `en tu cuenta`.
 ```kotlin
-private fun extractPhoneNumberFromAccount(account: String): String? {
-    // Pattern: *0000+3XXXXXXXXX
-    val pattern = Regex("""[*]?0{3,}(3\d{9})""")
-    return pattern.find(account)?.groupValues?.get(1)
-}
-```
-
-2. **Contact Lookup:**
-```kotlin
-private fun lookupContactName(context: Context, number: String): String? {
-    val uri = ContactsContract.PhoneLookup.CONTENT_FILTER_URI.buildUpon()
-        .appendPath(number).build()
-    // ... content resolver query ...
-}
-```
-
-## Enhanced Transaction Classification
-**Multi-language Support:**
-```kotlin
-val isIncome = message.body.contains(
-    Regex("(recepci[óo]n|recibiste|n[óo]mina)", RegexOption.IGNORE_CASE)
+// Capture PROVIDER in 'de PROVIDER a tu cuenta' or 'de PROVIDER en tu cuenta'
+val specificIncomePattern = Pattern.compile(
+    """de\s+(.+?)\s+(?:a|en)\s+tu\s+cuenta""",
+    Pattern.CASE_INSENSITIVE
 )
 ```
 
-**New Financial Categories:**
+4. Bancolombia expense pattern extraction:
+   - For messages like `Bancolombia: Pagaste $AMOUNT a PROVIDER desde tu producto *XXXX ...`, extract the provider name between `a ` and ` desde tu producto`.
+   - For messages like `Bancolombia: Compraste $AMOUNT en PROVIDER con tu T.Deb *XXXX ...`, extract the provider name between `en ` and ` con tu`.
 ```kotlin
-// Default expense categories including investments
-listOf("Home", "Rent", "Pets", "Health", "Supermarket", 
-       "Restaurants", "Utilities", "Subscriptions", 
-       "Transportation", "Investments", "Other")
+// Capture PROVIDER in 'a PROVIDER desde tu producto'
+val specificExpensePattern = Pattern.compile(
+    """(?:Compraste|Pagaste)\s+(?:\$|COP)\s*[\d.,]+\s+a\s+(.+?)\s+desde""",
+    Pattern.CASE_INSENSITIVE
+)
+
+// Capture PROVIDER in 'en PROVIDER con tu'
+val conTuExpensePattern = Pattern.compile(
+    """(?:Compraste|Pagaste)\s+(?:\$|COP)\s*[\d.,]+\s+en\s+(.+?)\s+con\s+tu""",
+    Pattern.CASE_INSENSITIVE
+)
 ```
 
-## Persistence Requirements
-1. **Transaction Categories:**
+5. Direct phone number detection fallback:
+   - If no provider was extracted by text patterns, look for a phone number within the SMS body matching `0{4,}(3\d{9})`. If found, attempt a contact lookup and use that contact name as the provider.
 ```kotlin
-private fun saveTransactionCategory(context: Context, key: String, category: String) {
-    val prefs = context.getSharedPreferences("transaction_categories", Context.MODE_PRIVATE)
-    prefs.edit().putString(key, category).apply()
-}
-```
-
-2. **Account Directory:**
-```kotlin
-private fun saveAccounts(context: Context, accounts: List<AccountInfo>) {
-    val json = Gson().toJson(accounts)
-    context.getSharedPreferences("account_prefs", Context.MODE_PRIVATE)
-        .edit().putString("accounts", json).apply()
+// Direct phone number detection fallback
+private val directPhonePattern = Regex("0{4,}(3\\d{9})")
+val directPhoneMatch = directPhonePattern.find(body)
+if (directPhoneMatch != null) {
+    val directPhoneNumber = directPhoneMatch.groupValues[1]
+    val directContact = lookupContactName(context, directPhoneNumber)
+    if (directContact != null) {
+        provider = directContact
+    }
 }
 ```
 
 ## Enhanced SMS Filtering
+**Exclusion Rule:**
+- Any SMS containing URLs should be excluded from transaction processing as they are likely promotional messages.
 ```kotlin
-// Only process messages containing specific keywords
-val cursor = context.contentResolver.query(
-    uri,
-    projection,
-    "${Telephony.Sms.BODY} LIKE ? OR ${Telephony.Sms.BODY} LIKE ?",
-    arrayOf("%Bancolombia%", "%Nequi%"),  // Filter by financial institutions
-    "${Telephony.Sms.DATE} DESC"
-)
-```
-
-## UI Integration Rules
-1. **Provider Editing:**
-   - Users can edit provider names directly in transaction details
-   - Changes persist across sessions
-   - Original detected provider maintained until edited
-
-2. **Contact Linking:**
-   - Automatically link transactions to contacts when:
-     - Phone number detected in account info
-     - Matching contact exists in device
-   - Display contact-specific transaction summaries
-
-3. **Category Management:**
-   - Users can add new expense categories
-   - Category changes apply to all existing transactions
-   - Default categories cannot be removed
-
-```kotlin
-// Category management dialog
-fun AddCategoryDialog(onAdd: (String) -> Unit, onDismiss: () -> Unit) {
-    // UI implementation for adding new categories
+// Before processing, skip messages with URLs
+if (TextExtractors.containsUrl(body)) {
+    return false
 }
 ```
-
-## Data Presentation Rules
-1. Amount display formatting:
-   - Always show COP prefix
-   - Format numbers with thousands separators
-   - Differentiate income (green) vs expense (red) 

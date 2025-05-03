@@ -11,89 +11,122 @@ app/
 ├── google-services.json
 ├── proguard-rules.pro
 └── src/
-    └── main/
-        ├── AndroidManifest.xml
-        ├── ic_launcher-playstore.png
-        ├── java/
-        │   └── com/
-        │       └── example/
-        │           └── finanzaspersonales/
-        │               ├── FinanzasApp.kt
-        │               ├── data/
-        │               │   ├── auth/
-        │               │   │   ├── AuthRepository.kt
-        │               │   │   └── AuthRepositoryImpl.kt
-        │               │   ├── local/
-        │               │   │   ├── SharedPrefsManager.kt
-        │               │   │   └── SmsDataSource.kt
-        │               │   ├── model/
-        │               │   │   ├── AccountInfo.kt
-        │               │   │   ├── Category.kt
-        │               │   │   ├── SmsMessage.kt
-        │               │   │   ├── TransactionData.kt
-        │               │   │   └── rules/  (empty)
-        │               │   ├── remote/ (empty)
-        │               │   ├── repository/
-        │               │   │   ├── CategoryRepository.kt
-        │               │   │   ├── CategoryRepositoryImpl.kt
-        │               │   │   ├── TransactionRepository.kt
-        │               │   │   └── TransactionRepositoryImpl.kt
-        │               │   └── sms/  <- Moved from root
-        │               │       └── SmsReceiver.kt
-        │               ├── domain/
-        │               │   ├── usecase/
-        │               │   │   ├── CategoryAssignmentUseCase.kt
-        │               │   │   └── ExtractTransactionDataUseCase.kt
-        │               │   └── util/
-        │               │       ├── ContactsUtil.kt
-        │               │       ├── DateTimeUtils.kt
-        │               │       ├── StringUtils.kt
-        │               │       └── TextExtractors.kt
-        │               └── ui/
-        │                   ├── accounts/ (empty)
-        │                   ├── providers/
-        │                   │   ├── ProvidersActivity.kt
-        │                   │   ├── ProvidersScreen.kt
-        │                   │   ├── ProvidersViewModel.kt
-        │                   │   └── ProvidersViewModelFactory.kt
-        │                   ├── auth/
-        │                   │   ├── AuthViewModel.kt
-        │                   │   └── LoginScreen.kt
-        │                   ├── categories/
-        │                   │   ├── CategoriesActivity.kt <- Moved from root
-        │                   │   ├── CategoriesScreen.kt
-        │                   │   ├── CategoriesViewModel.kt
-        │                   │   ├── CategoryDetailScreen.kt
-        │                   │   ├── CategoryEditScreen.kt
-        │                   │   └── TransactionDetailScreen.kt
-        │                   ├── dashboard/
-        │                   │   ├── DashboardActivity.kt
-        │                   │   ├── DashboardViewModel.kt
-        │                   │   └── DashboardViewModelFactory.kt
-        │                   ├── sms/  <- New package for SMS UI
-        │                   │   └── SmsPermissionActivity.kt
-        │                   ├── theme/
-        │                   │   ├── Color.kt
-        │                   │   ├── Theme.kt
-        │                   │   └── Type.kt
-        │                   └── transaction_list/
-        │                       ├── TransactionListActivity.kt
-        │                       ├── TransactionListScreen.kt
-        │                       ├── TransactionListViewModel.kt
-        │                       └── TransactionListViewModelFactory.kt
-        └── res/
-            ├── drawable/
-            ├── layout/
-            ├── menu/
-            ├── mipmap-anydpi-v26/
-            ├── mipmap-hdpi/
-            ├── mipmap-mdpi/
-            ├── mipmap-xhdpi/
-            ├── mipmap-xxhdpi/
-            ├── mipmap-xxxhdpi/
-            ├── raw/
-            ├── values/
-            └── xml/
+    ├── androidTest
+    │   └── java
+    │       └── com
+    │           └── example
+    │               └── finanzaspersonales
+    │                   └── ExampleInstrumentedTest.kt
+    ├── main
+    │   ├── AndroidManifest.xml
+    │   ├── ic_launcher-playstore.png
+    │   ├── java
+    │   │   └── com
+    │   │       └── example
+    │   │           └── finanzaspersonales
+    │   │               ├── FinanzasApp.kt
+    │   │               ├── data
+    │   │               │   ├── auth
+    │   │               │   │   ├── AuthRepository.kt
+    │   │               │   │   └── AuthRepositoryImpl.kt
+    │   │               │   ├── local
+    │   │               │   │   ├── SharedPrefsManager.kt
+    │   │               │   │   └── SmsDataSource.kt
+    │   │               │   ├── model
+    │   │               │   │   ├── AccountInfo.kt
+    │   │               │   │   ├── Category.kt
+    │   │               │   │   ├── SmsMessage.kt
+    │   │               │   │   └── TransactionData.kt
+    │   │               │   ├── repository
+    │   │               │   │   ├── CategoryRepository.kt
+    │   │               │   │   ├── CategoryRepositoryImpl.kt
+    │   │               │   │   ├── TransactionRepository.kt
+    │   │               │   │   └── TransactionRepositoryImpl.kt
+    │   │               │   └── sms
+    │   │               │       └── SmsReceiver.kt
+    │   │               ├── domain
+    │   │               │   ├── usecase
+    │   │               │   │   ├── CategoryAssignmentUseCase.kt
+    │   │               │   │   └── ExtractTransactionDataUseCase.kt
+    │   │               │   └── util
+    │   │               │       ├── ContactsUtil.kt
+    │   │               │       ├── DateTimeUtils.kt
+    │   │               │       ├── StringUtils.kt
+    │   │               │       └── TextExtractors.kt
+    │   │               └── ui
+    │   │                   ├── auth
+    │   │                   │   ├── AuthViewModel.kt
+    │   │                   │   └── LoginScreen.kt
+    │   │                   ├── categories
+    │   │                   │   ├── CategoriesActivity.kt
+    │   │                   │   ├── CategoriesScreen.kt
+    │   │                   │   ├── CategoriesViewModel.kt
+    │   │                   │   ├── CategoryDetailScreen.kt
+    │   │                   │   ├── CategoryEditScreen.kt
+    │   │                   │   └── TransactionDetailScreen.kt
+    │   │                   ├── dashboard
+    │   │                   │   ├── DashboardActivity.kt
+    │   │                   │   ├── DashboardViewModel.kt
+    │   │                   │   └── DashboardViewModelFactory.kt
+    │   │                   ├── providers
+    │   │                   │   ├── ProvidersActivity.kt
+    │   │                   │   ├── ProvidersScreen.kt
+    │   │                   │   ├── ProvidersViewModel.kt
+    │   │                   │   └── ProvidersViewModelFactory.kt
+    │   │                   ├── theme
+    │   │                   │   ├── Color.kt
+    │   │                   │   ├── Theme.kt
+    │   │                   │   └── Type.kt
+    │   │                   └── transaction_list
+    │   │                       ├── TransactionListActivity.kt
+    │   │                       ├── TransactionListScreen.kt
+    │   │                       ├── TransactionListViewModel.kt
+    │   │                       └── TransactionListViewModelFactory.kt
+    │   └── res
+    │       ├── drawable
+    │       │   ├── ic_launcher_background.xml
+    │       │   └── ic_launcher_foreground.xml
+    │       ├── layout
+    │       │   └── activity_sms_permission.xml
+    │       ├── menu
+    │       │   └── menu_main.xml
+    │       ├── mipmap-anydpi-v26
+    │       │   ├── ic_launcher.xml
+    │       │   └── ic_launcher_round.xml
+    │       ├── mipmap-hdpi
+    │       │   ├── ic_launcher.webp
+    │       │   └── ic_launcher_round.webp
+    │       ├── mipmap-mdpi
+    │       │   ├── ic_launcher.webp
+    │       │   └── ic_launcher_round.webp
+    │       ├── mipmap-xhdpi
+    │       │   ├── ic_launcher.webp
+    │       │   └── ic_launcher_round.webp
+    │       ├── mipmap-xxhdpi
+    │       │   ├── ic_launcher.webp
+    │       │   └── ic_launcher_round.webp
+    │       ├── mipmap-xxxhdpi
+    │       │   ├── ic_launcher.webp
+    │       │   └── ic_launcher_round.webp
+    │       ├── raw
+    │       │   ├── cancel_sound.wav
+    │       │   ├── confirm_sound.wav
+    │       │   ├── select_sound.wav
+    │       │   └── tap_sound.wav
+    │       ├── values
+    │       │   ├── colors.xml
+    │       │   ├── ic_launcher_background.xml
+    │       │   ├── strings.xml
+    │       │   └── themes.xml
+    │       └── xml
+    │           ├── backup_rules.xml
+    │           └── data_extraction_rules.xml
+    └── test
+        └── java
+            └── com
+                └── example
+                    └── finanzaspersonales
+                        └── ExampleUnitTest.kt
 ```
 
 ## Top-Level Files and Directories (`app/`)
