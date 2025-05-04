@@ -15,8 +15,11 @@ import kotlinx.coroutines.flow.callbackFlow
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.tasks.await
 import kotlinx.coroutines.withContext
+import javax.inject.Inject
+import javax.inject.Singleton
 
-class AuthRepositoryImpl : AuthRepository {
+@Singleton
+class AuthRepositoryImpl @Inject constructor() : AuthRepository {
 
     private val auth: FirebaseAuth = Firebase.auth
 
@@ -67,6 +70,19 @@ class AuthRepositoryImpl : AuthRepository {
                 val result = auth.signInWithCredential(credential).await()
                 Result.success(result)
             } catch (e: Exception) {
+                Result.failure(e)
+            }
+        }
+    }
+
+    override suspend fun signUpWithEmailPassword(email: String, password: String): Result<AuthResult> {
+        return withContext(Dispatchers.IO) {
+            try {
+                // Use Firebase Auth to create a new user
+                val result = auth.createUserWithEmailAndPassword(email, password).await()
+                Result.success(result)
+            } catch (e: Exception) {
+                // Handle potential exceptions (e.g., email already exists, weak password)
                 Result.failure(e)
             }
         }

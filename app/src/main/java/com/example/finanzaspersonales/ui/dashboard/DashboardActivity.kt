@@ -9,6 +9,7 @@ import android.widget.Toast
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.activity.viewModels
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -34,6 +35,7 @@ import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.Storefront
 import androidx.compose.material.icons.filled.Savings
+import androidx.compose.material.icons.filled.Add
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
@@ -79,18 +81,22 @@ import com.example.finanzaspersonales.domain.usecase.CategoryAssignmentUseCase
 import com.example.finanzaspersonales.domain.usecase.ExtractTransactionDataUseCase
 import com.example.finanzaspersonales.ui.sms.SmsPermissionActivity
 import com.example.finanzaspersonales.ui.theme.FinanzasPersonalesTheme
+import com.example.finanzaspersonales.ui.auth.AuthViewModel
+import com.example.finanzaspersonales.ui.auth.LoginScreen
+import androidx.hilt.navigation.compose.hiltViewModel
+import dagger.hilt.android.AndroidEntryPoint
 import java.text.NumberFormat
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
 import com.example.finanzaspersonales.data.auth.AuthRepository
 import com.example.finanzaspersonales.data.auth.AuthRepositoryImpl
-import com.example.finanzaspersonales.ui.auth.LoginScreen
-import androidx.compose.ui.platform.LocalContext
 import com.example.finanzaspersonales.ui.transaction_list.TransactionListActivity
 import kotlin.math.abs
 import kotlin.math.round
 import com.example.finanzaspersonales.ui.providers.ProvidersActivity
+import com.example.finanzaspersonales.ui.add_transaction.AddTransactionActivity
+import androidx.compose.ui.platform.LocalContext
 
 // Helper function to format large numbers to millions with one decimal place
 private fun formatToMillions(value: Float): String {
@@ -101,12 +107,11 @@ private fun formatToMillions(value: Float): String {
     return "$sign$${formattedValue}M"
 }
 
+@AndroidEntryPoint
 class DashboardActivity : ComponentActivity() {
     
-    private lateinit var viewModel: DashboardViewModel
-    private lateinit var authRepository: AuthRepository
-    private lateinit var categoryRepository: CategoryRepository
-    private lateinit var sharedPrefsManager: SharedPrefsManager
+    // Inject ViewModel using Hilt
+    private val viewModel: DashboardViewModel by viewModels()
     
     // Permission launcher - updated to handle READ_CONTACTS
     private val requestPermissionLauncher = registerForActivityResult(
@@ -139,140 +144,44 @@ class DashboardActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         
-        // Instantiate AuthRepository (TODO: Replace with DI later)
-        authRepository = AuthRepositoryImpl()
-        
-        // Instantiate SharedPrefsManager
-        sharedPrefsManager = SharedPrefsManager(this)
-
-        // --- Instantiate Repositories (Needs proper DI later) ---
-        // Create TransactionRepo first (as dummy for CategoryRepo)
-        val dummyTransactionRepository = object : TransactionRepository { 
-            override suspend fun getAllSmsMessages(): List<SmsMessage> = emptyList()
-            override suspend fun getTransactions(): List<TransactionData> = emptyList()
-            override suspend fun filterTransactions(transactions: List<TransactionData>, year: Int?, month: Int?, isIncome: Boolean?): List<TransactionData> = emptyList()
-            override suspend fun getTransactionById(id: String): TransactionData? = null
-            override suspend fun getTransactionsByCategory(categoryId: String): List<TransactionData> = emptyList()
-            override suspend fun assignCategoryToTransaction(transactionId: String, categoryId: String): Boolean = false
-            override suspend fun refreshSmsData(limitToRecentMonths: Int) { /* Dummy */ }
-            override suspend fun initializeTransactions() { /* Dummy */ }
-            // Add stubs for new Firestore/Sync functions to satisfy interface
-            override suspend fun saveTransactionToFirestore(transaction: TransactionData): Result<Unit> = Result.failure(NotImplementedError())
-            override suspend fun getTransactionsFromFirestore(userId: String): Result<List<TransactionData>> = Result.failure(NotImplementedError())
-            override suspend fun updateTransactionInFirestore(transaction: TransactionData): Result<Unit> = Result.failure(NotImplementedError())
-            override suspend fun deleteTransactionFromFirestore(transactionId: String, userId: String): Result<Unit> = Result.failure(NotImplementedError())
-            override suspend fun performInitialTransactionSync(userId: String, syncStartDate: Long): Result<Unit> = Result.failure(NotImplementedError())
-            override suspend fun getProviderStats(from: Long, to: Long): List<ProviderStat> = emptyList() // Dummy implementation
-        }
-        
-        // Create CategoryRepository (using dummy TransactionRepo)
-        categoryRepository = CategoryRepositoryImpl(
-            context = this,
-            sharedPrefsManager = sharedPrefsManager,
-            transactionRepository = dummyTransactionRepository, // Use dummy for now
-            authRepository = authRepository // Provide the AuthRepository instance
-        )
-
-        // Create dependencies needed for Real TransactionRepository
-        val smsDataSource = SmsDataSource(this)
-        val extractTransactionDataUseCase = ExtractTransactionDataUseCase(this)
-        val categoryAssignmentUseCase = CategoryAssignmentUseCase(categoryRepository) // Use the real CategoryRepo
-        
-        // Now create the real TransactionRepository
-        val transactionRepository = TransactionRepositoryImpl(
-            context = this,
-            smsDataSource = smsDataSource,
-            extractTransactionDataUseCase = extractTransactionDataUseCase,
-            categoryAssignmentUseCase = categoryAssignmentUseCase,
-            sharedPrefsManager = sharedPrefsManager,
-            authRepository = authRepository // Add authRepository parameter
-        )
-        // -----------------------------------------------------------
-        
-        // Create ViewModel using the Factory with all dependencies
-        viewModel = ViewModelProvider(
-            this,
-            DashboardViewModelFactory(transactionRepository, categoryRepository, sharedPrefsManager)
-        )[DashboardViewModel::class.java]
-        
         setContent {
             FinanzasPersonalesTheme {
                 Surface(
                     modifier = Modifier.fillMaxSize(),
                     color = MaterialTheme.colorScheme.background
                 ) {
-                    // --- Authentication State Check ---
-                    val currentUser by authRepository.currentUserState.collectAsState()
-                    val context = LocalContext.current // Get context for passing down
+                    // Choose Login or Dashboard based on auth state
+                    val authViewModel: AuthViewModel = hiltViewModel()
+                    val currentUser by authViewModel.currentUserState.collectAsState()
 
                     if (currentUser == null) {
-                        // --- User Not Logged In: Show Login Screen ---
-                        LoginScreen(
-                            onLoginSuccess = {
-                                Log.d("DashboardActivity", "Login successful, auth state should update.")
-                            }
-                        )
+                        LoginScreen(onLoginSuccess = {
+                            // After successful login, load dashboard data
+                            viewModel.loadDashboardData()
+                        })
                     } else {
-                        // --- User Logged In: Check Sync Status & Show appropriate screen ---
-                        val userId = currentUser!!.uid // Safe non-null access here
-                        val isSyncing by viewModel.isSyncing.collectAsState()
-                        val syncError by viewModel.syncError.collectAsState()
-
-                        // Trigger sync check when user becomes non-null
-                        LaunchedEffect(userId) { 
-                            viewModel.checkAndPerformInitialSync(userId)
-                        }
-
-                        // --- Display Sync State or Dashboard ---
-                        Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                            when {
-                                isSyncing -> {
-                                    // Show Syncing indicator
-                                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                                         CircularProgressIndicator()
-                                         Spacer(modifier = Modifier.height(8.dp))
-                                         Text("Performing initial sync...")
-                                    }
-                                }
-                                syncError != null -> {
-                                     // Show Sync Error message
-                                     Text("Error during sync: $syncError", color = MaterialTheme.colorScheme.error)
-                                     // TODO: Add a retry button?
-                                }
-                                else -> {
-                                    // Sync complete (or not needed), show Dashboard
-                                     Log.d("DashboardActivity", "User logged in: $userId, Sync complete/not needed, showing Dashboard")
-                                     // Collect necessary states for DashboardScreen
-                                    val monthlyExpenses by viewModel.monthlyExpenses.collectAsState()
-                                    val monthlyIncome by viewModel.monthlyIncome.collectAsState()
-                                    val recentTransactions by viewModel.recentTransactions.collectAsState()
-                                    val isLoading by viewModel.isLoading.collectAsState() // Main dashboard loading
-
-                                    DashboardScreen(
-                                        monthlyExpenses = monthlyExpenses,
-                                        monthlyIncome = monthlyIncome,
-                                        recentTransactions = recentTransactions,
-                                        isLoading = isLoading, // Use dashboard loading state here
-                                        onRefresh = { checkAndRequestPermissions() },
-                                        onCategoriesClick = {
-                                            context.startActivity(Intent(context, CategoriesActivity::class.java))
-                                        },
-                                        onSmsTestClick = {
-                                            context.startActivity(Intent(context, SmsPermissionActivity::class.java))
-                                        }
-                                    )
-                                }
-                            }
-                        }
+                        DashboardScreen(
+                            viewModel = viewModel,
+                            onNavigateToCategories = { navigateToCategories() },
+                            onNavigateToTransactions = { navigateToTransactions() },
+                            onNavigateToProviders = { navigateToProviders() },
+                            onNavigateToAddTransaction = { navigateToAddTransaction() }
+                        )
                     }
                 }
             }
         }
-        // Request permissions *after* setting content
-        checkAndRequestPermissions()
+
+        // Check permissions when activity is created
+        // Need AuthRepository instance for this check. We'll handle this with Hilt modules.
+        // val currentUser = authRepository.currentUser
+        // if (currentUser != null) {
+            checkPermissionsAndLoadData() // Still need to check permissions
+        //     viewModel.performInitialSyncIfNecessary(currentUser.uid)
+        // }
     }
     
-    private fun checkAndRequestPermissions() {
+    private fun checkPermissionsAndLoadData() {
         val readSmsGranted = ContextCompat.checkSelfPermission(
             this, Manifest.permission.READ_SMS
         ) == PackageManager.PERMISSION_GRANTED
@@ -291,50 +200,74 @@ class DashboardActivity : ComponentActivity() {
         if (!readContactsGranted) permissionsToRequest.add(Manifest.permission.READ_CONTACTS)
 
         if (permissionsToRequest.isEmpty()) {
-            // All permissions already granted, load data
-            Log.d("PERMISSIONS", "All required permissions already granted.")
-            viewModel.loadDashboardData() // Ensure data loads if permissions already exist
+            Log.d("PERMISSIONS", "All permissions granted.")
+            viewModel.loadDashboardData()
         } else {
-            // Request the missing permissions
             Log.d("PERMISSIONS", "Requesting missing permissions: ${permissionsToRequest.joinToString()}")
             requestPermissionLauncher.launch(permissionsToRequest.toTypedArray())
-            // Consider showing rationale here if needed, though the first-time OS dialog is usually sufficient
         }
+    }
+
+    // Navigation functions
+    private fun navigateToCategories() {
+        startActivity(Intent(this, CategoriesActivity::class.java))
+    }
+
+    private fun navigateToTransactions() {
+        startActivity(Intent(this, TransactionListActivity::class.java))
+    }
+
+    private fun navigateToProviders() {
+        startActivity(Intent(this, ProvidersActivity::class.java))
+    }
+
+    // TODO: Implement navigation to AddTransactionScreen
+    private fun navigateToAddTransaction() {
+        // Start AddTransactionActivity using an Intent
+        val intent = Intent(this, AddTransactionActivity::class.java)
+        startActivity(intent)
     }
 }
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun DashboardScreen(
-    monthlyExpenses: Float,
-    monthlyIncome: Float,
-    recentTransactions: List<TransactionData>,
-    isLoading: Boolean,
-    onRefresh: () -> Unit,
-    onCategoriesClick: () -> Unit,
-    onSmsTestClick: () -> Unit
+    viewModel: DashboardViewModel,
+    onNavigateToCategories: () -> Unit,
+    onNavigateToTransactions: () -> Unit,
+    onNavigateToProviders: () -> Unit,
+    onNavigateToAddTransaction: () -> Unit // Add parameter for navigation
 ) {
-    val currencyFormat = NumberFormat.getCurrencyInstance(Locale("es", "CO"))
-    val context = LocalContext.current // Get context inside the composable
-    val monthlyBalance = monthlyIncome - monthlyExpenses // Calculate balance
-    
+    val monthlyIncome by viewModel.monthlyIncome.collectAsState()
+    val monthlyExpenses by viewModel.monthlyExpenses.collectAsState()
+    val recentTransactions by viewModel.recentTransactions.collectAsState()
+    val isLoading by viewModel.isLoading.collectAsState()
+    val context = LocalContext.current // Get context for Toast
+    val monthlyBalance = monthlyIncome - monthlyExpenses
+
+    LaunchedEffect(Unit) {
+        // Initial load or refresh logic if needed within the composable
+        // viewModel.loadDashboardData() // Maybe called from Activity already
+    }
+
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text(text = "Finanzas Personales", fontWeight = FontWeight.Bold) },
-                colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = MaterialTheme.colorScheme.primaryContainer,
-                    titleContentColor = MaterialTheme.colorScheme.onPrimaryContainer
-                ),
+                title = { Text("Dashboard") },
                 actions = {
-                    IconButton(onClick = onRefresh) {
-                        Icon(
-                            imageVector = Icons.Default.Refresh,
-                            contentDescription = "Refresh"
-                        )
+                    // Refresh Button
+                    IconButton(onClick = { viewModel.loadDashboardData() }) {
+                        Icon(Icons.Default.Refresh, contentDescription = "Refresh")
                     }
+                    // TODO: Add Settings Icon/Navigation
                 }
+                // ... (rest of TopAppBar)
             )
+        },
+        floatingActionButton = { // Add FAB here
+            FloatingActionButton(onClick = onNavigateToAddTransaction) {
+                Icon(Icons.Default.Add, contentDescription = "Add Transaction")
+            }
         }
     ) { paddingValues ->
         Column(
@@ -440,7 +373,7 @@ fun DashboardScreen(
                     title = "Categories",
                     backgroundColor = MaterialTheme.colorScheme.primaryContainer,
                     modifier = Modifier.weight(1f),
-                    onClick = onCategoriesClick
+                    onClick = onNavigateToCategories
                 )
                 
                 // Transactions
@@ -449,7 +382,7 @@ fun DashboardScreen(
                     title = "Transactions",
                     backgroundColor = MaterialTheme.colorScheme.secondaryContainer,
                     modifier = Modifier.weight(1f),
-                    onClick = { context.startActivity(Intent(context, TransactionListActivity::class.java)) }
+                    onClick = onNavigateToTransactions
                 )
             }
             
@@ -463,7 +396,7 @@ fun DashboardScreen(
                     title = "Providers",
                     backgroundColor = MaterialTheme.colorScheme.tertiaryContainer,
                     modifier = Modifier.weight(1f),
-                    onClick = { context.startActivity(Intent(context, ProvidersActivity::class.java)) }
+                    onClick = onNavigateToProviders
                 )
                 
                 // Jars (renamed from SMS Test)

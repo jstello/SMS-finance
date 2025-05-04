@@ -4,11 +4,12 @@ import com.example.finanzaspersonales.data.model.Category
 import com.example.finanzaspersonales.data.model.TransactionData
 import com.example.finanzaspersonales.data.repository.CategoryRepository
 import android.util.Log
+import javax.inject.Inject
 
 /**
  * Use case for assigning categories to transactions based on patterns in transaction data
  */
-class CategoryAssignmentUseCase(
+class CategoryAssignmentUseCase @Inject constructor(
     private val categoryRepository: CategoryRepository
 ) {
     // Cached list of categories

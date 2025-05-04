@@ -26,3 +26,7 @@
 #### Known Issues
 
 -   Payroll is showing up in both Expenses and Income tabs for April 2025. Ensure `isIncome` flag is correctly set on payroll transactions. 
++   Unresolved build errors remain after Hilt migration and refactoring:
++     - Parameter mismatch when calling `ProvidersScreen` from `ProvidersActivity` (e.g., passing `initialSelectedDateMillis` which is not accepted).
++     - Missing required parameters in Composable function calls (e.g., `onBackClick`, `onProviderClick` for `ProvidersScreen`).
++     - Potential other compilation errors need investigation. 

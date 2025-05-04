@@ -11,12 +11,15 @@ import com.example.finanzaspersonales.data.model.Category
 import com.example.finanzaspersonales.data.model.TransactionData
 import com.example.finanzaspersonales.data.repository.CategoryRepository
 import com.example.finanzaspersonales.data.repository.TransactionRepository
+import com.example.finanzaspersonales.domain.usecase.GetSpendingByCategoryUseCase
 import java.time.LocalDate
 import java.util.Calendar
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
+import dagger.hilt.android.lifecycle.HiltViewModel
+import javax.inject.Inject
 
 /**
  * Enum class for transaction sorting fields
@@ -42,9 +45,11 @@ enum class TransactionType {
 /**
  * ViewModel for the Categories screens
  */
-class CategoriesViewModel(
+@HiltViewModel
+class CategoriesViewModel @Inject constructor(
     private val categoryRepository: CategoryRepository,
-    private val transactionRepository: TransactionRepository
+    private val transactionRepository: TransactionRepository,
+    private val getSpendingByCategoryUseCase: GetSpendingByCategoryUseCase
 ) : ViewModel() {
     
     // State for selected transaction type tab
@@ -168,8 +173,8 @@ class CategoriesViewModel(
                     TransactionType.INCOME -> true
                     TransactionType.EXPENSE -> false
                 }
-                Log.d("ViewModelSpending", "Calling repo.getSpendingByCategory with isIncomeFilter = $isIncomeFilter")
-                _categorySpending.value = categoryRepository.getSpendingByCategory(
+                Log.d("ViewModelSpending", "Calling GetSpendingByCategoryUseCase with isIncomeFilter = $isIncomeFilter")
+                _categorySpending.value = getSpendingByCategoryUseCase(
                     year = _selectedYear.value,
                     month = _selectedMonth.value,
                     isIncome = isIncomeFilter
@@ -267,8 +272,8 @@ class CategoriesViewModel(
                     }
                 } else {
                     // Handle regular categories
-                    Log.d("CAT_DETAIL_VM", "Fetching transactions for categoryId: $categoryId from CategoryRepository")
-                    categoryRepository.getTransactionsByCategory(categoryId)
+                    Log.d("CAT_DETAIL_VM", "Fetching transactions for categoryId: $categoryId from TransactionRepository")
+                    transactionRepository.getTransactionsByCategory(categoryId)
                 }
                 Log.d("CAT_DETAIL_VM", "Fetched ${allTransactionsForCategory.size} raw transactions for category: ${category.name}")
                 // Log details of the fetched transactions before filtering
@@ -599,6 +604,69 @@ class CategoriesViewModel(
         // Update category-specific transactions cache
         _categoryTransactions.value = _categoryTransactions.value.map { tx ->
             if (tx.id == transactionId) tx.copy(provider = newProvider) else tx
+        }
+    }
+
+    /**
+     * Assign category to a transaction
+     */
+    fun assignCategoryToTransaction(transactionId: String, categoryId: String) {
+        Log.d("CAT_ASSIGN_VM", "-> assignCategoryToTransaction(transactionId=$transactionId, categoryId=$categoryId) called.")
+        viewModelScope.launch {
+            _isAssigningCategory.value = true
+            try {
+                Log.d("CAT_ASSIGN_VM", "   Calling transactionRepository.assignCategoryToTransaction()...")
+                val success = transactionRepository.assignCategoryToTransaction(transactionId, categoryId)
+                _assignmentResult.value = if (success) Result.success(Unit) else Result.failure(Exception("Failed to assign category"))
+                Log.d("CAT_ASSIGN_VM", "   Assignment result: ${_assignmentResult.value}")
+                if (success) {
+                    Log.d("CAT_ASSIGN_VM", "   Assignment successful. Reloading data...")
+                    // Reload data after successful assignment
+                    loadAllTransactions()
+                    loadCategorySpending()
+                    _selectedCategory.value?.let { loadTransactionsForCategory(it, _selectedTransactionType.value) }
+                }
+            } catch (e: Exception) {
+                Log.e("CategoriesViewModel", "Error assigning category", e)
+                _assignmentResult.value = Result.failure(e)
+            } finally {
+                _isAssigningCategory.value = false
+                Log.d("CAT_ASSIGN_VM", "<- assignCategoryToTransaction() finished.")
+            }
+        }
+    }
+
+    /**
+     * Resets the assignment result state
+     */
+    fun resetAssignmentResult() {
+        _assignmentResult.value = null
+    }
+
+
+    /**
+     * Delete a transaction by its ID
+     * @param transactionId The ID of the transaction to delete.
+     * @param userId The ID of the current user (required for Firestore deletion).
+     * @param onResult Callback function invoked with the Result (Success/Failure) of the deletion.
+     */
+    fun deleteTransaction(transactionId: String, userId: String, onResult: (Result<Unit>) -> Unit) {
+        Log.d("CategoriesViewModel", "Attempting to delete transaction: $transactionId for user: $userId")
+        viewModelScope.launch {
+            val result = transactionRepository.deleteTransactionFromFirestore(transactionId, userId)
+            if (result.isSuccess) {
+                Log.i("CategoriesViewModel", "Transaction $transactionId deleted successfully.")
+                // Reload data after successful deletion
+                loadAllTransactions() // Reload all transactions to reflect removal
+                loadCategorySpending() // Recalculate category spending
+                // If a category detail screen was active, reload its specific transactions
+                _selectedCategory.value?.let { category ->
+                    loadTransactionsForCategory(category, _selectedTransactionType.value)
+                }
+            } else {
+                Log.e("CategoriesViewModel", "Failed to delete transaction $transactionId", result.exceptionOrNull())
+            }
+            onResult(result) // Notify the caller (UI) about the result
         }
     }
 }

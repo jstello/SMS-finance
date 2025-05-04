@@ -74,10 +74,12 @@
         <!-- Providers Activity -->
         <activity
             android:name=".ui.providers.ProvidersActivity"
-            android:exported="true" 
-            android:label="Providers"
-            android:theme="@style/Theme.FinanzasPersonales">
-        </activity>
+            android:exported="false" />
+        <activity
+            android:name=".ui.add_transaction.AddTransactionActivity" 
+            android:label="Add Transaction" 
+            android:exported="false" 
+            android:theme="@style/Theme.FinanzasPersonales"/>
     </application>
 
 </manifest>

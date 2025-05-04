@@ -12,6 +12,8 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 import androidx.lifecycle.SavedStateHandle
 import com.example.finanzaspersonales.ui.providers.ProvidersActivity
+import dagger.hilt.android.lifecycle.HiltViewModel
+import javax.inject.Inject
 
 // UI model combining transaction data with its resolved category name
 data class TransactionUiModel(
@@ -20,7 +22,8 @@ data class TransactionUiModel(
     val categoryColor: Int?
 )
 
-class TransactionListViewModel(
+@HiltViewModel
+class TransactionListViewModel @Inject constructor(
     private val transactionRepository: TransactionRepository,
     private val categoryRepository: CategoryRepository,
     savedStateHandle: SavedStateHandle

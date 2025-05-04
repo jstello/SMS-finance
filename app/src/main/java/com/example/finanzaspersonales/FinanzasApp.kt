@@ -2,7 +2,9 @@ package com.example.finanzaspersonales
 
 import android.app.Application
 import android.util.Log
+import dagger.hilt.android.HiltAndroidApp
 
+@HiltAndroidApp
 class FinanzasApp : Application() {
     companion object {
         private const val TAG = "FinanzasApp"

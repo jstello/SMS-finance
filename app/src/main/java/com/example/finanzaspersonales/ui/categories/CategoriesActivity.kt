@@ -25,7 +25,6 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.ViewModel
-import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.finanzaspersonales.data.local.SharedPrefsManager
 import com.example.finanzaspersonales.data.local.SmsDataSource
@@ -44,11 +43,17 @@ import com.example.finanzaspersonales.FinanzasApp
 import com.example.finanzaspersonales.data.auth.AuthRepositoryImpl
 import com.example.finanzaspersonales.data.repository.ProviderStat
 import com.example.finanzaspersonales.ui.sms.SmsPermissionActivity
+import dagger.hilt.android.AndroidEntryPoint
+import androidx.activity.viewModels
 
 /**
  * Activity for the Categories feature
  */
+@AndroidEntryPoint
 class CategoriesActivity : ComponentActivity() {
+    
+    // Inject ViewModel using Hilt
+    private val viewModel: CategoriesViewModel by viewModels()
     
     // Permission launcher for SMS read permission
     private val requestPermissionLauncher = registerForActivityResult(
@@ -107,23 +112,17 @@ class CategoriesActivity : ComponentActivity() {
         // Set content with Compose
         setContent {
             FinanzasPersonalesTheme {
-                Surface(
-                    modifier = Modifier.fillMaxSize(),
-                    color = MaterialTheme.colorScheme.background
-                ) {
-                    // --- State Management for Navigation --- 
+                // Replace CategoriesNavHost with CategoriesApp, pass the injected viewModel
+                // You'll need to manage the navState within CategoriesApp or lift it
+                Surface(modifier = Modifier.fillMaxSize()) { // Keep Surface or add as needed
+                    // Simple state for now, could be managed by NavController later
                     var navState by remember { mutableStateOf<CategoriesNavState>(CategoriesNavState.Categories) }
-
+                    
                     CategoriesApp(
-                        navState = navState, // Pass the current state
-                        onNavStateChange = { newState -> 
-                            Log.d("NAV_ACTIVITY", "Changing navState to: $newState")
-                            navState = newState // Update the state
-                        },
-                        onBack = { 
-                            Log.d("NAV_ACTIVITY", "Executing onBack (finish) from CategoriesApp")
-                            finish() // Finish activity when back is pressed on the main screen
-                        }
+                        viewModel = viewModel, // Pass the Hilt-injected ViewModel
+                        navState = navState,
+                        onNavStateChange = { navState = it },
+                        onBack = { finish() } // Or handle back navigation appropriately
                     )
                 }
             }
@@ -191,77 +190,15 @@ sealed class CategoriesNavState {
  */
 @Composable
 fun CategoriesApp(
+    viewModel: CategoriesViewModel, // Accept ViewModel as parameter
     navState: CategoriesNavState,
     onNavStateChange: (CategoriesNavState) -> Unit,
     onBack: () -> Unit
 ) {
     val context = LocalContext.current
     
-    val categoriesViewModel: CategoriesViewModel = viewModel(
-        factory = object : ViewModelProvider.Factory {
-            @Suppress("UNCHECKED_CAST")
-            override fun <T : ViewModel> create(modelClass: Class<T>): T {
-                // Create repositories and dependencies
-                val sharedPrefsManager = SharedPrefsManager(context)
-                val smsDataSource = SmsDataSource(context)
-                val extractTransactionDataUseCase = ExtractTransactionDataUseCase(context)
-                val authRepository = AuthRepositoryImpl() // Instantiate AuthRepository
-                
-                // Create a "dummy" transaction repository first for the CategoryRepository
-                val dummyTransactionRepository = object : TransactionRepository {
-                    override suspend fun getAllSmsMessages(): List<SmsMessage> = emptyList()
-                    override suspend fun getTransactions(): List<TransactionData> = emptyList()
-                    override suspend fun filterTransactions(transactions: List<TransactionData>, year: Int?, month: Int?, isIncome: Boolean?): List<TransactionData> = emptyList()
-                    override suspend fun getTransactionById(id: String): TransactionData? = null
-                    override suspend fun getTransactionsByCategory(categoryId: String): List<TransactionData> = emptyList()
-                    override suspend fun assignCategoryToTransaction(transactionId: String, categoryId: String): Boolean = false
-                    override suspend fun refreshSmsData(limitToRecentMonths: Int) { /* Dummy */ }
-                    override suspend fun initializeTransactions() { /* Dummy */ }
-                    // --- Add Stubs for Firestore/Sync functions ---
-                    override suspend fun saveTransactionToFirestore(transaction: TransactionData): Result<Unit> = Result.failure(NotImplementedError("Dummy implementation"))
-                    override suspend fun getTransactionsFromFirestore(userId: String): Result<List<TransactionData>> = Result.failure(NotImplementedError("Dummy implementation"))
-                    override suspend fun updateTransactionInFirestore(transaction: TransactionData): Result<Unit> = Result.failure(NotImplementedError("Dummy implementation"))
-                    override suspend fun deleteTransactionFromFirestore(transactionId: String, userId: String): Result<Unit> = Result.failure(NotImplementedError("Dummy implementation"))
-                    override suspend fun performInitialTransactionSync(userId: String, syncStartDate: Long): Result<Unit> = Result.failure(NotImplementedError("Dummy implementation"))
-                    // --- ADDED MISSING FUNCTION ---
-                    override suspend fun getProviderStats(from: Long, to: Long): List<ProviderStat> = emptyList() // Dummy implementation
-                }
-                
-                // Create temp CategoryRepository with AuthRepository
-                val tempCategoryRepository = CategoryRepositoryImpl(
-                    context = context,
-                    sharedPrefsManager = sharedPrefsManager,
-                    transactionRepository = dummyTransactionRepository,
-                    authRepository = authRepository // Pass AuthRepository
-                )
-                
-                val categoryAssignmentUseCase = CategoryAssignmentUseCase(tempCategoryRepository)
-                
-                // Now we can create the actual repositories with the proper dependencies
-                val transactionRepository = TransactionRepositoryImpl(
-                    context = context,
-                    smsDataSource = smsDataSource,
-                    extractTransactionDataUseCase = extractTransactionDataUseCase,
-                    categoryAssignmentUseCase = categoryAssignmentUseCase,
-                    sharedPrefsManager = sharedPrefsManager,
-                    authRepository = authRepository // Ensure this line exists
-                )
-                
-                // Replace the temporary repository with the real one, including AuthRepository
-                val categoryRepository: CategoryRepository = CategoryRepositoryImpl(
-                    context = context,
-                    sharedPrefsManager = sharedPrefsManager,
-                    transactionRepository = transactionRepository,
-                    authRepository = authRepository // Pass AuthRepository
-                )
-                
-                return CategoriesViewModel(
-                    categoryRepository = categoryRepository,
-                    transactionRepository = transactionRepository
-                ) as T
-            }
-        }
-    )
+    // Use the passed-in viewModel instead
+    val categoriesViewModel = viewModel 
     
     // Handle back press within CategoriesApp
     BackHandler(enabled = navState != CategoriesNavState.Categories) {

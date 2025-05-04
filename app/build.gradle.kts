@@ -3,6 +3,8 @@ plugins {
     alias(libs.plugins.kotlin.android) version "2.0.0"
     alias(libs.plugins.kotlin.compose)
     alias(libs.plugins.google.gms.google.services)
+    id("kotlin-kapt")
+    id("com.google.dagger.hilt.android")
 }
 
 android {
@@ -61,6 +63,7 @@ dependencies {
     implementation(platform("androidx.compose:compose-bom:2024.06.00"))
     implementation(libs.androidx.compose.foundation)
     implementation(libs.androidx.compose.ui)
+    implementation("androidx.compose.ui:ui-text")
     implementation(libs.androidx.compose.material3)
     implementation(libs.androidx.material.icons.extended)
     implementation(libs.androidx.activity.compose)
@@ -141,10 +144,12 @@ dependencies {
     // Google Sign-In for Firebase Authentication
     implementation(libs.play.services.auth)
 
-    // Hilt for Dependency Injection
-    // implementation(libs.hilt.android)
-    // ksp(libs.hilt.compiler)
-    // implementation(libs.hilt.navigation.compose)
+    // Hilt Dependencies
+    implementation("com.google.dagger:hilt-android:2.51.1")
+    kapt("com.google.dagger:hilt-compiler:2.51.1")
+
+    // ViewModel integration for Hilt (Optional but recommended)
+    implementation("androidx.hilt:hilt-navigation-compose:1.2.0") // If using compose navigation
 
     // Kotlin Coroutines
     implementation(libs.kotlinx.coroutines.core)
@@ -158,4 +163,9 @@ dependencies {
     implementation(libs.androidx.ui.graphics)
     implementation(libs.androidx.constraintlayout.compose)
     implementation(libs.androidx.compose.material.icons.core) // Core icons
+}
+
+// Allow references to generated code
+kapt {
+    correctErrorTypes = true
 }

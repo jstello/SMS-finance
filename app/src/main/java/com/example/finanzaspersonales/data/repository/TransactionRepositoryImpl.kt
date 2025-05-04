@@ -32,12 +32,16 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 import com.example.finanzaspersonales.data.auth.AuthRepository
 import kotlinx.coroutines.flow.firstOrNull
+import javax.inject.Inject
+import javax.inject.Singleton
+import dagger.hilt.android.qualifiers.ApplicationContext
 
 /**
  * Implementation of the TransactionRepository
  */
-class TransactionRepositoryImpl(
-    private val context: Context,
+@Singleton
+class TransactionRepositoryImpl @Inject constructor(
+    @ApplicationContext private val context: Context,
     private val smsDataSource: SmsDataSource,
     private val extractTransactionDataUseCase: ExtractTransactionDataUseCase,
     private val categoryAssignmentUseCase: CategoryAssignmentUseCase,

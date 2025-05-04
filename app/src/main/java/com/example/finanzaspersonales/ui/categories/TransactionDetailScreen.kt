@@ -61,6 +61,7 @@ import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.ErrorOutline
+import androidx.compose.material.icons.filled.Delete
 import androidx.compose.ui.platform.LocalContext
 import android.util.Log
 import androidx.compose.foundation.text.selection.SelectionContainer
@@ -90,6 +91,11 @@ fun TransactionDetailScreen(
     var showProviderEditor by remember { mutableStateOf(false) }
     var editedProvider by remember { mutableStateOf(transaction.provider ?: "") }
     var providerState by remember { mutableStateOf(transaction.provider) }
+    var showDeleteConfirmationDialog by remember { mutableStateOf(false) }
+    var isDeleting by remember { mutableStateOf(false) }
+    
+    // ** IMPORTANT: Replace this with your actual user ID retrieval logic **
+    val userId = "PLACEHOLDER_USER_ID"
     
     // Load the category for this transaction
     LaunchedEffect(transaction.id, transaction.categoryId) {
@@ -130,6 +136,19 @@ fun TransactionDetailScreen(
                         Icon(
                             imageVector = Icons.AutoMirrored.Filled.ArrowBack,
                             contentDescription = "Back"
+                        )
+                    }
+                },
+                actions = {
+                    // Delete Button
+                    IconButton(
+                        onClick = { showDeleteConfirmationDialog = true },
+                        enabled = !isAssigning && !isDeleting // Disable while assigning category or deleting
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Delete,
+                            contentDescription = "Delete Transaction",
+                            tint = if (!isAssigning && !isDeleting) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.38f) // Dimmed when disabled
                         )
                     }
                 }
@@ -320,6 +339,57 @@ fun TransactionDetailScreen(
                     }
                 }
             }
+        }
+
+        // Confirmation Dialog for Deletion
+        if (showDeleteConfirmationDialog) {
+            AlertDialog(
+                onDismissRequest = { showDeleteConfirmationDialog = false },
+                title = { Text("Confirm Deletion") },
+                text = { Text("Are you sure you want to delete this transaction? This action cannot be undone.") },
+                confirmButton = {
+                    Button(
+                        onClick = {
+                            val currentTransactionId = transaction.id
+                            if (currentTransactionId != null) {
+                                showDeleteConfirmationDialog = false
+                                isDeleting = true
+                                // Call ViewModel to delete
+                                viewModel.deleteTransaction(currentTransactionId, userId) { result ->
+                                    isDeleting = false
+                                    scope.launch {
+                                        if (result.isSuccess) {
+                                            snackbarHostState.showSnackbar("Transaction deleted successfully")
+                                            onBack() // Navigate back after successful deletion
+                                        } else {
+                                            val errorMsg = result.exceptionOrNull()?.message ?: "Failed to delete transaction"
+                                            snackbarHostState.showSnackbar("Error: $errorMsg")
+                                        }
+                                    }
+                                }
+                            } else {
+                                // Handle the unlikely case where transaction ID is null
+                                scope.launch {
+                                    snackbarHostState.showSnackbar("Error: Cannot delete transaction without an ID.")
+                                }
+                                showDeleteConfirmationDialog = false // Still close the dialog
+                            }
+                        },
+                        enabled = !isDeleting
+                    ) {
+                        if (isDeleting) {
+                            CircularProgressIndicator(modifier = Modifier.size(24.dp))
+                        } else {
+                            Text("Delete")
+                        }
+                    }
+                },
+                dismissButton = {
+                    TextButton(onClick = { showDeleteConfirmationDialog = false }, enabled = !isDeleting) {
+                        Text("Cancel")
+                    }
+                }
+            )
         }
     }
     

@@ -20,5 +20,8 @@ interface AuthRepository {
     // Function to sign in with Google token
     suspend fun signInWithGoogleToken(idToken: String): Result<AuthResult>
 
+    // Function to sign up with email and password
+    suspend fun signUpWithEmailPassword(email: String, password: String): Result<AuthResult>
+
     // (We'll add registration and Google Sign-In later)
 } 

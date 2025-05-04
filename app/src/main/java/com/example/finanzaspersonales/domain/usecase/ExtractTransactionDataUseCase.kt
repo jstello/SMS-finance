@@ -5,12 +5,15 @@ import android.util.Log
 import com.example.finanzaspersonales.data.model.SmsMessage
 import com.example.finanzaspersonales.data.model.TransactionData
 import com.example.finanzaspersonales.domain.util.TextExtractors
-import java.util.UUID
+import dagger.hilt.android.qualifiers.ApplicationContext
+import javax.inject.Inject
 
 /**
  * Use case for extracting transaction data from SMS messages
  */
-class ExtractTransactionDataUseCase(private val context: Context) {
+class ExtractTransactionDataUseCase @Inject constructor(
+    @ApplicationContext private val context: Context
+) {
     
     // Regex to find potential phone numbers starting with many zeros
     private val directPhonePattern = Regex("0{4,}(3\\d{9})")

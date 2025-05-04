@@ -25,33 +25,10 @@ interface CategoryRepository {
     
     /**
      * Delete a category
+     * Note: Reassigning transactions should be handled by a dedicated UseCase.
      */
     suspend fun deleteCategory(categoryId: String)
     
-    /**
-     * Set a category for a transaction
-     */
-    suspend fun setCategoryForTransaction(transactionId: String, categoryId: String): Boolean
-    
-    /**
-     * Get transactions by category
-     */
-    suspend fun getTransactionsByCategory(categoryId: String): List<TransactionData>
-    
-    /**
-     * Get category ID for a specific transaction
-     */
-    suspend fun getCategoryIdForTransaction(transactionId: String): String?
-    
-    /**
-     * Get spending by category, optionally filtering by income or expense
-     */
-    suspend fun getSpendingByCategory(
-        year: Int? = null,
-        month: Int? = null,
-        isIncome: Boolean? = null
-    ): Map<Category, Float>
-
     /**
      * Save a category to Firestore
      */

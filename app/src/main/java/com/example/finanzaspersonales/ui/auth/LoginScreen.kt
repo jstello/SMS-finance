@@ -14,6 +14,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
+import androidx.hilt.navigation.compose.hiltViewModel
 import com.google.android.gms.auth.api.identity.BeginSignInRequest
 import com.google.android.gms.auth.api.identity.Identity
 import com.google.android.gms.common.api.ApiException
@@ -23,8 +24,8 @@ import kotlinx.coroutines.launch
 fun LoginScreen(
     // Callback to navigate when login is successful
     onLoginSuccess: () -> Unit,
-    // (Add callback for navigating to registration later)
-    viewModel: AuthViewModel = viewModel() // Get ViewModel instance
+    // Use Hilt to provide the ViewModel
+    viewModel: AuthViewModel = hiltViewModel()
 ) {
     val uiState = viewModel.loginUiState
     val context = LocalContext.current
@@ -144,6 +145,27 @@ fun LoginScreen(
                 )
             } else {
                 Text("Sign In")
+            }
+        }
+
+        Spacer(modifier = Modifier.height(16.dp))
+
+        // Sign Up Button
+        Button(
+            onClick = viewModel::signUpWithEmailPassword, // Call the sign up function
+            modifier = Modifier.fillMaxWidth(),
+            enabled = !uiState.isLoading,
+            // Optional: Use different colors for sign up button
+            colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.tertiary)
+        ) {
+            if (uiState.isLoading) {
+                // Consider showing a different loading indicator or text for sign up?
+                CircularProgressIndicator(
+                    modifier = Modifier.size(24.dp),
+                    color = MaterialTheme.colorScheme.onTertiary
+                )
+            } else {
+                Text("Sign Up")
             }
         }
 

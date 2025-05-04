@@ -20,14 +20,17 @@ import com.google.firebase.firestore.ktx.toObjects
 import com.google.firebase.ktx.Firebase
 import kotlinx.coroutines.tasks.await
 import java.util.UUID
+import javax.inject.Inject
+import javax.inject.Singleton
+import dagger.hilt.android.qualifiers.ApplicationContext
 
 /**
  * Implementation of the CategoryRepository
  */
-class CategoryRepositoryImpl(
-    private val context: Context,
+@Singleton
+class CategoryRepositoryImpl @Inject constructor(
+    @ApplicationContext private val context: Context,
     private val sharedPrefsManager: SharedPrefsManager,
-    private val transactionRepository: TransactionRepository,
     private val authRepository: AuthRepository
 ) : CategoryRepository {
     
@@ -39,7 +42,7 @@ class CategoryRepositoryImpl(
     override suspend fun getCategories(): List<Category> = withContext(Dispatchers.IO) {
         Log.d("CAT_REPO_AUTH", "Checking user login status for fetching categories...")
         val userId = authRepository.currentUserState.firstOrNull()?.uid
-        Log.d("CAT_REPO_AUTH", "User ID obtained from AuthRepository: '$userId'")
+        Log.d("CAT_REPO", "getCategories() called. userId=$userId")
         
         if (userId != null) {
             Log.i("CAT_REPO_AUTH", "User is logged in (ID: $userId). Attempting Firestore fetch.")
@@ -64,9 +67,18 @@ class CategoryRepositoryImpl(
             Log.w("CAT_REPO", "User not logged in. Falling back to SharedPreferences defaults.")
         }
         
-        // Fallback: Load from SharedPreferences (which includes defaults if empty)
+        // Fallback: Load from SharedPreferences
         Log.d("CAT_REPO", "Loading categories from SharedPreferences as fallback.")
-        sharedPrefsManager.loadCategories()
+        val localCategories = sharedPrefsManager.loadCategories()
+
+        // Final Fallback: Return default categories if both Firestore and SharedPreferences are empty
+        if (localCategories.isEmpty()) {
+            Log.w("CAT_REPO", "No categories found in SharedPreferences. Returning default categories.")
+            return@withContext SharedPrefsManager.DEFAULT_CATEGORIES
+        }
+
+        Log.d("CAT_REPO", "Returning ${localCategories.size} categories from SharedPreferences.")
+        return@withContext localCategories
     }
     
     /**
@@ -95,179 +107,19 @@ class CategoryRepositoryImpl(
      */
     override suspend fun deleteCategory(categoryId: String) = withContext(Dispatchers.IO) {
         // TODO: Call deleteCategoryFromFirestore here
-        // TODO: Revisit transaction reassignment logic when fetching from Firestore
+        // TODO: Revisit transaction reassignment logic when fetching from Firestore - MOVED TO USE CASE
         val categories = sharedPrefsManager.loadCategories().toMutableList()
         val index = categories.indexOfFirst { it.id == categoryId }
         if (index >= 0) {
             categories.removeAt(index)
             sharedPrefsManager.saveCategories(categories)
             
-            // Find "Other" category to reassign any transaction with this category
-            val otherCategory = categories.find { it.name == "Other" }
-            if (otherCategory?.id != null) { // Ensure Other category and its ID are not null
-                // Get transactions with this category and reassign them
-                // This part needs significant rework for Firestore
-                 Log.w("DELETE_CAT", "Transaction reassignment logic needs update for Firestore")
-                // val transactions = transactionRepository.getTransactionsByCategory(categoryId) // This needs to check Firestore
-                // for (transaction in transactions) {
-                //     // Safely handle nullable IDs before calling
-                //     val transactionIdToReassign = transaction.id
-                //     val otherCategoryId = otherCategory.id // Already checked non-null above
-                //     if (transactionIdToReassign != null) { 
-                //         transactionRepository.assignCategoryToTransaction(transactionIdToReassign, otherCategoryId)
-                //     }
-                // }
-            }
+            // Reassignment logic removed - should be handled by a dedicated Use Case
+            // that can access both CategoryRepository and TransactionRepository.
+            Log.w("DELETE_CAT", "Transaction reassignment logic needs to be implemented in a separate UseCase.")
+            
             // Example: deleteCategoryFromFirestore(categoryId, getCurrentUserId())
         }
-    }
-    
-    /**
-     * Set a category for a transaction
-     */
-    override suspend fun setCategoryForTransaction(transactionId: String, categoryId: String): Boolean {
-        Log.d("CAT_ASSIGN_REPO_C", "-> setCategoryForTransaction(TxID: $transactionId, CatID: $categoryId)")
-        val result = withContext(Dispatchers.IO) {
-            Log.d("CAT_ASSIGN_REPO_C", "   Calling TransactionRepository.assignCategoryToTransaction...")
-            transactionRepository.assignCategoryToTransaction(transactionId, categoryId)
-        }
-        Log.d("CAT_ASSIGN_REPO_C", "<- setCategoryForTransaction returning: $result")
-        return result
-    }
-    
-    /**
-     * Get transactions by category
-     * Handles 'Other' category specially to include uncategorized items.
-     */
-    override suspend fun getTransactionsByCategory(categoryId: String): List<TransactionData> = withContext(Dispatchers.Default) {
-        Log.d("CAT_REPO", "-> (CategoryRepo) getTransactionsByCategory called for categoryId: $categoryId")
-        // Fetch ALL transactions first
-        Log.d("CAT_REPO", "   Calling transactionRepository.getTransactions()")
-        val allTransactions = transactionRepository.getTransactions()
-        Log.d("CAT_REPO", "   Total transactions fetched: ${allTransactions.size}")
-        
-        // Find the predefined ID for the "Other" category
-        val otherCategoryId = SharedPrefsManager.DEFAULT_CATEGORIES.find { it.name == "Other" }?.id
-        Log.d("CAT_REPO", "   Requested CatID: $categoryId, Predefined Other CatID: $otherCategoryId")
-
-        // Filter logic based on whether the requested ID is the special "Other" ID
-        val categoryTransactions = if (categoryId == otherCategoryId && otherCategoryId != null) {
-            // If requesting the specific "Other" category ID
-            Log.d("CAT_REPO", "   Filtering for 'Other' category (ID: $categoryId) including null/empty")
-            allTransactions.filter { 
-                val id = it.categoryId // Capture local immutable variable
-                id == categoryId || id == null || id.isEmpty() // Use local variable for checks
-            }
-        } else {
-            // For any other specific category ID
-            Log.d("CAT_REPO", "   Filtering for specific category ID: $categoryId")
-            allTransactions.filter { it.categoryId == categoryId }
-        }
-
-        Log.i("CAT_REPO", "<- (CategoryRepo) Found ${categoryTransactions.size} transactions for requested categoryId: $categoryId. Returning list.")
-        categoryTransactions
-    }
-    
-    /**
-     * Get spending by category
-     */
-    override suspend fun getSpendingByCategory(
-        year: Int?, 
-        month: Int?,
-        isIncome: Boolean?
-    ): Map<Category, Float> = withContext(Dispatchers.Default) {
-        Log.d("CATEGORY_SPENDING", "====== Getting Spending By Category ======")
-        Log.d("CATEGORY_SPENDING", "Filter - Year: $year, Month: $month, IsIncome: $isIncome")
-        
-        val categories = getCategories()
-        Log.d("CATEGORY_SPENDING", "Total categories: ${categories.size}")
-        
-        val transactions = transactionRepository.getTransactions()
-        Log.d("CATEGORY_SPENDING", "Total transactions: ${transactions.size}")
-        
-        // Filter transactions by year, month, and type
-        val filteredTransactions = transactionRepository.filterTransactions(
-            transactions = transactions,
-            year = year,
-            month = month,
-            isIncome = isIncome
-        )
-        Log.d("CATEGORY_SPENDING", "Filtered transactions (Year: $year, Month: $month, IsIncome: $isIncome): ${filteredTransactions.size}")
-        // Log an example transaction if available
-        if (filteredTransactions.isNotEmpty()) {
-            val example = filteredTransactions.first()
-            Log.d("CATEGORY_SPENDING", "Example Filtered TX: Date=${example.date}, Amt=${example.amount}, isInc=${example.isIncome}, CatId=${example.categoryId}")
-        }
-        Log.d("CATEGORY_SPENDING", "Filtered uncategorized transactions: ${filteredTransactions.count { it.categoryId == null }}")
-        
-        // --- Add Detailed Logging --- 
-        Log.d("CATEGORY_SPENDING", "-- Details of filteredTransactions before summation --")
-        filteredTransactions.take(10).forEachIndexed { index, tx -> // Log first 10
-             Log.d("CATEGORY_SPENDING", "[$index]: Date=${tx.date}, Amt=${tx.amount}, Provider=${tx.provider}, CatId=${tx.categoryId ?: "NULL"}")
-        }
-        // ---------------------------
-
-        val result = mutableMapOf<Category, Float>()
-        
-        // Get "Other" category
-        val otherCategory = categories.find { it.name == "Other" } ?: categories.last()
-        Log.d("CATEGORY_SPENDING", "Other category: ${otherCategory.name} (${otherCategory.id})")
-        
-        // Log transactions by category
-        Log.d("CATEGORY_SPENDING", "----- Transaction Distribution -----")
-        categories.forEach { category ->
-            val count = filteredTransactions.count { it.categoryId == category.id }
-            Log.d("CATEGORY_SPENDING", "Category '${category.name}': $count transactions")
-        }
-        Log.d("CATEGORY_SPENDING", "Uncategorized: ${filteredTransactions.count { it.categoryId == null }} transactions")
-        
-        // Add up spending for each transaction
-        filteredTransactions.forEach { transaction ->
-            val categoryId = transaction.categoryId
-            
-            if (categoryId != null) {
-                // If we have a category for this transaction
-                val category = categories.find { it.id == categoryId }
-                if (category != null) {
-                    val oldAmount = result[category] ?: 0.0f
-                    val newAmount = oldAmount + transaction.amount
-                    result[category] = newAmount
-                    Log.d("CATEGORY_SPENDING", "Added ${transaction.amount} to '${category.name}', total: $newAmount")
-                } else {
-                    // Category no longer exists, add to Other
-                    val oldAmount = result[otherCategory] ?: 0.0f
-                    val newAmount = oldAmount + transaction.amount
-                    result[otherCategory] = newAmount
-                    Log.d("CATEGORY_SPENDING", "Added ${transaction.amount} to '${otherCategory.name}' (missing category), total: $newAmount")
-                }
-            } else {
-                // No category assigned, add to Other
-                val oldAmount = result[otherCategory] ?: 0.0f
-                val newAmount = oldAmount + transaction.amount
-                result[otherCategory] = newAmount
-                Log.d("CATEGORY_SPENDING", "Added ${transaction.amount} to '${otherCategory.name}' (uncategorized), total: $newAmount")
-            }
-        }
-        
-        // Log final category totals
-        Log.d("CATEGORY_SPENDING", "----- Final Category Totals -----")
-        result.forEach { (category, amount) ->
-            Log.d("CATEGORY_SPENDING", "Category '${category.name}': $amount")
-        }
-        
-        // Return only categories with spending > 0
-        val nonZeroResults = result.filter { it.value > 0 }
-        Log.d("CATEGORY_SPENDING", "Categories with spending > 0: ${nonZeroResults.size}")
-        
-        nonZeroResults
-    }
-    
-    /**
-     * Get the category ID for a specific transaction
-     */
-    override suspend fun getCategoryIdForTransaction(transactionId: String): String? = withContext(Dispatchers.IO) {
-        val transaction = transactionRepository.getTransactionById(transactionId)
-        transaction?.categoryId
     }
     
     /**

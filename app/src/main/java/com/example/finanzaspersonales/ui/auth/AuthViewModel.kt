@@ -8,6 +8,10 @@ import androidx.lifecycle.viewModelScope
 import com.example.finanzaspersonales.data.auth.AuthRepository
 import com.example.finanzaspersonales.data.auth.AuthRepositoryImpl // Temporary direct instantiation
 import kotlinx.coroutines.launch
+import dagger.hilt.android.lifecycle.HiltViewModel
+import javax.inject.Inject
+import com.google.firebase.auth.FirebaseUser
+import kotlinx.coroutines.flow.StateFlow
 
 // Represents the state of the Login UI
 data class LoginUiState(
@@ -18,10 +22,13 @@ data class LoginUiState(
     val loginSuccess: Boolean = false // To trigger navigation
 )
 
-class AuthViewModel(
-    // Normally injected, but we instantiate directly for now
-    private val repository: AuthRepository = AuthRepositoryImpl()
+@HiltViewModel
+class AuthViewModel @Inject constructor(
+    private val repository: AuthRepository
 ) : ViewModel() {
+
+    // Expose authentication state from repository
+    val currentUserState: StateFlow<FirebaseUser?> = repository.currentUserState
 
     var loginUiState by mutableStateOf(LoginUiState())
         private set // Make the setter private to control state updates
@@ -58,6 +65,37 @@ class AuthViewModel(
                         errorMessage = exception.message ?: "An unknown error occurred"
                     )
                      println("Login Failed: ${exception.message}") // Log failure
+                }
+            )
+        }
+    }
+
+    fun signUpWithEmailPassword() {
+        if (loginUiState.isLoading) return // Prevent multiple clicks
+
+        loginUiState = loginUiState.copy(isLoading = true, errorMessage = null)
+
+        viewModelScope.launch {
+            val result = repository.signUpWithEmailPassword(
+                email = loginUiState.emailInput.trim(),
+                password = loginUiState.passwordInput
+            )
+
+            result.fold(
+                onSuccess = {
+                    // Sign up successful! Update state.
+                    // Decide if you want to automatically sign in or just indicate success.
+                    // For now, just mark success and clear loading.
+                    loginUiState = loginUiState.copy(isLoading = false, loginSuccess = true) // Reuse loginSuccess for now
+                    println("Sign Up Success: ${it.user?.email}") // Log success
+                },
+                onFailure = { exception ->
+                    // Sign up failed, update state with error message
+                    loginUiState = loginUiState.copy(
+                        isLoading = false,
+                        errorMessage = exception.message ?: "An unknown error occurred during sign up"
+                    )
+                    println("Sign Up Failed: ${exception.message}") // Log failure
                 }
             )
         }

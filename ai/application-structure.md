@@ -48,12 +48,17 @@ app/
     │   │               │   ├── usecase
     │   │               │   │   ├── CategoryAssignmentUseCase.kt
     │   │               │   │   └── ExtractTransactionDataUseCase.kt
+    │   │               │   └── GetSpendingByCategoryUseCase.kt
     │   │               │   └── util
     │   │               │       ├── ContactsUtil.kt
     │   │               │       ├── DateTimeUtils.kt
     │   │               │       ├── StringUtils.kt
     │   │               │       └── TextExtractors.kt
     │   │               └── ui
+    │   │                   ├── add_transaction
+    │   │                   │   ├── AddTransactionActivity.kt
+    │   │                   │   ├── AddTransactionScreen.kt
+    │   │                   │   └── AddTransactionViewModel.kt
     │   │                   ├── auth
     │   │                   │   ├── AuthViewModel.kt
     │   │                   │   └── LoginScreen.kt
@@ -146,6 +151,8 @@ app/
     *   `com/example/finanzaspersonales/`: The main package for the application code.
         *   `data/`: Contains data source implementations (local, remote, SMS receiver), repositories, and data models.
         *   `domain/`: Contains business logic (use cases) and utility classes.
+        *   `usecase/`: Contains specific business logic operations, encapsulating interactions between repositories (e.g., `CategoryAssignmentUseCase`, `ExtractTransactionDataUseCase`, `GetSpendingByCategoryUseCase`).
+        *   `util/`: Contains helper classes for common tasks like date/time manipulation, contact fetching, string operations, and text extraction.
         *   `ui/`: Contains UI-related code (Activities, Composables, ViewModels, themes), organized by feature (accounts, auth, categories, dashboard, providers, sms, transaction_list).
         *   `FinanzasApp.kt`: The custom `Application` class, used for application-level initialization.
 *   `res/`: Contains application resources (drawables, layouts, menus, icons, values, XML).
@@ -153,8 +160,14 @@ app/
 
 ## Summary
 
-The project follows a standard Android structure with Gradle (Kotlin DSL) for building. It adopts a layered architecture (`data`, `domain`, `ui`) within the main package `com.example.finanzaspersonales`. 
-Key structural improvements made:
+The project follows a standard Android structure with Gradle (Kotlin DSL) for building. It adopts a layered architecture (`data`, `domain`, `ui`) within the main package `com.example.finanzaspersonales`.
+Recent additions include:
+*   User registration functionality (email/password sign-up).
+*   The ability to manually add transactions via the new `ui/add_transaction` feature module.
+*   Functionality to delete incorrectly parsed transactions from the category detail view.
+*   Refactored repositories to break a dependency cycle: removed direct dependency of `CategoryRepositoryImpl` on `TransactionRepository`. Methods requiring both repositories (like calculating spending by category) are moved into dedicated Use Cases (e.g., `GetSpendingByCategoryUseCase`).
+
+Key structural improvements made previously:
 *   SMS-related code (`SmsReceiver`, `SmsPermissionActivity`) moved into appropriate `data` and `ui` layers (`data/sms`, `ui/sms`).
 *   `CategoriesActivity` moved into the `ui/categories` package.
 *   Legacy/temporary files (`.py`, `.txt`) removed from the source set.
