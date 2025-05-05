@@ -57,7 +57,7 @@ app/
     │   │               └── ui
     │   │                   ├── add_transaction
     │   │                   │   ├── AddTransactionActivity.kt
-    │   │                   │   ├── AddTransactionScreen.kt
+    │   │                   │   ├── AddTransactionScreen.kt // Allows manual input of Amount, Provider, Date, Type, Category.
     │   │                   │   └── AddTransactionViewModel.kt
     │   │                   ├── auth
     │   │                   │   ├── AuthViewModel.kt
@@ -163,7 +163,7 @@ app/
 The project follows a standard Android structure with Gradle (Kotlin DSL) for building. It adopts a layered architecture (`data`, `domain`, `ui`) within the main package `com.example.finanzaspersonales`.
 Recent additions include:
 *   User registration functionality (email/password sign-up).
-*   The ability to manually add transactions via the new `ui/add_transaction` feature module.
+*   The ability to manually add transactions via the new `ui/add_transaction` feature module (includes Amount, Provider, Date, Type, Category fields).
 *   Functionality to delete incorrectly parsed transactions from the category detail view.
 *   Refactored repositories to break a dependency cycle: removed direct dependency of `CategoryRepositoryImpl` on `TransactionRepository`. Methods requiring both repositories (like calculating spending by category) are moved into dedicated Use Cases (e.g., `GetSpendingByCategoryUseCase`).
 

@@ -17,10 +17,16 @@ data class SmsMessage(
 )
 
 data class TransactionData(
+    val id: String?, // Can be null initially
+    val userId: String?, // Can be null initially
     val date: java.util.Date,    // Parsed transaction date
     val amount: Float,           // Numeric amount
     val isIncome: Boolean,       // Income/expense classification
-    val originalMessage: SmsMessage
+    val description: String?,    // Original SMS body or null for manual entries
+    val provider: String?,       // Detected/extracted provider, or manually entered provider
+    val contactName: String?,    // Contact name if resolved from number
+    val accountInfo: AccountInfo?, // Detected account info
+    var categoryId: String?      // Mutable for easier assignment in cache?
 )
 ```
 
@@ -89,12 +95,18 @@ private fun extractTransactionData(messages: List<SmsMessage>): List<Transaction
     return messages.mapNotNull { message ->
         if (message.dateTime != null && message.numericAmount != null) {
             TransactionData(
+                id = null,
+                userId = null,
                 date = message.dateTime,
                 amount = message.numericAmount,
                 isIncome = message.body.contains(
                     Regex("(recepci[óo]n|recibiste|n[óo]mina)", RegexOption.IGNORE_CASE)
                 ),
-                originalMessage = message
+                description = message.body,
+                provider = message.provider,
+                contactName = message.recipientContact,
+                accountInfo = message.detectedAccount?.let { AccountInfo(it) },
+                categoryId = null
             )
         } else null
     }

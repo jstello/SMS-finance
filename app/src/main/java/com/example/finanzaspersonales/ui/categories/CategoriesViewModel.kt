@@ -214,13 +214,41 @@ class CategoriesViewModel @Inject constructor(
     }
     
     /**
-     * Refresh transaction data
+     * Reloads data from the repository without forcing an SMS refresh.
+     * Useful for updating the view after changes like manual additions or category assignments.
      */
-    fun refreshTransactionData() {
+    fun reloadData() {
+        viewModelScope.launch {
+             _isLoading.value = true
+             try {
+                 // No refreshSmsData() here
+                 // Initialize transactions (applies categories)
+                 // transactionRepository.initializeTransactions() // Might not be needed if cache is always applied
+                 // Reload all data from current repository state (cache/Firestore)
+                 loadAllTransactions()
+                 loadCategorySpending()
+                
+                 // If a category detail view was active, reload its transactions
+                 _selectedCategory.value?.let { loadTransactionsForCategory(it, _selectedTransactionType.value) }
+                 Log.d("CategoriesViewModel", "reloadData completed.")
+             } catch (e: Exception) {
+                 Log.e("CategoriesViewModel", "Error during reloadData", e)
+             } finally {
+                 _isLoading.value = false
+             }
+         }
+    }
+    
+    /**
+     * Refresh transaction data BY REPROCESSING SMS MESSAGES.
+     * DEPRECATED: Use reloadData() for general refresh or implement specific SMS resync if needed.
+     */
+    fun refreshTransactionData_OLD_SMS_ONLY() { // Renamed to avoid accidental use
         viewModelScope.launch {
             _isLoading.value = true
             try {
                 // FULL refresh: reprocess all SMS with updated income logic
+                Log.w("CategoriesViewModel", "Executing SMS-ONLY refresh via refreshTransactionData_OLD_SMS_ONLY")
                 transactionRepository.refreshSmsData(0)
                 // Initialize transactions with saved categories
                 transactionRepository.initializeTransactions()
@@ -236,6 +264,15 @@ class CategoriesViewModel @Inject constructor(
                 _isLoading.value = false
             }
         }
+    }
+
+     /**
+     * Refreshes transaction data by reloading from the primary data source (Firestore/Cache).
+     * This shows ALL transactions, including manually added ones.
+     */
+    fun refreshTransactionData() { // This is now the main refresh function
+        Log.d("CategoriesViewModel", "Executing general refresh via refreshTransactionData()")
+        reloadData() // Delegate to the general reload logic
     }
     
     /**

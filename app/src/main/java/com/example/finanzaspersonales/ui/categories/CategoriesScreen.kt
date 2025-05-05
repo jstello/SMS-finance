@@ -1,5 +1,6 @@
 package com.example.finanzaspersonales.ui.categories
 
+import android.util.Log
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -240,7 +241,9 @@ fun CategoriesScreen(
 
             // Automatically refresh data when the tab changes
             LaunchedEffect(selectedTransactionType) {
-                viewModel.refreshTransactionData()
+                // Call reloadData() instead of refreshTransactionData() to avoid wiping manual entries
+                Log.d("CategoriesScreen", "Tab changed to $selectedTransactionType, calling reloadData()")
+                viewModel.reloadData()
             }
 
             if (isLoading) {

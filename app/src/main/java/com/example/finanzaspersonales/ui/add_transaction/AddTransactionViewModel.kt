@@ -56,7 +56,7 @@ class AddTransactionViewModel @Inject constructor(
      */
     fun addManualTransaction(
         amount: Float,
-        description: String,
+        provider: String,
         date: Date,
         isIncome: Boolean,
         categoryId: String? // Nullable if no category selected
@@ -74,10 +74,10 @@ class AddTransactionViewModel @Inject constructor(
                     date = date,
                     amount = amount,
                     isIncome = isIncome,
-                    description = description,
-                    provider = description, // Use description as provider for manual entries? Or keep null?
-                    contactName = null, // No associated contact
-                    accountInfo = null, // No associated account info
+                    description = null,
+                    provider = provider,
+                    contactName = null,
+                    accountInfo = null,
                     categoryId = categoryId
                 )
 

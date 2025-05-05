@@ -509,10 +509,22 @@ class TransactionRepositoryImpl @Inject constructor(
                 docRef.set(savedTransaction).await()
                 // Log success of saving transaction with provider name
                 Log.d("FIRESTORE_TX", "Saved transaction provider=${savedTransaction.provider} for TxID=${savedTransaction.id}")
-                // Update in-memory cache so future reads reflect the updated provider
-                cachedTransactions = cachedTransactions.map { existing ->
-                    if (existing.id == savedTransaction.id) savedTransaction else existing
+                
+                // --- Corrected Cache Update Logic ---
+                val existingIndex = cachedTransactions.indexOfFirst { it.id == savedTransaction.id }
+                if (existingIndex != -1) {
+                    // Transaction already exists, update it in place
+                    val mutableCache = cachedTransactions.toMutableList()
+                    mutableCache[existingIndex] = savedTransaction
+                    cachedTransactions = mutableCache.toList()
+                    Log.d("CACHE_UPDATE", "Updated existing transaction in cache. TxID=${savedTransaction.id}")
+                } else {
+                    // Transaction is new, add it to the cache
+                    cachedTransactions = cachedTransactions + savedTransaction
+                    Log.d("CACHE_UPDATE", "Added new transaction to cache. TxID=${savedTransaction.id}. New cache size: ${cachedTransactions.size}")
                 }
+                // --- End Cache Update Logic ---
+                
                 Result.success(Unit)
             } catch (e: Exception) {
                 Log.e("FIRESTORE_TX", "Error saving transaction ${transaction.id}", e)
