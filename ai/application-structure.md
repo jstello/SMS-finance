@@ -175,3 +175,46 @@ Key structural improvements made previously:
 *   Documentation files (`.md`) previously in the source set are located in the `ai/` directory.
 
 The structure is now cleaner and better adheres to layered architecture principles, improving modularity and maintainability. 
+
+- **Repository**
+  - `repository/TransactionRepositoryImpl.kt` (mdc:app/src/main/java/com/example/finanzaspersonales/data/repository/TransactionRepositoryImpl.kt): Extracts, caches, and assigns categories to transactions.
+    - Manages an in-memory cache (`cachedTransactions`).
+    - The `getTransactions(forceRefresh: Boolean)` method implements a cache-first strategy:
+      - If `forceRefresh = false` and the cache is populated, a processed copy of the cache is returned.
+      - If `forceRefresh = true` or the cache is empty, it performs a full data retrieval:
+        1. Fetches transactions from Firestore.
+        2. Scans all local SMS messages (internally calling `refreshSmsData(0)` which processes SMS and updates its portion of the cache).
+        3. Merges the Firestore and SMS-derived transactions.
+        4. Applies category assignments (from SharedPreferences) and provider fallbacks.
+        5. Updates the main `cachedTransactions` with this merged and processed list.
+  - `repository/CategoryRepositoryImpl.kt` (mdc:app/src/main/java/com/example/finanzaspersonales/data/repository/CategoryRepositoryImpl.kt): Loads categories, assigns categories to transactions, calculates spending.
+    - Manages category persistence (SharedPreferences as fallback, with Firestore as primary for logged-in users).
+    - Provides `getUncategorizedCategoryPlaceholder(): Category` which returns a standard `Category` object (e.g., with `id = null`, `name = "Other"`) to represent uncategorized transactions.
+
+- **Domain Layer** (`app/src/main/java/com/example/finanzaspersonales/domain`)
+  - `usecase/ExtractTransactionDataUseCase.kt` (mdc:app/src/main/java/com/example/finanzaspersonales/domain/usecase/ExtractTransactionDataUseCase.kt): Converts SMS into `TransactionData`.
+  - `usecase/CategoryAssignmentUseCase.kt` (mdc:app/src/main/java/com/example/finanzaspersonales/domain/usecase/CategoryAssignmentUseCase.kt): Rule‐based category assignment.
+  - `usecase/GetSpendingByCategoryUseCase.kt`: (Path not provided) Calculates total spending for each category.
+    - Note: Should be updated to use `CategoryRepository.getUncategorizedCategoryPlaceholder()` when creating the summary for uncategorized transactions to ensure consistency with how "Other" is handled in detail views.
+  - `util/DateTimeUtils.kt` (mdc:app/src/main/java/com/example/finanzaspersonales/domain/util/DateTimeUtils.kt): Date helpers.
+
+- **UI Layer** (`app/src/main/java/com/example/finanzaspersonales/ui`)
+  - **Dashboard**
+    - `ui/dashboard/DashboardViewModel.kt` (mdc:app/src/main/java/com/example/finanzaspersonales/ui/dashboard/DashboardViewModel.kt)
+      - Note: Should be updated to use the cache-first approach (`getTransactions(forceRefresh = false)` for initial load, `getTransactions(forceRefresh = true)` for explicit refresh) similar to `CategoriesViewModel`.
+  - **Categories**
+    - `ui/categories/CategoriesActivity.kt` (mdc:app/src/main/java/com/example/finanzaspersonales/ui/categories/CategoriesActivity.kt)
+    - `ui/categories/CategoriesViewModel.kt` (mdc:app/src/main/java/com/example/finanzaspersonales/ui/categories/CategoriesViewModel.kt)
+      - Implements cache-first loading: calls `transactionRepository.getTransactions(forceRefresh = false)` for initial data population.
+      - Explicit refresh actions (e.g., refresh button) call `transactionRepository.getTransactions(forceRefresh = true)` to get fresh data.
+      - Uses `categoryRepository.getUncategorizedCategoryPlaceholder()` to identify and fetch details for the "Other" category (i.e., transactions with `categoryId = null` or empty).
+    - `ui/categories/TransactionDetailScreen.kt` (mdc:app/src/main/java/com/example/finanzaspersonales/ui/categories/TransactionDetailScreen.kt)
+  - **Transactions List**
+    - `ui/transaction_list/TransactionListActivity.kt` (mdc:app/src/main/java/com/example/finanzaspersonales/ui/transaction_list/TransactionListActivity.kt)
+    - `ui/transaction_list/TransactionListViewModel.kt` (mdc:app/src/main/java/com/example/finanzaspersonales/ui/transaction_list/TransactionListViewModel.kt)
+    - `ui/transaction_list/TransactionListScreen.kt` (mdc:app/src/main/java/com/example/finanzaspersonales/ui/transaction_list/TransactionListScreen.kt)
+    - `ui/transaction_list/TransactionListViewModel.kt` (mdc:app/src/main/java/com/example/finanzaspersonales/ui/transaction_list/TransactionListViewModel.kt)
+    - `ui/transaction_list/TransactionListViewModelFactory.kt` (mdc:app/src/main/java/com/example/finanzaspersonales/ui/transaction_list/TransactionListViewModelFactory.kt)
+    - `ui/transaction_list/TransactionListScreen.kt` (mdc:app/src/main/java/com/example/finanzaspersonales/ui/transaction_list/TransactionListScreen.kt)
+
+The structure is now cleaner and better adheres to layered architecture principles, improving modularity and maintainability. 

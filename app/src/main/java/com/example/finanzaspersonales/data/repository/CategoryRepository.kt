@@ -27,7 +27,7 @@ interface CategoryRepository {
      * Delete a category
      * Note: Reassigning transactions should be handled by a dedicated UseCase.
      */
-    suspend fun deleteCategory(categoryId: String)
+    suspend fun deleteCategory(categoryId: String): Result<Unit>
     
     /**
      * Save a category to Firestore
@@ -53,4 +53,10 @@ interface CategoryRepository {
      * Perform initial category sync
      */
     suspend fun performInitialCategorySync(userId: String): Result<Unit>
+
+    /**
+     * Returns a placeholder Category object to represent uncategorized transactions.
+     * This object typically has a null ID.
+     */
+    fun getUncategorizedCategoryPlaceholder(): Category
 } 

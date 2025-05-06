@@ -116,53 +116,135 @@ class TransactionRepositoryImpl @Inject constructor(
     
     /**
      * Get transactions extracted from SMS messages
+     * If forceRefresh is true, or if the cache is empty, it fetches from Firestore and scans all SMS.
+     * Otherwise, it returns a processed version of the current cache.
      */
-    override suspend fun getTransactions(): List<TransactionData> = withContext(Dispatchers.IO) {
-        Log.d("CAT_ASSIGN_REPO_T", "-> getTransactions() called.")
+    override suspend fun getTransactions(forceRefresh: Boolean): List<TransactionData> = withContext(Dispatchers.IO) {
+        if (!forceRefresh && cachedTransactions.isNotEmpty()) {
+            Log.d("GET_TX_CACHE_LOGIC", "-> getTransactions(forceRefresh=false) called, returning existing cache of ${cachedTransactions.size} items.")
+            // Apply category assignments and provider fallbacks to a copy of the existing cache before returning
+            // This ensures the UI gets consistently processed data even from a cache hit.
+            val currentCacheCopy = cachedTransactions.toList()
+            val categoriesApplied = applyCategoryAssignments(currentCacheCopy)
+            val finalProcessedCache = categoriesApplied.map { transaction ->
+                if (transaction.provider == null && transaction.contactName != null) {
+                    transaction.copy(provider = transaction.contactName)
+                } else {
+                    transaction
+                }
+            }
+            // Return the processed copy, do not update the global `cachedTransactions` here.
+            // The global cache is only updated by a full refresh path.
+            return@withContext finalProcessedCache
+        }
+
+        // Proceed with full refresh logic (forceRefresh is true OR cache was empty)
+        Log.d("GET_TX_MERGE_LOGIC", "-> getTransactions(forceRefresh=true or cache empty) called with Firestore and SMS merge logic.")
+
         // Debug authentication state before Firestore fetch
         Log.d("FIRESTORE_TX", "AuthRepository.currentUser (sync) = ${authRepository.currentUser?.uid}")
-        val debugUserId = authRepository.currentUserState.firstOrNull()?.uid
-        Log.d("FIRESTORE_TX", "AuthRepository.currentUserState.firstOrNull() = $debugUserId")
-        Log.d("FIRESTORE_TX", "Checking cache before Firestore fetch. cachedTransactions.isEmpty() = ${cachedTransactions.isEmpty()}, size = ${cachedTransactions.size}")
-        // Attempt to load saved transactions from Firestore on first run
-        if (cachedTransactions.isEmpty()) {
-            val userId = debugUserId
-            if (userId != null) {
-                Log.d("FIRESTORE_TX", "Attempting to fetch transactions from Firestore for user $userId")
-                val remoteResult = getTransactionsFromFirestore(userId)
-                if (remoteResult.isSuccess) {
-                    val remoteList = remoteResult.getOrNull().orEmpty()
-                    Log.d("FIRESTORE_TX", "Fetched ${remoteList.size} remote transactions")
-                    // Debug: verify provider for the recently updated transaction
-                    remoteList.firstOrNull { it.id == "61c254cb-0930-3b5a-aa52-f267a559b122" }?.let { tx ->
-                        Log.d("FIRESTORE_TX", "Debug fetch: TxID=${tx.id}, provider='${tx.provider}'")
-                    } ?: Log.w("FIRESTORE_TX", "Debug fetch: TxID=61c254cb-0930-3b5a-aa52-f267a559b122 not found in remoteList")
-                    cachedTransactions = remoteList
-                } else {
-                    Log.e("FIRESTORE_TX", "Failed to fetch transactions from Firestore", remoteResult.exceptionOrNull())
+        val currentUserId = authRepository.currentUserState.firstOrNull()?.uid
+        Log.d("FIRESTORE_TX", "AuthRepository.currentUserState.firstOrNull() = $currentUserId")
+
+        var firestoreTransactions: List<TransactionData> = emptyList()
+
+        // 1. Attempt to fetch transactions from Firestore
+        if (currentUserId != null) {
+            Log.d("GET_TX_MERGE_LOGIC", "Attempting to fetch transactions from Firestore for user $currentUserId")
+            val remoteResult = getTransactionsFromFirestore(currentUserId)
+            if (remoteResult.isSuccess) {
+                firestoreTransactions = remoteResult.getOrNull().orEmpty()
+                Log.d("GET_TX_MERGE_LOGIC", "Fetched ${firestoreTransactions.size} transactions from Firestore.")
+                // Debug specific transaction from Firestore
+                firestoreTransactions.firstOrNull { it.id == "61c254cb-0930-3b5a-aa52-f267a559b122" }?.let { tx ->
+                    Log.d("GET_TX_MERGE_LOGIC", "Debug Firestore fetch: TxID=${tx.id}, provider='${tx.provider}', categoryId='${tx.categoryId}'")
                 }
             } else {
-                Log.d("FIRESTORE_TX", "No authenticated user, skipping Firestore fetch")
+                Log.e("GET_TX_MERGE_LOGIC", "Failed to fetch transactions from Firestore", remoteResult.exceptionOrNull())
+            }
+        } else {
+            Log.d("GET_TX_MERGE_LOGIC", "No authenticated user, skipping Firestore fetch.")
+        }
+
+        // 2. Refresh and process local SMS data by calling refreshSmsData(0).
+        // refreshSmsData(0) clears its part of cachedTransactions and repopulates it from a full SMS scan.
+        Log.d("GET_TX_MERGE_LOGIC", "Calling refreshSmsData(0) to process all local SMS messages...")
+        refreshSmsData(0) // This updates `cachedTransactions` with the results of SMS processing.
+        val smsProcessedTransactions = cachedTransactions.toList() // Take a copy
+        Log.d("GET_TX_MERGE_LOGIC", "SMS processing (refreshSmsData(0)) resulted in ${smsProcessedTransactions.size} transactions.")
+        smsProcessedTransactions.firstOrNull { it.id == "61c254cb-0930-3b5a-aa52-f267a559b122" }?.let { tx ->
+            Log.d("GET_TX_MERGE_LOGIC", "Debug SMS fetch: TxID=${tx.id}, provider='${tx.provider}', categoryId='${tx.categoryId}'")
+        }
+
+
+        // 3. Merge Firestore and SMS-processed transactions
+        val mergedTransactions = mutableListOf<TransactionData>()
+        val allCombinedTransactions = firestoreTransactions + smsProcessedTransactions
+        val transactionsGroupedById = allCombinedTransactions.groupBy { it.id }
+
+        Log.d("GET_TX_MERGE_LOGIC", "Starting merge. Combined unique IDs from both sources: ${transactionsGroupedById.keys.size}")
+
+        transactionsGroupedById.forEach { (id, group) ->
+            if (group.size == 1) {
+                mergedTransactions.add(group.first())
+                // Log.d("GET_TX_MERGE_LOGIC", "  TxID $id: Unique. Added from source.")
+            } else {
+                // Conflict: Multiple transactions with the same ID (one from Firestore, one from SMS)
+                val fsVersion = group.find { tx -> firestoreTransactions.any { it.id == tx.id } }
+                val smsVersion = group.find { tx -> smsProcessedTransactions.any { it.id == tx.id } }
+
+                val chosenTransaction: TransactionData = when {
+                    fsVersion != null && smsVersion == null -> {
+                        Log.d("GET_TX_MERGE_LOGIC", "  TxID $id: Conflict resolved. Choosing Firestore version (SMS version missing).")
+                        fsVersion
+                    }
+                    smsVersion != null && fsVersion == null -> {
+                        Log.d("GET_TX_MERGE_LOGIC", "  TxID $id: Conflict resolved. Choosing SMS version (Firestore version missing).")
+                        smsVersion
+                    }
+                    fsVersion != null && smsVersion != null -> {
+                        // Both versions exist, apply prioritization logic
+                        if (fsVersion.provider != null && smsVersion.provider == null) {
+                            Log.d("GET_TX_MERGE_LOGIC", "  TxID $id: Conflict resolved. Choosing Firestore (has provider, SMS does not).")
+                            fsVersion
+                        } else if (smsVersion.provider != null && fsVersion.provider == null) {
+                            Log.d("GET_TX_MERGE_LOGIC", "  TxID $id: Conflict resolved. Choosing SMS (has provider, Firestore does not).")
+                            smsVersion
+                        } else if (fsVersion.categoryId != null && smsVersion.categoryId == null) {
+                            // Prioritize if Firestore has category and SMS doesn't
+                            Log.d("GET_TX_MERGE_LOGIC", "  TxID $id: Conflict resolved. Choosing Firestore (has categoryId, SMS does not).")
+                            fsVersion
+                        } else if (smsVersion.categoryId != null && fsVersion.categoryId == null) {
+                             Log.d("GET_TX_MERGE_LOGIC", "  TxID $id: Conflict resolved. Choosing SMS (has categoryId, Firestore does not).")
+                            smsVersion
+                        }
+                        else {
+                            // Default: if providers and categories are similar or both null/set, prefer Firestore's version.
+                            // Or, if they are truly identical, either one is fine.
+                            Log.d("GET_TX_MERGE_LOGIC", "  TxID $id: Conflict resolved. Defaulting to Firestore version (or they are very similar).")
+                            fsVersion
+                        }
+                    }
+                    else -> {
+                        // Should not be reached if group is not empty. Fallback to first.
+                        Log.w("GET_TX_MERGE_LOGIC", "  TxID $id: Unexpected state in merge. Taking first from group.")
+                        group.first()
+                    }
+                }
+                mergedTransactions.add(chosenTransaction)
             }
         }
-        
-        if (cachedTransactions.isEmpty()) {
-            Log.d("CAT_ASSIGN_REPO_T", "   Cache empty, calling refreshSmsData...")
-            refreshSmsData(0) // This populates cachedTransactions
-            // **Crucial Fix:** Explicitly apply assignments AFTER refreshing data for the first time
-            Log.d("CAT_ASSIGN_REPO_T", "   Applying category assignments after initial refresh...")
-            cachedTransactions = applyCategoryAssignments(cachedTransactions)
-        } else {
-            Log.d("CAT_ASSIGN_REPO_T", "   Cache not empty, applying category assignments...")
-            // Apply SharedPreferences categories and update the cache with the result
-            cachedTransactions = applyCategoryAssignments(cachedTransactions)
-        }
-        
-        // Ensure provider field is populated from contactName if null
-        val updatedTransactions = cachedTransactions.map { transaction ->
+        Log.d("GET_TX_MERGE_LOGIC", "Merge complete. Merged list size: ${mergedTransactions.size}")
+
+        // 4. Apply category assignments from SharedPreferences to the merged list
+        Log.d("GET_TX_MERGE_LOGIC", "Applying category assignments to the merged list of ${mergedTransactions.size} transactions...")
+        val categorizedTransactions = applyCategoryAssignments(mergedTransactions)
+
+        // 5. Ensure provider field is populated from contactName if null
+        val finalTransactions = categorizedTransactions.map { transaction ->
             // Debug: Check provider state for the specific transaction *before* the map logic
             if (transaction.id == "61c254cb-0930-3b5a-aa52-f267a559b122") {
-                Log.d("FIRESTORE_TX", "Provider Check (Before Map): TxID=${transaction.id}, provider=${transaction.provider}, contactName=${transaction.contactName}")
+                Log.d("GET_TX_MERGE_LOGIC", "Provider Check (Before Provider Fallback Map): TxID=${transaction.id}, provider=${transaction.provider}, contactName=${transaction.contactName}, categoryId=${transaction.categoryId}")
             }
             if (transaction.provider == null && transaction.contactName != null) {
                 Log.d("TX_REPO_GET_TX", "Updating provider from contactName for TxID: ${transaction.id} - Provider: ${transaction.contactName}")
@@ -172,21 +254,21 @@ class TransactionRepositoryImpl @Inject constructor(
             }.also {
                 // Debug: Check provider state *after* the map logic
                 if (it.id == "61c254cb-0930-3b5a-aa52-f267a559b122") {
-                    Log.d("FIRESTORE_TX", "Provider Check (After Map): TxID=${it.id}, provider=${it.provider}")
+                    Log.d("GET_TX_MERGE_LOGIC", "Provider Check (After Provider Fallback Map): TxID=${it.id}, provider=${it.provider}")
                 }
             }
         }
 
-        // Update the cache with the potentially modified list
-        cachedTransactions = updatedTransactions
+        // Update the main cache with the final merged and processed list
+        cachedTransactions = finalTransactions
 
         // Final check before returning from repository
         cachedTransactions.firstOrNull { it.id == "61c254cb-0930-3b5a-aa52-f267a559b122" }?.let {
-            Log.d("FIRESTORE_TX", "Final Repo Return Check: TxID=${it.id}, provider=${it.provider}")
+            Log.d("GET_TX_MERGE_LOGIC", "Final Repo Return Check: TxID=${it.id}, provider=${it.provider}, categoryId=${it.categoryId}")
         }
 
-        Log.d("CAT_ASSIGN_REPO_T", "<- getTransactions() returning ${cachedTransactions.size} items.")
-        cachedTransactions // Return the potentially updated cached list
+        Log.d("CAT_ASSIGN_REPO_T", "<- getTransactions() returning ${cachedTransactions.size} items after merge and processing.")
+        cachedTransactions // Return the final merged, categorized, and provider-populated list
     }
     
     /**
@@ -404,7 +486,7 @@ class TransactionRepositoryImpl @Inject constructor(
     override suspend fun getTransactionsByCategory(categoryId: String): List<TransactionData> = 
         withContext(Dispatchers.Default) {
             Log.d("TX_REPO_GET_BY_CAT", "(TransactionRepo) getTransactionsByCategory called for ID: $categoryId - Performing simple filter.")
-            val transactions = getTransactions()
+            val transactions = getTransactions(false)
             val result = transactions.filter { it.categoryId == categoryId }
             Log.d("TX_REPO_GET_BY_CAT", "(TransactionRepo) Returning ${result.size} transactions strictly matching ID: $categoryId")
             result
@@ -670,7 +752,7 @@ class TransactionRepositoryImpl @Inject constructor(
      */
     override suspend fun getProviderStats(from: Long, to: Long): List<ProviderStat> = withContext(Dispatchers.IO) {
         Log.d("PROVIDER_STATS", "-> getProviderStats called. From: $from, To: $to")
-        val transactions = getTransactions() // Ensure transactions are loaded and categories applied
+        val transactions = getTransactions(false) // Ensure transactions are loaded and categories applied
         Log.d("PROVIDER_STATS", "   Total transactions fetched: ${transactions.size}")
 
         val filteredTransactions = transactions.filter {

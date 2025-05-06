@@ -19,7 +19,7 @@ interface TransactionRepository {
     /**
      * Get transactions extracted from SMS messages
      */
-    suspend fun getTransactions(): List<TransactionData>
+    suspend fun getTransactions(forceRefresh: Boolean = false): List<TransactionData>
     
     /**
      * Filter transactions by year and month

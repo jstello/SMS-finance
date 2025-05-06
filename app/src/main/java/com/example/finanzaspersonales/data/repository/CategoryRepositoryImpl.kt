@@ -227,4 +227,19 @@ class CategoryRepositoryImpl @Inject constructor(
             }
         }
     }
+
+    /**
+     * Returns a placeholder Category object to represent uncategorized transactions.
+     */
+    override fun getUncategorizedCategoryPlaceholder(): Category {
+        // Returns a new instance each time to prevent accidental modification of a shared object.
+        // The ID is null, signifying it's a placeholder for transactions without a categoryId.
+        return Category(
+            id = null, // Crucial: ID is null for this placeholder
+            name = "Other",
+            icon = "ic_other", // Or a generic icon resource name
+            color = "#808080",  // Grey or a neutral color
+            userId = null    // Not tied to a specific user for saving, it's a concept
+        )
+    }
 } 

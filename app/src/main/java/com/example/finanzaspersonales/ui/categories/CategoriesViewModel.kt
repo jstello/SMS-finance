@@ -141,16 +141,16 @@ class CategoriesViewModel @Inject constructor(
     /**
      * Load all transactions
      */
-    private fun loadAllTransactions() {
-        Log.d("CAT_ASSIGN_VM", "-> loadAllTransactions() called.")
+    private fun loadAllTransactions(forceRemoteRefresh: Boolean = false) {
+        Log.d("CAT_ASSIGN_VM", "-> loadAllTransactions(forceRemoteRefresh=$forceRemoteRefresh) called.")
         viewModelScope.launch {
             // Don't show loading indicator if already loading
             val wasLoading = _isLoading.value
             if (!wasLoading) _isLoading.value = true
             
             try {
-                Log.d("CAT_ASSIGN_VM", "   Calling transactionRepository.getTransactions()...")
-                val transactions = transactionRepository.getTransactions()
+                Log.d("CAT_ASSIGN_VM", "   Calling transactionRepository.getTransactions(forceRefresh=$forceRemoteRefresh)...")
+                val transactions = transactionRepository.getTransactions(forceRefresh = forceRemoteRefresh)
                 _allTransactions.value = transactions
                 Log.d("CAT_ASSIGN_VM", "   Updated _allTransactions with ${transactions.size} items.")
             } catch (e: Exception) {
@@ -271,8 +271,30 @@ class CategoriesViewModel @Inject constructor(
      * This shows ALL transactions, including manually added ones.
      */
     fun refreshTransactionData() { // This is now the main refresh function
-        Log.d("CategoriesViewModel", "Executing general refresh via refreshTransactionData()")
-        reloadData() // Delegate to the general reload logic
+        Log.d("CategoriesViewModel", "-> refreshTransactionData() called (Hard Refresh)")
+        viewModelScope.launch {
+            _isLoading.value = true
+            try {
+                // 1. Force refresh from repository (includes SMS scan and Firestore fetch)
+                Log.d("CategoriesViewModel", "   Calling loadAllTransactions(forceRemoteRefresh = true)")
+                loadAllTransactions(forceRemoteRefresh = true)
+
+                // 2. Reload category spending which depends on the new transactions
+                Log.d("CategoriesViewModel", "   Calling loadCategorySpending بعد refresh")
+                loadCategorySpending() 
+
+                // If a category detail view was active, reload its transactions
+                _selectedCategory.value?.let {
+                    Log.d("CategoriesViewModel", "   Reloading transactions for selected category: ${it.name}")
+                    loadTransactionsForCategory(it, _selectedTransactionType.value)
+                }
+                Log.i("CategoriesViewModel", "Hard refresh completed successfully.")
+            } catch (e: Exception) {
+                Log.e("CategoriesViewModel", "Error refreshing transaction data", e)
+            } finally {
+                _isLoading.value = false
+            }
+        }
     }
     
     /**
@@ -289,34 +311,45 @@ class CategoriesViewModel @Inject constructor(
     fun loadTransactionsForCategory(category: Category, transactionType: TransactionType) {
         viewModelScope.launch {
             val categoryId = category.id
-            Log.i("CAT_DETAIL_VM", "Loading transactions for category: ${category.name} (ID: $categoryId), Type: $transactionType")
+            val categoryName = category.name
+            Log.i("CAT_DETAIL_VM", "-> loadTransactionsForCategory. Category: '$categoryName' (ID: $categoryId), Type: $transactionType")
 
             _isLoading.value = true
             try {
-                // Step 1: Get relevant transactions (either by ID or uncategorized)
-                val allTransactionsForCategory = if (categoryId == null) {
-                    // Handle the 'Other'/Uncategorized case
-                    Log.d("CAT_DETAIL_VM", "Fetching uncategorized transactions (categoryId is null)")
-                    val allTrans = transactionRepository.getTransactions() // Need all to find uncategorized
-                    Log.d("CAT_DETAIL_OTHER_RAW", "Total transactions fetched before local filter: ${allTrans.size}")
-                    // Log first 10 transactions before filtering for null categoryId
-                    allTrans.take(10).forEachIndexed { index, tx ->
-                        Log.v("CAT_DETAIL_OTHER_RAW", "   Pre-filter[$index]: ID=${tx.id}, CatId=${tx.categoryId ?: "NULL"}, Prov=${tx.provider}")
+                // Step 1: Get relevant transactions
+                val allTransactionsForCategory: List<TransactionData>
+
+                // Get the standard placeholder for "Uncategorized/Other"
+                val uncategorizedPlaceholder = categoryRepository.getUncategorizedCategoryPlaceholder()
+
+                // Check if the incoming category is conceptually the "Uncategorized/Other" placeholder
+                // This is true if the incoming category's ID is null (matching our placeholder's ID)
+                // OR if its name matches the placeholder's name (as a fallback, though ID check is primary)
+                val isEffectivelyUncategorized = (categoryId == uncategorizedPlaceholder.id) || 
+                                                 (categoryId == null) || // Explicitly handle if a truly null ID object is passed
+                                                 (categoryName == uncategorizedPlaceholder.name && categoryId != null) // Fallback for old ID a0a0... if name is 'Other'
+
+                if (isEffectivelyUncategorized) {
+                    Log.d("CAT_DETAIL_VM", "   'Other'/Uncategorized category type detected (ID: $categoryId, Name: $categoryName). Fetching all transactions then filtering locally for actual uncategorized items.")
+                    val allRepoTransactions = transactionRepository.getTransactions(forceRefresh = false)
+                    Log.d("CAT_DETAIL_VM", "      Fetched ${allRepoTransactions.size} total transactions from repository for 'Other'/Uncategorized.")
+                    
+                    allTransactionsForCategory = allRepoTransactions.filter { 
+                        val txCatId = it.categoryId
+                        txCatId == null || txCatId.isEmpty()
                     }
-                    allTrans.filter { 
-                        val id = it.categoryId // Capture the value locally
-                        id == null || id.isEmpty() // Use the local variable for both checks
+                    Log.d("CAT_DETAIL_VM", "      Filtered down to ${allTransactionsForCategory.size} actual uncategorized (null or empty categoryId) transactions.")
+                    if (allTransactionsForCategory.isNotEmpty()) {
+                        Log.d("CAT_DETAIL_VM", "      Sample of actual uncategorized transactions (first 5):")
+                        allTransactionsForCategory.take(5).forEachIndexed { index, tx ->
+                            Log.d("CAT_DETAIL_VM", "         [$index]: ID=${tx.id}, Date=${tx.date}, Amt=${tx.amount}, isIncome=${tx.isIncome}, CatId='${tx.categoryId}', Prov=${tx.provider}")
+                        }
                     }
-                } else {
-                    // Handle regular categories
-                    Log.d("CAT_DETAIL_VM", "Fetching transactions for categoryId: $categoryId from TransactionRepository")
-                    transactionRepository.getTransactionsByCategory(categoryId)
+                } else { // Regular category with a specific, non-null, non-placeholder ID
+                    Log.d("CAT_DETAIL_VM", "   Fetching transactions for specific categoryId: $categoryId (Name: $categoryName) from TransactionRepository.")
+                    allTransactionsForCategory = transactionRepository.getTransactionsByCategory(categoryId)
                 }
-                Log.d("CAT_DETAIL_VM", "Fetched ${allTransactionsForCategory.size} raw transactions for category: ${category.name}")
-                // Log details of the fetched transactions before filtering
-                allTransactionsForCategory.take(10).forEachIndexed { index, tx ->
-                    Log.d("CAT_DETAIL_RAW_TX", "   Raw[$index]: ID=${tx.id}, Date=${tx.date}, Amt=${tx.amount}, CatId=${tx.categoryId ?: "NULL"}, Prov=${tx.provider}")
-                }
+                Log.d("CAT_DETAIL_VM", "   Initial count for '$categoryName': ${allTransactionsForCategory.size}")
 
                 // Determine income filter based on the passed parameter
                 val filterIsIncome = when(transactionType) {
@@ -328,7 +361,7 @@ class CategoriesViewModel @Inject constructor(
                 val filterYear = _selectedYear.value
                 val filterMonth = _selectedMonth.value
 
-                Log.d("CAT_DETAIL_VM", "Applying filters - Year: $filterYear, Month: $filterMonth, IsIncome: $filterIsIncome")
+                Log.d("CAT_DETAIL_VM", "   Applying filters to ${allTransactionsForCategory.size} transactions - Year: $filterYear, Month: $filterMonth, IsIncome: $filterIsIncome")
 
                 val filteredTransactions = transactionRepository.filterTransactions(
                     transactions = allTransactionsForCategory,
@@ -336,7 +369,10 @@ class CategoriesViewModel @Inject constructor(
                     month = filterMonth,
                     isIncome = filterIsIncome
                 )
-                Log.d("CAT_DETAIL_VM", "Filtered transactions count: ${filteredTransactions.size}")
+                Log.d("CAT_DETAIL_VM", "   Filtered transactions count after repository.filterTransactions: ${filteredTransactions.size}")
+                if (allTransactionsForCategory.isNotEmpty() && filteredTransactions.isEmpty()) {
+                    Log.w("CAT_DETAIL_VM", "   WARNING: Started with ${allTransactionsForCategory.size} transactions for category '$categoryName', but all were filtered out by date/type.")
+                }
 
                 // Step 3: Sort the filtered transactions directly based on current sort state
                 val sortedTransactions = when (_sortField.value) {
