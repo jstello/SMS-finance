@@ -96,6 +96,19 @@ class SharedPrefsManager(private val context: Context) {
         }
     }
     
+    /**
+     * Clear all transaction category assignments from SharedPreferences
+     */
+    fun clearTransactionCategoryAssignments() {
+        Log.d("SharedPrefsManager", "Clearing all transaction category assignments.")
+        try {
+            transactionPrefs.edit().remove(KEY_TRANSACTION_CATEGORIES).apply()
+            Log.d("SharedPrefsManager", "Successfully cleared transaction category assignments.")
+        } catch (e: Exception) {
+            Log.e("SharedPrefsManager", "Error clearing transaction category assignments from SharedPreferences", e)
+        }
+    }
+    
     // Sync status functions
     /**
      * Check if initial sync has been completed for a user

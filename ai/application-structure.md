@@ -82,6 +82,10 @@ app/
     │   │                   │   ├── Color.kt
     │   │                   │   ├── Theme.kt
     │   │                   │   └── Type.kt
+    │   │                   └── settings
+    │   │                       ├── SettingsActivity.kt
+    │   │                       ├── SettingsScreen.kt
+    │   │                       └── SettingsViewModel.kt
     │   │                   └── transaction_list
     │   │                       ├── TransactionListActivity.kt
     │   │                       ├── TransactionListScreen.kt
@@ -166,6 +170,7 @@ Recent additions include:
 *   The ability to manually add transactions via the new `ui/add_transaction` feature module (includes Amount, Provider, Date, Type, Category fields).
 *   Functionality to delete incorrectly parsed transactions from the category detail view.
 *   Refactored repositories to break a dependency cycle: removed direct dependency of `CategoryRepositoryImpl` on `TransactionRepository`. Methods requiring both repositories (like calculating spending by category) are moved into dedicated Use Cases (e.g., `GetSpendingByCategoryUseCase`).
+*   Added a Developer Settings screen (`ui/settings`) with a button to clear user transactions and resync data.
 
 Key structural improvements made previously:
 *   SMS-related code (`SmsReceiver`, `SmsPermissionActivity`) moved into appropriate `data` and `ui` layers (`data/sms`, `ui/sms`).

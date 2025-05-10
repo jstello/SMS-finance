@@ -97,6 +97,7 @@ import kotlin.math.round
 import com.example.finanzaspersonales.ui.providers.ProvidersActivity
 import com.example.finanzaspersonales.ui.add_transaction.AddTransactionActivity
 import androidx.compose.ui.platform.LocalContext
+import com.example.finanzaspersonales.ui.settings.SettingsActivity
 
 // Helper function to format large numbers to millions with one decimal place
 private fun formatToMillions(value: Float): String {
@@ -242,7 +243,7 @@ fun DashboardScreen(
     val monthlyExpenses by viewModel.monthlyExpenses.collectAsState()
     val recentTransactions by viewModel.recentTransactions.collectAsState()
     val isLoading by viewModel.isLoading.collectAsState()
-    val context = LocalContext.current // Get context for Toast
+    val context = LocalContext.current // Get context for Toast and starting activities
     val monthlyBalance = monthlyIncome - monthlyExpenses
 
     LaunchedEffect(Unit) {
@@ -254,14 +255,20 @@ fun DashboardScreen(
         topBar = {
             TopAppBar(
                 title = { Text("Dashboard") },
+                colors = TopAppBarDefaults.topAppBarColors(
+                    containerColor = MaterialTheme.colorScheme.primaryContainer,
+                    titleContentColor = MaterialTheme.colorScheme.onPrimaryContainer,
+                ),
                 actions = {
-                    // Refresh Button
                     IconButton(onClick = { viewModel.loadDashboardData() }) {
-                        Icon(Icons.Default.Refresh, contentDescription = "Refresh")
+                        Icon(Icons.Filled.Refresh, contentDescription = "Refresh Data")
                     }
-                    // TODO: Add Settings Icon/Navigation
+                    IconButton(onClick = { 
+                        context.startActivity(Intent(context, SettingsActivity::class.java))
+                    }) {
+                        Icon(Icons.Filled.Settings, contentDescription = "Settings")
+                    }
                 }
-                // ... (rest of TopAppBar)
             )
         },
         floatingActionButton = { // Add FAB here

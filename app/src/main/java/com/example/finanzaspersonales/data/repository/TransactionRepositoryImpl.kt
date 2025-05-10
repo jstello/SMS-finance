@@ -152,7 +152,7 @@ class TransactionRepositoryImpl @Inject constructor(
         if (currentUserId != null) {
             Log.d("GET_TX_MERGE_LOGIC", "Attempting to fetch transactions from Firestore for user $currentUserId")
             val remoteResult = getTransactionsFromFirestore(currentUserId)
-            if (remoteResult.isSuccess) {
+                if (remoteResult.isSuccess) {
                 firestoreTransactions = remoteResult.getOrNull().orEmpty()
                 Log.d("GET_TX_MERGE_LOGIC", "Fetched ${firestoreTransactions.size} transactions from Firestore.")
                 // Debug specific transaction from Firestore
@@ -164,7 +164,7 @@ class TransactionRepositoryImpl @Inject constructor(
             }
         } else {
             Log.d("GET_TX_MERGE_LOGIC", "No authenticated user, skipping Firestore fetch.")
-        }
+            }
 
         // 2. Refresh and process local SMS data by calling refreshSmsData(0).
         // refreshSmsData(0) clears its part of cachedTransactions and repopulates it from a full SMS scan.
@@ -239,7 +239,7 @@ class TransactionRepositoryImpl @Inject constructor(
         // 4. Apply category assignments from SharedPreferences to the merged list
         Log.d("GET_TX_MERGE_LOGIC", "Applying category assignments to the merged list of ${mergedTransactions.size} transactions...")
         val categorizedTransactions = applyCategoryAssignments(mergedTransactions)
-
+        
         // 5. Ensure provider field is populated from contactName if null
         val finalTransactions = categorizedTransactions.map { transaction ->
             // Debug: Check provider state for the specific transaction *before* the map logic
@@ -324,43 +324,60 @@ class TransactionRepositoryImpl @Inject constructor(
     }
     
     /**
-     * Refresh SMS data with options to limit by date
+     * Refresh SMS data with options to limit by date. This method is called by getTransactions(forceRefresh=true)
+     * when limitToRecentMonths is 0 to get all SMS messages, process them, and populate cachedTransactions
+     * with only SMS-derived data before it's merged with Firestore data.
      */
     override suspend fun refreshSmsData(limitToRecentMonths: Int) = withContext(Dispatchers.IO) {
         if (!smsDataSource.hasReadSmsPermission()) {
-            Log.w("SMS_REFRESH", "SMS permission not granted")
+            Log.w("SMS_REFRESH", "SMS permission not granted, cannot refresh SMS data.")
+            // Consider if an error should be propagated or if logging is sufficient.
+            // For now, it matches the previous behavior of just logging and returning.
             return@withContext
         }
-        
+
         try {
-            Log.d("SMS_REFRESH", "Loading SMS data limited to last $limitToRecentMonths months")
+            Log.i("SMS_REFRESH", "Starting SMS data refresh. limitToRecentMonths: $limitToRecentMonths")
             val messages = smsDataSource.readSmsMessages(
                 limitToRecentMonths = limitToRecentMonths,
-                maxResults = 500
+                maxResults = 1000 // Increased maxResults for potentially larger full scans
             )
-            
-            // On a full refresh (limit 0), clear both SMS and transaction caches
+            Log.d("SMS_REFRESH", "Fetched ${messages.size} SMS messages from SmsDataSource.")
+
             if (limitToRecentMonths == 0) {
-                Log.d("SMS_REFRESH", "Full refresh: clearing SMS and transaction caches")
+                // Full refresh: Clear existing SMS-related caches that this method repopulates.
+                // getTransactions() will later merge this purely SMS-derived cachedTransactions with Firestore data.
+                Log.d("SMS_REFRESH", "Full refresh (limitToRecentMonths=0): Clearing cachedSmsMessages and cachedTransactions for new SMS scan.")
                 cachedSmsMessages = emptyList()
-                cachedTransactions = emptyList()
-            } else {
-                Log.d("SMS_REFRESH", "Partial refresh: preserving existing transaction cache and only merging new SMS")
+                cachedTransactions = emptyList() // Reset for fresh population by processChunk
             }
-            
-            // Always update the SMS message cache
-            cachedSmsMessages = messages
-            
-            Log.d("SMS_REFRESH", "Processing ${messages.size} SMS messages in chunks")
+            // For partial refresh (limitToRecentMonths > 0), processChunk will merge new SMS data into existing cachedTransactions.
+
+            cachedSmsMessages = messages // Update the raw SMS message cache regardless of full/partial refresh.
+
+            Log.d("SMS_REFRESH", "Processing ${messages.size} SMS messages in chunks.")
             messages.chunked(50).forEach { chunk ->
-                processChunk(chunk)
+                processChunk(chunk) // This method processes SMS to TransactionData and updates/merges into cachedTransactions
             }
-            
-            // Apply category assignments to all transactions after processing
-            cachedTransactions = applyCategoryAssignments(cachedTransactions)
-            
+
+            Log.i("SMS_REFRESH", "Finished SMS data refresh. limitToRecentMonths: $limitToRecentMonths. Final cachedTransactions size: ${cachedTransactions.size}")
+
         } catch (e: Exception) {
-            Log.e("SMS_REFRESH", "Error processing SMS", e)
+            Log.e("SMS_REFRESH", "Error during SMS data refresh (limitToRecentMonths=$limitToRecentMonths): ${e.message}", e)
+            // Depending on desired error handling, could throw e or wrap in a Result if signature changed.
+        }
+    }
+    
+    /**
+     * Refresh SMS data based on last sync timestamp (wraps full refresh)
+     */
+    override suspend fun refreshSmsData(lastSyncTimestamp: Long): Result<Unit> = withContext(Dispatchers.IO) {
+        try {
+            // Perform a full SMS refresh
+            this@TransactionRepositoryImpl.refreshSmsData(limitToRecentMonths = 0)
+            Result.success(Unit)
+        } catch (e: Exception) {
+            Result.failure(e)
         }
     }
     
@@ -779,5 +796,64 @@ class TransactionRepositoryImpl @Inject constructor(
         
         Log.d("PROVIDER_STATS", "<- getProviderStats returning ${stats.size} stats.")
         stats
+    }
+
+    override suspend fun developerClearUserTransactions(userId: String): Result<Unit> {
+        return withContext(Dispatchers.IO) {
+            try {
+                // 1. Delete all documents from users/{userId}/transactions in Firestore
+                val userTransactionsCollection = db.collection("users").document(userId).collection("transactions")
+                var query = userTransactionsCollection.limit(500) // Batch size
+                var snapshot = query.get().await()
+
+                while (snapshot.documents.isNotEmpty()) {
+                    val batch: WriteBatch = db.batch()
+                    snapshot.documents.forEach { document ->
+                        batch.delete(document.reference)
+                    }
+                    batch.commit().await()
+                    // Get the next batch
+                    if (snapshot.documents.size < 500) break // Last batch was smaller than limit
+                    val lastVisible = snapshot.documents[snapshot.size() - 1]
+                    query = userTransactionsCollection.startAfter(lastVisible).limit(500)
+                    snapshot = query.get().await()
+                }
+
+                // 2. Clear cachedSmsMessages if needed (will be refreshed in next getTransactions)
+                // 3. Clear cachedTransactions
+                cachedTransactions = emptyList()
+
+                // 4. Clear transactionCategoryCache and SharedPreferences
+                transactionCategoryCache.clear()
+                sharedPrefsManager.clearTransactionCategoryAssignments()
+
+                Log.d("DevReset", "Successfully cleared user transactions for $userId")
+                Result.success(Unit)
+            } catch (e: Exception) {
+                Log.e("DevReset", "Error clearing user transactions for $userId", e)
+                Result.failure(e)
+            }
+        }
+    }
+
+    private fun getTransactionSource(transaction: TransactionData): String {
+        // ... existing code ...
+        // Implement the logic to determine the source of the transaction
+        // This is a placeholder and should be replaced with the actual implementation
+        return "Unknown"
+    }
+
+    /**
+     * Get raw SMS messages within a specific date range
+     */
+    override suspend fun getSmsMessages(startTimeMillis: Long, endTimeMillis: Long): List<SmsMessage> = withContext(Dispatchers.IO) {
+        // Ensure SMS cache is populated
+        val allSms = getAllSmsMessages()
+        return@withContext allSms.filter { sms ->
+            // Only include messages with non-null dateTime within the given range
+            sms.dateTime?.time?.let { ts ->
+                ts in startTimeMillis..endTimeMillis
+            } == true
+        }
     }
 } 

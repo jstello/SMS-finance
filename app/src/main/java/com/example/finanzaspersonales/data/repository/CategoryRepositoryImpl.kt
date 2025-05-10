@@ -105,21 +105,36 @@ class CategoryRepositoryImpl @Inject constructor(
     /**
      * Delete a category (Needs update for Firestore & reassignment logic)
      */
-    override suspend fun deleteCategory(categoryId: String) = withContext(Dispatchers.IO) {
-        // TODO: Call deleteCategoryFromFirestore here
-        // TODO: Revisit transaction reassignment logic when fetching from Firestore - MOVED TO USE CASE
+    override suspend fun deleteCategory(categoryId: String): Result<Unit> = withContext(Dispatchers.IO) {
+        val userId = authRepository.currentUserState.firstOrNull()?.uid
+        if (userId == null) {
+            Log.e("CAT_REPO_DELETE", "User not logged in, cannot delete category $categoryId from Firestore.")
+            return@withContext Result.failure(IllegalStateException("User not logged in"))
+        }
+
+        // Attempt to delete from Firestore first
+        val firestoreDeleteResult = deleteCategoryFromFirestore(categoryId, userId)
+        if (firestoreDeleteResult.isFailure) {
+            Log.e("CAT_REPO_DELETE", "Failed to delete category $categoryId from Firestore.", firestoreDeleteResult.exceptionOrNull())
+            return@withContext firestoreDeleteResult // Propagate Firestore deletion failure
+        }
+        Log.i("CAT_REPO_DELETE", "Successfully deleted category $categoryId from Firestore for user $userId.")
+
+        // Proceed with SharedPreferences deletion only if Firestore deletion was successful
         val categories = sharedPrefsManager.loadCategories().toMutableList()
         val index = categories.indexOfFirst { it.id == categoryId }
         if (index >= 0) {
             categories.removeAt(index)
             sharedPrefsManager.saveCategories(categories)
-            
-            // Reassignment logic removed - should be handled by a dedicated Use Case
-            // that can access both CategoryRepository and TransactionRepository.
-            Log.w("DELETE_CAT", "Transaction reassignment logic needs to be implemented in a separate UseCase.")
-            
-            // Example: deleteCategoryFromFirestore(categoryId, getCurrentUserId())
+            Log.i("CAT_REPO_DELETE", "Successfully deleted category $categoryId from SharedPreferences.")
+        } else {
+            Log.w("CAT_REPO_DELETE", "Category $categoryId not found in SharedPreferences, might have only been in Firestore.")
         }
+        
+        // Transaction reassignment logic is handled by a dedicated Use Case.
+        Log.w("DELETE_CAT", "Transaction reassignment logic should be handled in a separate UseCase if necessary.")
+        
+        return@withContext Result.success(Unit)
     }
     
     /**
@@ -237,8 +252,7 @@ class CategoryRepositoryImpl @Inject constructor(
         return Category(
             id = null, // Crucial: ID is null for this placeholder
             name = "Other",
-            icon = "ic_other", // Or a generic icon resource name
-            color = "#808080",  // Grey or a neutral color
+            color = 0xFF808080.toInt(),  // Grey or a neutral color, converted to Int
             userId = null    // Not tied to a specific user for saving, it's a concept
         )
     }

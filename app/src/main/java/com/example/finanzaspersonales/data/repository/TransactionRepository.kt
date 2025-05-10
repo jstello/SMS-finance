@@ -90,4 +90,8 @@ interface TransactionRepository {
      * @return A list of ProviderStat objects, sorted descending by total amount.
      */
     suspend fun getProviderStats(from: Long, to: Long): List<ProviderStat>
+
+    suspend fun getSmsMessages(startTimeMillis: Long, endTimeMillis: Long): List<SmsMessage>
+    suspend fun refreshSmsData(lastSyncTimestamp: Long): Result<Unit>
+    suspend fun developerClearUserTransactions(userId: String): Result<Unit>
 } 

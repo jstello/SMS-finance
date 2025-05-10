@@ -76,10 +76,15 @@
             android:name=".ui.providers.ProvidersActivity"
             android:exported="false" />
         <activity
-            android:name=".ui.add_transaction.AddTransactionActivity" 
-            android:label="Add Transaction" 
-            android:exported="false" 
-            android:theme="@style/Theme.FinanzasPersonales"/>
+            android:name=".ui.add_transaction.AddTransactionActivity"
+            android:exported="false"
+            android:label="@string/title_activity_add_transaction"
+            android:theme="@style/Theme.FinanzasPersonales" />
+        <activity
+            android:name=".ui.settings.SettingsActivity"
+            android:exported="false"
+            android:label="@string/title_activity_settings"
+            android:theme="@style/Theme.FinanzasPersonales" />
     </application>
 
 </manifest>
