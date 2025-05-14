@@ -36,6 +36,7 @@ import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.Storefront
 import androidx.compose.material.icons.filled.Savings
 import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.ReceiptLong
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
@@ -98,6 +99,7 @@ import com.example.finanzaspersonales.ui.providers.ProvidersActivity
 import com.example.finanzaspersonales.ui.add_transaction.AddTransactionActivity
 import androidx.compose.ui.platform.LocalContext
 import com.example.finanzaspersonales.ui.settings.SettingsActivity
+import com.example.finanzaspersonales.ui.raw_sms_list.RawSmsListActivity
 
 // Helper function to format large numbers to millions with one decimal place
 private fun formatToMillions(value: Float): String {
@@ -166,7 +168,8 @@ class DashboardActivity : ComponentActivity() {
                             onNavigateToCategories = { navigateToCategories() },
                             onNavigateToTransactions = { navigateToTransactions() },
                             onNavigateToProviders = { navigateToProviders() },
-                            onNavigateToAddTransaction = { navigateToAddTransaction() }
+                            onNavigateToAddTransaction = { navigateToAddTransaction() },
+                            onNavigateToRawSmsList = { navigateToRawSmsList() }
                         )
                     }
                 }
@@ -228,6 +231,10 @@ class DashboardActivity : ComponentActivity() {
         val intent = Intent(this, AddTransactionActivity::class.java)
         startActivity(intent)
     }
+
+    private fun navigateToRawSmsList() {
+        startActivity(Intent(this, RawSmsListActivity::class.java))
+    }
 }
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -237,7 +244,8 @@ fun DashboardScreen(
     onNavigateToCategories: () -> Unit,
     onNavigateToTransactions: () -> Unit,
     onNavigateToProviders: () -> Unit,
-    onNavigateToAddTransaction: () -> Unit // Add parameter for navigation
+    onNavigateToAddTransaction: () -> Unit,
+    onNavigateToRawSmsList: () -> Unit
 ) {
     val monthlyIncome by viewModel.monthlyIncome.collectAsState()
     val monthlyExpenses by viewModel.monthlyExpenses.collectAsState()
@@ -415,6 +423,23 @@ fun DashboardScreen(
                     onClick = { Toast.makeText(context, "Coming Soon: Manage your savings jars/goals!", Toast.LENGTH_SHORT).show() }
                 )
             }
+
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween
+            ) {
+                // Raw SMS Log
+                DashboardActionItem(
+                    icon = Icons.Filled.ReceiptLong, // Using the correct icon
+                    title = "Raw SMS Log",
+                    backgroundColor = MaterialTheme.colorScheme.surfaceVariant, // Example color, adjust as needed
+                    modifier = Modifier.weight(1f),
+                    onClick = onNavigateToRawSmsList
+                )
+                
+                // Spacer to keep two items per row if that's the design, or add another action item
+                Spacer(modifier = Modifier.weight(1f).padding(4.dp)) 
+            }
             
             // Recent Transactions
             Text(
@@ -558,4 +583,33 @@ fun DashboardActionItem(
             )
         }
     }
+}
+
+@Composable
+fun QuickActionCard(title: String, icon: ImageVector, onClick: () -> Unit, modifier: Modifier = Modifier) {
+    Card(
+        modifier = modifier
+            .fillMaxWidth()
+            .padding(vertical = 4.dp) 
+            .clickable(onClick = onClick),
+        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
+        shape = RoundedCornerShape(8.dp)
+    ) {
+        Column(
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.Center,
+            modifier = Modifier
+                .padding(16.dp)
+                .fillMaxWidth()
+        ) {
+            Icon(imageVector = icon, contentDescription = title, tint = MaterialTheme.colorScheme.primary)
+            Spacer(modifier = Modifier.height(8.dp))
+            Text(text = title, style = MaterialTheme.typography.bodyMedium, textAlign = TextAlign.Center)
+        }
+    }
+}
+
+@Composable
+fun SummaryCard(title: String, amount: String, cardColor: Color, modifier: Modifier = Modifier) {
+    // Implementation of SummaryCard function
 } 

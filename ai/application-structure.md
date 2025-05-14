@@ -78,6 +78,10 @@ app/
     │   │                   │   ├── ProvidersScreen.kt
     │   │                   │   ├── ProvidersViewModel.kt
     │   │                   │   └── ProvidersViewModelFactory.kt
+    │   │                   ├── raw_sms_list
+    │   │                   │   ├── RawSmsListActivity.kt
+    │   │                   │   ├── RawSmsListScreen.kt
+    │   │                   │   └── RawSmsListViewModel.kt
     │   │                   ├── theme
     │   │                   │   ├── Color.kt
     │   │                   │   ├── Theme.kt
@@ -157,7 +161,7 @@ app/
         *   `domain/`: Contains business logic (use cases) and utility classes.
         *   `usecase/`: Contains specific business logic operations, encapsulating interactions between repositories (e.g., `CategoryAssignmentUseCase`, `ExtractTransactionDataUseCase`, `GetSpendingByCategoryUseCase`).
         *   `util/`: Contains helper classes for common tasks like date/time manipulation, contact fetching, string operations, and text extraction.
-        *   `ui/`: Contains UI-related code (Activities, Composables, ViewModels, themes), organized by feature (accounts, auth, categories, dashboard, providers, sms, transaction_list).
+        *   `ui/`: Contains UI-related code (Activities, Composables, ViewModels, themes), organized by feature (accounts, auth, categories, dashboard, providers, raw_sms_list, sms, transaction_list).
         *   `FinanzasApp.kt`: The custom `Application` class, used for application-level initialization.
 *   `res/`: Contains application resources (drawables, layouts, menus, icons, values, XML).
 *   `ic_launcher-playstore.png`: The high-resolution launcher icon for the Play Store listing.
@@ -171,6 +175,7 @@ Recent additions include:
 *   Functionality to delete incorrectly parsed transactions from the category detail view.
 *   Refactored repositories to break a dependency cycle: removed direct dependency of `CategoryRepositoryImpl` on `TransactionRepository`. Methods requiring both repositories (like calculating spending by category) are moved into dedicated Use Cases (e.g., `GetSpendingByCategoryUseCase`).
 *   Added a Developer Settings screen (`ui/settings`) with a button to clear user transactions and resync data.
+*   Added a "Raw SMS Transactions" screen (`ui/raw_sms_list`) to display a raw list of SMS messages for debugging.
 
 Key structural improvements made previously:
 *   SMS-related code (`SmsReceiver`, `SmsPermissionActivity`) moved into appropriate `data` and `ui` layers (`data/sms`, `ui/sms`).
@@ -214,6 +219,10 @@ The structure is now cleaner and better adheres to layered architecture principl
       - Explicit refresh actions (e.g., refresh button) call `transactionRepository.getTransactions(forceRefresh = true)` to get fresh data.
       - Uses `categoryRepository.getUncategorizedCategoryPlaceholder()` to identify and fetch details for the "Other" category (i.e., transactions with `categoryId = null` or empty).
     - `ui/categories/TransactionDetailScreen.kt` (mdc:app/src/main/java/com/example/finanzaspersonales/ui/categories/TransactionDetailScreen.kt)
+  - **Raw SMS List**
+    - `ui/raw_sms_list/RawSmsListActivity.kt`
+    - `ui/raw_sms_list/RawSmsListScreen.kt`
+    - `ui/raw_sms_list/RawSmsListViewModel.kt`
   - **Transactions List**
     - `ui/transaction_list/TransactionListActivity.kt` (mdc:app/src/main/java/com/example/finanzaspersonales/ui/transaction_list/TransactionListActivity.kt)
     - `ui/transaction_list/TransactionListViewModel.kt` (mdc:app/src/main/java/com/example/finanzaspersonales/ui/transaction_list/TransactionListViewModel.kt)

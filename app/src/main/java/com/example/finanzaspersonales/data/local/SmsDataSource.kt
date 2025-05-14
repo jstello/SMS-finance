@@ -10,11 +10,17 @@ import androidx.core.content.ContextCompat
 import com.example.finanzaspersonales.data.model.SmsMessage
 import com.example.finanzaspersonales.domain.util.DateTimeUtils
 import com.example.finanzaspersonales.domain.util.TextExtractors
+import dagger.hilt.android.qualifiers.ApplicationContext
+import javax.inject.Inject
+import javax.inject.Singleton
 
 /**
  * Data source for SMS messages
  */
-class SmsDataSource(private val context: Context) {
+@Singleton // Added Singleton scope
+class SmsDataSource @Inject constructor(
+    @ApplicationContext private val context: Context
+) {
     
     companion object {
         private const val TAG = "SmsDataSource"

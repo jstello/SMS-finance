@@ -4,16 +4,10 @@ plugins {
     alias(libs.plugins.kotlin.android) apply false
     alias(libs.plugins.kotlin.compose) apply false
     alias(libs.plugins.google.gms.google.services) apply false
+    id("com.google.dagger.hilt.android") version "2.51.1" apply false
 }
 
-buildscript {
-    repositories {
-        google()
-        mavenCentral()
-    }
-    dependencies {
-        classpath("com.android.tools.build:gradle:...") // Keep existing AGP version
-        classpath("org.jetbrains.kotlin:kotlin-gradle-plugin:...") // Keep existing Kotlin plugin version
-        classpath("com.google.dagger:hilt-android-gradle-plugin:2.51.1") // Add Hilt plugin classpath
-    }
-}
+// buildscript block can be removed if Hilt was the only item not covered by plugins block or version catalog
+// If AGP and Kotlin plugin classpaths were explicitly defined here and are still needed,
+// they should also be migrated or ensured they are correctly managed by version catalog or other means.
+// For this change, assuming they are managed elsewhere or were placeholders.

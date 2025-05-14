@@ -85,6 +85,11 @@
             android:exported="false"
             android:label="@string/title_activity_settings"
             android:theme="@style/Theme.FinanzasPersonales" />
+        <activity
+            android:name=".ui.raw_sms_list.RawSmsListActivity"
+            android:exported="false"
+            android:label="@string/title_activity_raw_sms_list"
+            android:theme="@style/Theme.FinanzasPersonales" />
     </application>
 
 </manifest>

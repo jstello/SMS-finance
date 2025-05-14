@@ -5,6 +5,9 @@ import java.util.Calendar
 import java.util.Date
 import java.util.Locale
 import java.util.regex.Pattern
+import java.time.LocalDateTime
+import java.time.format.DateTimeFormatter
+import java.time.ZoneId
 
 /**
  * Utility functions for date and time operations
@@ -77,4 +80,30 @@ object DateTimeUtils {
         calendar.time = this
         return calendar.get(Calendar.DAY_OF_MONTH)
     }
+
+    /**
+     * Formats a LocalDateTime object to a string with a specific pattern.
+     */
+    fun formatLocalDateTime(dateTime: LocalDateTime, pattern: String = "dd MMM yyyy HH:mm"): String {
+        return try {
+            val formatter = DateTimeFormatter.ofPattern(pattern, Locale.getDefault())
+            dateTime.format(formatter)
+        } catch (e: Exception) {
+            // Fallback or error representation
+            dateTime.toString() // Or some other default like "Error formatting date"
+        }
+    }
+
+    /**
+     * Formats a java.util.Date to a string with a specific pattern by converting to LocalDateTime.
+     */
+    fun formatDateTime(date: Date?, pattern: String = "dd MMM yyyy HH:mm"): String = date?.let {
+        try {
+            val ldt = LocalDateTime.ofInstant(it.toInstant(), ZoneId.systemDefault())
+            val formatter = DateTimeFormatter.ofPattern(pattern, Locale.getDefault())
+            ldt.format(formatter)
+        } catch (e: Exception) {
+            it.toString()
+        }
+    } ?: ""
 } 
