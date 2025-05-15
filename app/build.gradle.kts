@@ -7,6 +7,17 @@ plugins {
     id("com.google.dagger.hilt.android")
 }
 
+import java.util.Properties
+import java.io.FileInputStream
+
+// Load keystore properties
+val keystoreProperties = Properties().apply {
+    val keystoreFile = file("keystore.properties")
+    if (keystoreFile.exists()) {
+        load(FileInputStream(keystoreFile))
+    }
+}
+
 android {
     namespace = "com.example.finanzaspersonales"
     compileSdk = 34
@@ -31,6 +42,12 @@ android {
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro"
             )
+            signingConfig = signingConfigs.create("release") {
+                storeFile = file(keystoreProperties["storeFile"] as String)
+                storePassword = keystoreProperties["storePassword"] as String
+                keyAlias = keystoreProperties["keyAlias"] as String
+                keyPassword = keystoreProperties["keyPassword"] as String
+            }
         }
     }
     compileOptions {

@@ -1,0 +1,16 @@
+---
+description: For agent: how to execute terminal commands 
+globs: 
+alwaysApply: false
+---
+# Building on Windows: Gradle Wrapper Usage
+
+- We are on windows and by default we use cmd terminal.
+- On Windows, use `gradlew` (not `.\gradlew`) to invoke the Gradle wrapper from the command prompt (cmd).
+- Do **not** use `./gradlew` as you would on Unix-like systems; this will result in a command not recognized error.
+- The user works in `cmd` and has `gradlew` available on their PATH.
+- Example command to build a release APK:
+  ```cmd
+  .\gradlew assembleRelease
+  ```
+
