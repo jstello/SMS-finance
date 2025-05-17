@@ -122,17 +122,11 @@ class DashboardViewModel @Inject constructor(
             }
             
             try {
-                // TODO: Update this logic to fetch from Firestore primarily
-                // For now, keeps existing logic using local cache/SMS refresh
-                
-                // Initialize transactions with saved categories
-                transactionRepository.initializeTransactions()
-                
-                // Refresh SMS data
-                transactionRepository.refreshSmsData()
-                
-                // Get all transactions
-                val allTransactions = transactionRepository.getTransactions()
+                // Get all transactions, forcing a refresh from remote and reprocessing SMS
+                // This single call should handle fetching the latest data from all sources.
+                Log.d("DASHBOARD_LOAD", "Loading all transactions with forceRefresh=true")
+                val allTransactions = transactionRepository.getTransactions(forceRefresh = true)
+                Log.d("DASHBOARD_LOAD", "Loaded ${allTransactions.size} transactions after force refresh.")
                 
                 // Get current month's transactions
                 val calendar = Calendar.getInstance()
@@ -166,9 +160,13 @@ class DashboardViewModel @Inject constructor(
                     .sortedByDescending { it.date }
                     .take(5)
                 
+                Log.d("DASHBOARD_LOAD", "Dashboard data loaded successfully. Income: ${_monthlyIncome.value}, Expenses: ${_monthlyExpenses.value}, Recent: ${_recentTransactions.value.size}")
             } catch (e: Exception) {
                 Log.e("DASHBOARD_LOAD", "Error loading dashboard data", e)
-                // Handle error
+                // Handle error - e.g., clear data or show error message
+                _monthlyExpenses.value = 0.0f
+                _monthlyIncome.value = 0.0f
+                _recentTransactions.value = emptyList()
             } finally {
                  // Don't hide loading if sync indicator is active
                 if (!_isSyncing.value) {
