@@ -109,9 +109,44 @@ class CategoriesViewModel @Inject constructor(
     val assignmentResult: StateFlow<Result<Unit>?> = _assignmentResult.asStateFlow()
     
     init {
-        loadCategories()
-        loadCategorySpending()
-        loadAllTransactions()
+        initialLoadData()
+    }
+    
+    private fun initialLoadData() {
+        viewModelScope.launch {
+            _isLoading.value = true
+            Log.d("CategoriesViewModel", "Starting initial data load sequence...")
+            try {
+                // Step 1: Load categories
+                Log.d("CategoriesViewModel", "InitialLoad: Loading categories...")
+                _categories.value = categoryRepository.getCategories()
+                Log.d("CategoriesViewModel", "InitialLoad: Categories loaded: ${_categories.value.size}")
+
+                // Step 2: Load all transactions (force refresh for initial load to get manual entries)
+                Log.d("CategoriesViewModel", "InitialLoad: Loading all transactions (forceRefresh=true)...")
+                _allTransactions.value = transactionRepository.getTransactions(forceRefresh = true)
+                Log.d("CategoriesViewModel", "InitialLoad: All transactions loaded: ${_allTransactions.value.size}")
+
+                // Step 3: Load category spending based on newly loaded transactions
+                Log.d("CategoriesViewModel", "InitialLoad: Loading category spending...")
+                val isIncomeFilterInitial = _selectedTransactionType.value == TransactionType.INCOME
+                _categorySpending.value = getSpendingByCategoryUseCase(
+                    year = _selectedYear.value,
+                    month = _selectedMonth.value,
+                    isIncome = isIncomeFilterInitial
+                )
+                Log.d("CategoriesViewModel", "InitialLoad: Category spending loaded: ${_categorySpending.value.size}")
+
+            } catch (e: Exception) {
+                Log.e("CategoriesViewModel", "Error during initial data load sequence", e)
+                _categories.value = emptyList()
+                _allTransactions.value = emptyList()
+                _categorySpending.value = emptyMap()
+            } finally {
+                _isLoading.value = false
+                Log.d("CategoriesViewModel", "Initial data load sequence finished. isLoading: ${_isLoading.value}")
+            }
+        }
     }
     
     /**
@@ -220,21 +255,35 @@ class CategoriesViewModel @Inject constructor(
      * Useful for updating the view after changes like manual additions or category assignments.
      */
     fun reloadData() {
+        Log.d("CategoriesViewModel", "-> reloadData() called (Soft Refresh / Cache)")
         viewModelScope.launch {
              _isLoading.value = true
              try {
-                 // No refreshSmsData() here
-                 // Initialize transactions (applies categories)
-                 // transactionRepository.initializeTransactions() // Might not be needed if cache is always applied
-                 // Reload all data from current repository state (cache/Firestore)
-                 loadAllTransactions()
-                 loadCategorySpending()
+                 // Step 1: Load transactions (NO force refresh, uses cache primarily)
+                 Log.d("CategoriesViewModel", "reloadData: Loading all transactions (forceRefresh=false)...")
+                 _allTransactions.value = transactionRepository.getTransactions(forceRefresh = false)
+                 Log.d("CategoriesViewModel", "reloadData: All transactions loaded: ${_allTransactions.value.size}")
+
+                 // Step 2: Load category spending
+                 Log.d("CategoriesViewModel", "reloadData: Loading category spending...")
+                 val isIncomeFilterReload = _selectedTransactionType.value == TransactionType.INCOME
+                 _categorySpending.value = getSpendingByCategoryUseCase(
+                     year = _selectedYear.value,
+                     month = _selectedMonth.value,
+                     isIncome = isIncomeFilterReload
+                 )
+                 Log.d("CategoriesViewModel", "reloadData: Category spending loaded: ${_categorySpending.value.size}")
                 
                  // If a category detail view was active, reload its transactions
-                 _selectedCategory.value?.let { loadTransactionsForCategory(it, _selectedTransactionType.value) }
-                 Log.d("CategoriesViewModel", "reloadData completed.")
+                 _selectedCategory.value?.let {
+                     Log.d("CategoriesViewModel", "reloadData: Reloading transactions for selected category: ${it.name}")
+                     loadTransactionsForCategory(it, _selectedTransactionType.value)
+                 }
+                 Log.i("CategoriesViewModel", "Soft reload (reloadData) completed.")
              } catch (e: Exception) {
                  Log.e("CategoriesViewModel", "Error during reloadData", e)
+                 _allTransactions.value = emptyList() // Clear on error
+                 _categorySpending.value = emptyMap() // Clear on error
              } finally {
                  _isLoading.value = false
              }
@@ -277,22 +326,35 @@ class CategoriesViewModel @Inject constructor(
         viewModelScope.launch {
             _isLoading.value = true
             try {
-                // 1. Force refresh from repository (includes SMS scan and Firestore fetch)
-                Log.d("CategoriesViewModel", "   Calling loadAllTransactions(forceRemoteRefresh = true)")
-                loadAllTransactions(forceRemoteRefresh = true)
+                // Optional: If categories can also be stale from a remote source, refresh them here first.
+                // Log.d("CategoriesViewModel", "refreshTransactionData: Refreshing categories...")
+                // _categories.value = categoryRepository.getCategories(forceRemote = true) // Example if applicable
+
+                // 1. Force refresh transactions from repository (includes SMS scan and Firestore fetch)
+                Log.d("CategoriesViewModel", "refreshTransactionData: Loading all transactions (forceRefresh=true)...")
+                _allTransactions.value = transactionRepository.getTransactions(forceRefresh = true)
+                Log.d("CategoriesViewModel", "refreshTransactionData: All transactions loaded: ${_allTransactions.value.size}")
 
                 // 2. Reload category spending which depends on the new transactions
-                Log.d("CategoriesViewModel", "   Calling loadCategorySpending بعد refresh")
-                loadCategorySpending() 
+                Log.d("CategoriesViewModel", "refreshTransactionData: Loading category spending...")
+                val isIncomeFilterRefresh = _selectedTransactionType.value == TransactionType.INCOME
+                _categorySpending.value = getSpendingByCategoryUseCase(
+                    year = _selectedYear.value,
+                    month = _selectedMonth.value,
+                    isIncome = isIncomeFilterRefresh
+                )
+                Log.d("CategoriesViewModel", "refreshTransactionData: Category spending loaded: ${_categorySpending.value.size}")
 
                 // If a category detail view was active, reload its transactions
                 _selectedCategory.value?.let {
-                    Log.d("CategoriesViewModel", "   Reloading transactions for selected category: ${it.name}")
+                    Log.d("CategoriesViewModel", "refreshTransactionData: Reloading transactions for selected category: ${it.name}")
                     loadTransactionsForCategory(it, _selectedTransactionType.value)
                 }
-                Log.i("CategoriesViewModel", "Hard refresh completed successfully.")
+                Log.i("CategoriesViewModel", "Hard refresh (refreshTransactionData) completed successfully.")
             } catch (e: Exception) {
                 Log.e("CategoriesViewModel", "Error refreshing transaction data", e)
+                _allTransactions.value = emptyList() // Clear on error
+                _categorySpending.value = emptyMap() // Clear on error
             } finally {
                 _isLoading.value = false
             }
