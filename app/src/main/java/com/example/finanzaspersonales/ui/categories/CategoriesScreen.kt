@@ -254,20 +254,24 @@ fun CategoriesScreen(
                     CircularProgressIndicator()
                 }
             } else {
-                // --- Spending Overview Section --- 
+                // --- Spending Overview Section ---
                 Column(
                     modifier = Modifier
                         .fillMaxWidth()
                         .padding(horizontal = 16.dp, vertical = 8.dp)
                         .weight(1f) // Allow this Column to take remaining space
                 ) {
+                    val totalSpending = categorySpending.values.sum()
+                    val formattedTotal = StringUtils.formatToMillions(totalSpending)
+                    val transactionTypeString = if (selectedTransactionType == TransactionType.EXPENSE) "Expenses" else "Income"
+
                     Text(
-                        text = "Spending by Category",
+                        text = "Total $transactionTypeString: $formattedTotal",
                         style = MaterialTheme.typography.titleLarge,
                         modifier = Modifier.padding(bottom = 8.dp)
                     )
 
-                    // --- Combined Chart and Category List (Scrollable) --- 
+                    // --- Combined Chart and Category List (Scrollable) ---
                     SpendingBarChart(
                          categorySpending = categorySpending, 
                          currencyFormat = currencyFormat,

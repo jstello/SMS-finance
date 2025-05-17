@@ -94,4 +94,9 @@ interface TransactionRepository {
     suspend fun getSmsMessages(startTimeMillis: Long, endTimeMillis: Long): List<SmsMessage>
     suspend fun refreshSmsData(lastSyncTimestamp: Long): Result<Unit>
     suspend fun developerClearUserTransactions(userId: String): Result<Unit>
+
+    /**
+     * Updates an existing transaction in the cache and Firestore.
+     */
+    suspend fun updateTransaction(transaction: TransactionData): Result<Unit>
 } 

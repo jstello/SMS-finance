@@ -94,9 +94,6 @@ fun TransactionDetailScreen(
     var showDeleteConfirmationDialog by remember { mutableStateOf(false) }
     var isDeleting by remember { mutableStateOf(false) }
     
-    // ** IMPORTANT: Replace this with your actual user ID retrieval logic **
-    val userId = "PLACEHOLDER_USER_ID"
-    
     // Load the category for this transaction
     LaunchedEffect(transaction.id, transaction.categoryId) {
         currentCategory = viewModel.getCategoryForTransaction(transaction)
@@ -244,11 +241,75 @@ fun TransactionDetailScreen(
                         value = dateString
                     )
                     
-                    // Transaction type
-                    DetailRow(
-                        label = "Type",
-                        value = if (transaction.isIncome) "Income" else "Expense"
-                    )
+                    // Transaction type - Now Editable
+                    var showTypeEditor by remember { mutableStateOf(false) }
+                    var editedIsIncome by remember { mutableStateOf(transaction.isIncome) }
+
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clickable { showTypeEditor = true }
+                            .padding(vertical = 8.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text(
+                            text = "Type",
+                            style = MaterialTheme.typography.bodyMedium,
+                            fontWeight = FontWeight.Bold,
+                            modifier = Modifier.width(100.dp)
+                        )
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Text(
+                            text = if (editedIsIncome) "Income" else "Expense",
+                            style = MaterialTheme.typography.bodyMedium
+                        )
+                    }
+
+                    if (showTypeEditor) {
+                        AlertDialog(
+                            onDismissRequest = { showTypeEditor = false },
+                            title = { Text("Select Transaction Type") },
+                            text = {
+                                Column {
+                                    TextButton(onClick = {
+                                        editedIsIncome = true
+                                        showTypeEditor = false
+                                        transaction.id?.let { nnTransactionId ->
+                                            scope.launch {
+                                                // Call ViewModel to update
+                                                viewModel.updateTransactionType(nnTransactionId, true)
+                                                snackbarHostState.showSnackbar("Type updated to Income")
+                                            }
+                                        } ?: scope.launch {
+                                            snackbarHostState.showSnackbar("Error: Transaction ID is missing")
+                                        }
+                                    }) {
+                                        Text("Income")
+                                    }
+                                    TextButton(onClick = {
+                                        editedIsIncome = false
+                                        showTypeEditor = false
+                                        transaction.id?.let { nnTransactionId ->
+                                            scope.launch {
+                                                // Call ViewModel to update
+                                                viewModel.updateTransactionType(nnTransactionId, false)
+                                                snackbarHostState.showSnackbar("Type updated to Expense")
+                                            }
+                                        } ?: scope.launch {
+                                            snackbarHostState.showSnackbar("Error: Transaction ID is missing")
+                                        }
+                                    }) {
+                                        Text("Expense")
+                                    }
+                                }
+                            },
+                            confirmButton = {
+                                TextButton(onClick = { showTypeEditor = false }) {
+                                    Text("Cancel")
+                                }
+                            }
+                        )
+                    }
                     
                     // Contact name if available
                     transaction.contactName?.let {
@@ -354,8 +415,8 @@ fun TransactionDetailScreen(
                             if (currentTransactionId != null) {
                                 showDeleteConfirmationDialog = false
                                 isDeleting = true
-                                // Call ViewModel to delete
-                                viewModel.deleteTransaction(currentTransactionId, userId) { result ->
+                                // Call ViewModel to delete (userId is now handled by ViewModel)
+                                viewModel.deleteTransaction(currentTransactionId) { result ->
                                     isDeleting = false
                                     scope.launch {
                                         if (result.isSuccess) {

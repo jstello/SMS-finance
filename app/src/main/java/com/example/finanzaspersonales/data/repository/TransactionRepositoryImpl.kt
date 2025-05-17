@@ -856,4 +856,34 @@ class TransactionRepositoryImpl @Inject constructor(
             } == true
         }
     }
+
+    override suspend fun updateTransaction(transaction: TransactionData): Result<Unit> = withContext(Dispatchers.IO) {
+        Log.d("TransactionRepositoryImpl", "Updating transaction: ${transaction.id}, New Type (isIncome): ${transaction.isIncome}")
+        try {
+            // Update in Firestore
+            val firestoreResult = updateTransactionInFirestore(transaction)
+            if (firestoreResult.isFailure) {
+                Log.e("TransactionRepositoryImpl", "Failed to update transaction in Firestore: ${transaction.id}", firestoreResult.exceptionOrNull())
+                return@withContext Result.failure(firestoreResult.exceptionOrNull() ?: Exception("Firestore update failed"))
+            }
+
+            // Update in local cache
+            val index = cachedTransactions.indexOfFirst { it.id == transaction.id }
+            if (index != -1) {
+                val mutableCache = cachedTransactions.toMutableList()
+                mutableCache[index] = transaction
+                cachedTransactions = mutableCache.toList()
+                Log.d("TransactionRepositoryImpl", "Transaction updated in cache: ${transaction.id}")
+            } else {
+                // Optionally, if not found in cache, add it or log a warning.
+                // For an update, it should ideally be in the cache.
+                Log.w("TransactionRepositoryImpl", "Transaction to update not found in cache: ${transaction.id}")
+                // We might still consider the Firestore update successful.
+            }
+            Result.success(Unit)
+        } catch (e: Exception) {
+            Log.e("TransactionRepositoryImpl", "Error updating transaction ${transaction.id}", e)
+            Result.failure(e)
+        }
+    }
 } 

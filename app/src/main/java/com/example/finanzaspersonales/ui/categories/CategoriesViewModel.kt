@@ -7,6 +7,7 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.*
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.example.finanzaspersonales.data.auth.AuthRepository
 import com.example.finanzaspersonales.data.model.Category
 import com.example.finanzaspersonales.data.model.TransactionData
 import com.example.finanzaspersonales.data.repository.CategoryRepository
@@ -49,7 +50,8 @@ enum class TransactionType {
 class CategoriesViewModel @Inject constructor(
     private val categoryRepository: CategoryRepository,
     private val transactionRepository: TransactionRepository,
-    private val getSpendingByCategoryUseCase: GetSpendingByCategoryUseCase
+    private val getSpendingByCategoryUseCase: GetSpendingByCategoryUseCase,
+    private val authRepository: AuthRepository
 ) : ViewModel() {
     
     // State for selected transaction type tab
@@ -720,17 +722,23 @@ class CategoriesViewModel @Inject constructor(
     /**
      * Delete a transaction by its ID
      * @param transactionId The ID of the transaction to delete.
-     * @param userId The ID of the current user (required for Firestore deletion).
      * @param onResult Callback function invoked with the Result (Success/Failure) of the deletion.
      */
-    fun deleteTransaction(transactionId: String, userId: String, onResult: (Result<Unit>) -> Unit) {
-        Log.d("CategoriesViewModel", "Attempting to delete transaction: $transactionId for user: $userId")
+    fun deleteTransaction(transactionId: String, onResult: (Result<Unit>) -> Unit) {
         viewModelScope.launch {
+            val userId = authRepository.currentUser?.uid // Get user ID from AuthRepository
+            if (userId == null) {
+                Log.e("CategoriesViewModel", "Cannot delete transaction: User not authenticated.")
+                onResult(Result.failure(Exception("User not authenticated")))
+                return@launch
+            }
+
+            Log.d("CategoriesViewModel", "Attempting to delete transaction: $transactionId for user: $userId")
             val result = transactionRepository.deleteTransactionFromFirestore(transactionId, userId)
             if (result.isSuccess) {
                 Log.i("CategoriesViewModel", "Transaction $transactionId deleted successfully.")
                 // Reload data after successful deletion
-                loadAllTransactions() // Reload all transactions to reflect removal
+                loadAllTransactions(forceRemoteRefresh = true) // Force refresh to ensure cache is updated from source
                 loadCategorySpending() // Recalculate category spending
                 // If a category detail screen was active, reload its specific transactions
                 _selectedCategory.value?.let { category ->
@@ -740,6 +748,40 @@ class CategoriesViewModel @Inject constructor(
                 Log.e("CategoriesViewModel", "Failed to delete transaction $transactionId", result.exceptionOrNull())
             }
             onResult(result) // Notify the caller (UI) about the result
+        }
+    }
+
+    fun updateTransactionType(transactionId: String, newIsIncome: Boolean) {
+        viewModelScope.launch {
+            _isLoading.value = true
+            try {
+                val transactionToUpdate = _allTransactions.value.find { it.id == transactionId }
+                if (transactionToUpdate != null) {
+                    val updatedTransaction = transactionToUpdate.copy(isIncome = newIsIncome)
+                    // Update in repository (Firestore and cache)
+                    transactionRepository.updateTransaction(updatedTransaction)
+                    // Update local list
+                    _allTransactions.value = _allTransactions.value.map {
+                        if (it.id == transactionId) updatedTransaction else it
+                    }
+                    // If this transaction was part of a selected category, update that list too
+                    _selectedCategory.value?.let {
+                        if (it.id == updatedTransaction.categoryId || (it.id == null && updatedTransaction.categoryId.isNullOrEmpty())) {
+                            loadTransactionsForCategory(it, if (newIsIncome) TransactionType.INCOME else TransactionType.EXPENSE)
+                        }
+                    }
+                    // Reload spending data as totals might change
+                    loadCategorySpending()
+                    Log.d("CategoriesViewModel", "Transaction type updated for ID: $transactionId to isIncome=$newIsIncome")
+                } else {
+                    Log.e("CategoriesViewModel", "Transaction not found for ID: $transactionId during type update")
+                }
+            } catch (e: Exception) {
+                Log.e("CategoriesViewModel", "Error updating transaction type for ID: $transactionId", e)
+                // Potentially show error to user via a StateFlow
+            } finally {
+                _isLoading.value = false
+            }
         }
     }
 }
