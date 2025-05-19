@@ -86,6 +86,45 @@ object TextExtractors {
      * Extracts provider/sender name from SMS body text.
      */
     fun extractProviderFromBody(body: String): String? {
+        // NEW: capture destination account number if present (e.g. "a la cuenta *06882320535")
+        val destAccountPattern = Pattern.compile(
+            """a\s+la\s+cuenta\s+\*?(\d{5,})""",
+            Pattern.CASE_INSENSITIVE
+        )
+        val destAccountMatcher = destAccountPattern.matcher(body)
+        if (destAccountMatcher.find()) {
+            val accountDigits = destAccountMatcher.group(1)?.trim()
+            if (!accountDigits.isNullOrEmpty()) {
+                return accountDigits
+            }
+        }
+        
+        // NEW: capture company name in transfer messages (e.g. "a Wompi SAS desde producto")
+        val companyPattern = Pattern.compile(
+            """a\s+([A-Za-z][A-Za-z0-9\s&.]+?)\s+desde\s+producto""",
+            Pattern.CASE_INSENSITIVE
+        )
+        val companyMatcher = companyPattern.matcher(body)
+        if (companyMatcher.find()) {
+            val companyName = companyMatcher.group(1)?.trim()
+            if (!companyName.isNullOrEmpty()) {
+                return companyName
+            }
+        }
+        
+        // Capture Wompi SAS as provider from transfer messages
+        val wompiTransferPattern = Pattern.compile(
+            """Transferiste\s+\$?[\d.,]+\s+(?:a|a\s+la\s+cuenta\s+de)\s+([A-Za-z\s.]+?)(?:\s+\*?\d+|\s+por\s+PSE|\s+desde|\.|$)""",
+            Pattern.CASE_INSENSITIVE
+        )
+        val wompiMatcher = wompiTransferPattern.matcher(body)
+        if (wompiMatcher.find()) {
+            val provider = wompiMatcher.group(1)?.trim()
+            if (!provider.isNullOrEmpty()) {
+                return provider
+            }
+        }
+        
         // 1. For Bancolombia income messages, capture provider between 'de ' and '(a|en) tu cuenta'
         val bancolombiaIncomePattern = Pattern.compile(
             """de\s+(.+?)\s+(?:a|en)\s+tu\s+cuenta""",
