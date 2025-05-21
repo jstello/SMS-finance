@@ -256,4 +256,113 @@ class CategoryRepositoryImpl @Inject constructor(
             userId = null    // Not tied to a specific user for saving, it's a concept
         )
     }
+
+    // Define a constant for the mappings document path
+    private companion object {
+        const val PROVIDER_MAPPINGS_COLLECTION = "provider_category_settings"
+        const val MAPPINGS_DOCUMENT = "mappings"
+        const val PROVIDER_TO_CATEGORY_MAP_FIELD = "providerToCategoryMap"
+    }
+
+    override suspend fun saveProviderCategoryMapping(userId: String, providerName: String, categoryId: String): Result<Unit> {
+        return withContext(Dispatchers.IO) {
+            try {
+                val docRef = db.collection("users").document(userId)
+                    .collection(PROVIDER_MAPPINGS_COLLECTION).document(MAPPINGS_DOCUMENT)
+
+                // Firestore uses dot notation for nested fields in maps
+                docRef.set(mapOf(PROVIDER_TO_CATEGORY_MAP_FIELD to mapOf(providerName to categoryId)), SetOptions.merge()).await()
+                Log.i("PROVIDER_MAP", "Saved mapping for provider '$providerName' to categoryId '$categoryId' for user $userId")
+                Result.success(Unit)
+            } catch (e: Exception) {
+                Log.e("PROVIDER_MAP", "Error saving provider mapping for '$providerName' for user $userId", e)
+                Result.failure(e)
+            }
+        }
+    }
+
+    override suspend fun getCategoryForProvider(userId: String, providerName: String): Result<String?> {
+        return withContext(Dispatchers.IO) {
+            try {
+                val docRef = db.collection("users").document(userId)
+                    .collection(PROVIDER_MAPPINGS_COLLECTION).document(MAPPINGS_DOCUMENT)
+
+                val document = docRef.get().await()
+                if (document.exists()) {
+                    @Suppress("UNCHECKED_CAST")
+                    val mappings = document.get(PROVIDER_TO_CATEGORY_MAP_FIELD) as? Map<String, String>
+                    val categoryId = mappings?.get(providerName)
+                    if (categoryId != null) {
+                        Log.i("PROVIDER_MAP", "Found mapping for provider '$providerName' -> categoryId '$categoryId' for user $userId")
+                    } else {
+                        Log.i("PROVIDER_MAP", "No mapping found for provider '$providerName' for user $userId")
+                    }
+                    Result.success(categoryId)
+                } else {
+                    Log.i("PROVIDER_MAP", "No mappings document found for user $userId")
+                    Result.success(null) // No mappings document means no mapping for this provider
+                }
+            } catch (e: Exception) {
+                Log.e("PROVIDER_MAP", "Error fetching category for provider '$providerName' for user $userId", e)
+                Result.failure(e)
+            }
+        }
+    }
+
+    override suspend fun deleteProviderCategoryMapping(userId: String, providerName: String): Result<Unit> {
+        return withContext(Dispatchers.IO) {
+            try {
+                val docRef = db.collection("users").document(userId)
+                    .collection(PROVIDER_MAPPINGS_COLLECTION).document(MAPPINGS_DOCUMENT)
+
+                // To delete a key from a map, we need to use FieldValue.delete()
+                // This requires careful handling if the map itself doesn't exist or the key isn't present.
+                // A simpler way for this structure is to fetch, modify, and set, or use a specific field update.
+                // For field deletion within a map: update(map_field.key_to_delete, FieldValue.delete())
+                docRef.update("$PROVIDER_TO_CATEGORY_MAP_FIELD.$providerName", com.google.firebase.firestore.FieldValue.delete()).await()
+                Log.i("PROVIDER_MAP", "Deleted mapping for provider '$providerName' for user $userId")
+                Result.success(Unit)
+            } catch (e: Exception) {
+                // Firestore throws an exception if the path to delete doesn't exist, which is fine (idempotent delete).
+                // However, log it for awareness if it's not due to non-existence.
+                Log.w("PROVIDER_MAP", "Error deleting provider mapping for '$providerName' for user $userId (might be non-existent): ${e.message}")
+                // We can consider this a success if the goal is to ensure the mapping is gone.
+                // However, to be precise about the operation outcome:
+                if (e.message?.contains("No document to update") == true || e.message?.contains("NOT_FOUND") == true) {
+                     Log.i("PROVIDER_MAP", "Mapping for provider '$providerName' was already non-existent for user $userId.")
+                     Result.success(Unit) // Effectively, the state is as desired.
+                } else {
+                     Result.failure(e)
+                }
+            }
+        }
+    }
+
+    override suspend fun getAllProviderCategoryMappings(userId: String): Result<Map<String, String>> {
+        return withContext(Dispatchers.IO) {
+            try {
+                val docRef = db.collection("users").document(userId)
+                    .collection(PROVIDER_MAPPINGS_COLLECTION).document(MAPPINGS_DOCUMENT)
+
+                val document = docRef.get().await()
+                if (document.exists()) {
+                    @Suppress("UNCHECKED_CAST")
+                    val mappings = document.get(PROVIDER_TO_CATEGORY_MAP_FIELD) as? Map<String, String>
+                    if (mappings != null) {
+                        Log.i("PROVIDER_MAP", "Fetched ${mappings.size} provider mappings for user $userId")
+                        Result.success(mappings)
+                    } else {
+                        Log.i("PROVIDER_MAP", "Mappings field '$PROVIDER_TO_CATEGORY_MAP_FIELD' is null or not a map for user $userId")
+                        Result.success(emptyMap()) // Field is missing or wrong type
+                    }
+                } else {
+                    Log.i("PROVIDER_MAP", "No mappings document found for user $userId. Returning empty map.")
+                    Result.success(emptyMap()) // No mappings document
+                }
+            } catch (e: Exception) {
+                Log.e("PROVIDER_MAP", "Error fetching all provider mappings for user $userId", e)
+                Result.failure(e)
+            }
+        }
+    }
 } 

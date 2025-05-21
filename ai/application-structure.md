@@ -4,11 +4,7 @@ This document outlines the structure of the Finanzas Personales Android applicat
 
 ```
 app/
-├── .gradle/
-├── .gitignore
-├── build/
 ├── build.gradle.kts
-├── google-services.json
 ├── proguard-rules.pro
 └── src/
     ├── androidTest
@@ -44,11 +40,14 @@ app/
     │   │               │   │   └── TransactionRepositoryImpl.kt
     │   │               │   └── sms
     │   │               │       └── SmsReceiver.kt
+    │   │               ├── di
+    │   │               │   ├── AppModule.kt
+    │   │               │   └── RepositoryModule.kt
     │   │               ├── domain
     │   │               │   ├── usecase
     │   │               │   │   ├── CategoryAssignmentUseCase.kt
-    │   │               │   │   └── ExtractTransactionDataUseCase.kt
-    │   │               │   └── GetSpendingByCategoryUseCase.kt
+    │   │               │   │   ├── ExtractTransactionDataUseCase.kt
+    │   │               │   │   └── GetSpendingByCategoryUseCase.kt
     │   │               │   └── util
     │   │               │       ├── ContactsUtil.kt
     │   │               │       ├── DateTimeUtils.kt
@@ -57,7 +56,7 @@ app/
     │   │               └── ui
     │   │                   ├── add_transaction
     │   │                   │   ├── AddTransactionActivity.kt
-    │   │                   │   ├── AddTransactionScreen.kt // Allows manual input of Amount, Provider, Date, Type, Category.
+    │   │                   │   ├── AddTransactionScreen.kt
     │   │                   │   └── AddTransactionViewModel.kt
     │   │                   ├── auth
     │   │                   │   ├── AuthViewModel.kt
@@ -82,14 +81,16 @@ app/
     │   │                   │   ├── RawSmsListActivity.kt
     │   │                   │   ├── RawSmsListScreen.kt
     │   │                   │   └── RawSmsListViewModel.kt
+    │   │                   ├── settings
+    │   │                   │   ├── SettingsActivity.kt
+    │   │                   │   ├── SettingsScreen.kt
+    │   │                   │   └── SettingsViewModel.kt
+    │   │                   ├── sms
+    │   │                   │   └── SmsPermissionActivity.kt
     │   │                   ├── theme
     │   │                   │   ├── Color.kt
     │   │                   │   ├── Theme.kt
     │   │                   │   └── Type.kt
-    │   │                   └── settings
-    │   │                       ├── SettingsActivity.kt
-    │   │                       ├── SettingsScreen.kt
-    │   │                       └── SettingsViewModel.kt
     │   │                   └── transaction_list
     │   │                       ├── TransactionListActivity.kt
     │   │                       ├── TransactionListScreen.kt

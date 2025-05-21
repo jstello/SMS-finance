@@ -41,8 +41,11 @@ object AppModule {
     // Provides CategoryAssignmentUseCase (Requires CategoryRepository, which Hilt gets from RepositoryModule)
     @Provides
     @Singleton
-    fun provideCategoryAssignmentUseCase(categoryRepository: com.example.finanzaspersonales.data.repository.CategoryRepository): CategoryAssignmentUseCase {
-        return CategoryAssignmentUseCase(categoryRepository)
+    fun provideCategoryAssignmentUseCase(
+        categoryRepository: com.example.finanzaspersonales.data.repository.CategoryRepository,
+        authRepository: com.example.finanzaspersonales.data.auth.AuthRepository
+    ): CategoryAssignmentUseCase {
+        return CategoryAssignmentUseCase(categoryRepository, authRepository)
     }
 
     // Add provides for other dependencies if needed (e.g., Retrofit, Room database)

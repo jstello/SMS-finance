@@ -66,6 +66,8 @@ import androidx.compose.ui.platform.LocalContext
 import android.util.Log
 import androidx.compose.foundation.text.selection.SelectionContainer
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.material3.SnackbarResult
+import androidx.compose.material3.SnackbarDuration
 
 /**
  * Screen showing details of a transaction
@@ -83,6 +85,7 @@ fun TransactionDetailScreen(
     val categories by viewModel.categories.collectAsState()
     val isAssigning by viewModel.isAssigningCategory.collectAsState()
     val assignmentResult by viewModel.assignmentResult.collectAsState()
+    val saveProviderMappingResult by viewModel.saveProviderMappingResult.collectAsState()
     
     var currentCategory by remember { mutableStateOf<Category?>(null) }
     var showCategorySelector by remember { mutableStateOf(false) }
@@ -94,29 +97,56 @@ fun TransactionDetailScreen(
     var showDeleteConfirmationDialog by remember { mutableStateOf(false) }
     var isDeleting by remember { mutableStateOf(false) }
     
-    // Load the category for this transaction
     LaunchedEffect(transaction.id, transaction.categoryId) {
         currentCategory = viewModel.getCategoryForTransaction(transaction)
     }
     
-    // Handle assignment result
     LaunchedEffect(assignmentResult) {
         val result = assignmentResult
         if (result != null) {
             if (result.isSuccess) {
-                // Success! Update the displayed category
-                currentCategory = pendingCategoryChange
-                pendingCategoryChange = null // Clear pending state
-                snackbarHostState.showSnackbar("Category updated successfully!")
+                val newlySelectedCategory = pendingCategoryChange
+                currentCategory = newlySelectedCategory
+                
+                val providerForRule = transaction.provider
+                if (newlySelectedCategory != null && newlySelectedCategory.id != null && !providerForRule.isNullOrBlank()) {
+                    scope.launch {
+                        val snackbarResult = snackbarHostState.showSnackbar(
+                            message = "Category updated to '${newlySelectedCategory.name}'. Save for provider '${providerForRule}'?",
+                            actionLabel = "Save Rule",
+                            duration = SnackbarDuration.Long
+                        )
+                        if (snackbarResult == SnackbarResult.ActionPerformed) {
+                            viewModel.saveProviderCategoryPreference(providerForRule, newlySelectedCategory.id!!)
+                        }
+                    }
+                } else {
+                    scope.launch {
+                        snackbarHostState.showSnackbar("Category updated successfully!")
+                    }
+                }
+                pendingCategoryChange = null
             } else {
-                // Failure! Show error message
                 val errorMessage = result.exceptionOrNull()?.message ?: "Failed to update category"
                 Log.e("TransactionDetailScreen", "Category assignment failed", result.exceptionOrNull())
-                snackbarHostState.showSnackbar("Error: $errorMessage")
-                pendingCategoryChange = null // Clear pending state on failure too
+                scope.launch { snackbarHostState.showSnackbar("Error: $errorMessage") }
+                pendingCategoryChange = null
             }
-            // Clear the result in the ViewModel so this effect doesn't re-trigger
             viewModel.clearAssignmentResult()
+        }
+    }
+
+    LaunchedEffect(saveProviderMappingResult) {
+        val result = saveProviderMappingResult
+        if (result != null) {
+            val providerForRule = transaction.provider
+            if (result.isSuccess) {
+                scope.launch { snackbarHostState.showSnackbar("Rule saved for provider '${providerForRule ?: "Selected"}'.") }
+            } else {
+                val errorMsg = result.exceptionOrNull()?.message ?: "Failed to save rule."
+                scope.launch { snackbarHostState.showSnackbar("Error saving rule: $errorMsg") }
+            }
+            viewModel.clearSaveProviderMappingResult()
         }
     }
     
@@ -140,12 +170,12 @@ fun TransactionDetailScreen(
                     // Delete Button
                     IconButton(
                         onClick = { showDeleteConfirmationDialog = true },
-                        enabled = !isAssigning && !isDeleting // Disable while assigning category or deleting
+                        enabled = !isAssigning && !isDeleting
                     ) {
                         Icon(
                             imageVector = Icons.Default.Delete,
                             contentDescription = "Delete Transaction",
-                            tint = if (!isAssigning && !isDeleting) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.38f) // Dimmed when disabled
+                            tint = if (!isAssigning && !isDeleting) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.38f)
                         )
                     }
                 }
@@ -323,7 +353,7 @@ fun TransactionDetailScreen(
                     Row(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .clickable(enabled = !isAssigning) { showCategorySelector = true } // Make row clickable
+                            .clickable(enabled = !isAssigning) { showCategorySelector = true }
                             .padding(vertical = 8.dp),
                         verticalAlignment = Alignment.CenterVertically
                     ) {
@@ -371,7 +401,7 @@ fun TransactionDetailScreen(
                         }
                     }
                     
-                    Spacer(modifier = Modifier.height(24.dp)) // Increased spacing
+                    Spacer(modifier = Modifier.height(24.dp))
                     
                     // Original message - Now in a scrollable box
                     Text(
@@ -385,7 +415,7 @@ fun TransactionDetailScreen(
                     Box(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .height(120.dp) // Fixed height for scroll area
+                            .height(120.dp)
                             .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f), RoundedCornerShape(8.dp))
                             .border(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.5f), RoundedCornerShape(8.dp))
                             .padding(horizontal = 12.dp, vertical = 8.dp)
@@ -394,7 +424,7 @@ fun TransactionDetailScreen(
                             Text(
                                 text = transaction.description ?: "No original message available",
                                 style = MaterialTheme.typography.bodyMedium,
-                                modifier = Modifier.verticalScroll(rememberScrollState()) // Make text scrollable
+                                modifier = Modifier.verticalScroll(rememberScrollState())
                             )
                         }
                     }
@@ -415,13 +445,12 @@ fun TransactionDetailScreen(
                             if (currentTransactionId != null) {
                                 showDeleteConfirmationDialog = false
                                 isDeleting = true
-                                // Call ViewModel to delete (userId is now handled by ViewModel)
                                 viewModel.deleteTransaction(currentTransactionId) { result ->
                                     isDeleting = false
                                     scope.launch {
                                         if (result.isSuccess) {
                                             snackbarHostState.showSnackbar("Transaction deleted successfully")
-                                            onBack() // Navigate back after successful deletion
+                                            onBack()
                                         } else {
                                             val errorMsg = result.exceptionOrNull()?.message ?: "Failed to delete transaction"
                                             snackbarHostState.showSnackbar("Error: $errorMsg")
@@ -429,11 +458,10 @@ fun TransactionDetailScreen(
                                     }
                                 }
                             } else {
-                                // Handle the unlikely case where transaction ID is null
                                 scope.launch {
                                     snackbarHostState.showSnackbar("Error: Cannot delete transaction without an ID.")
                                 }
-                                showDeleteConfirmationDialog = false // Still close the dialog
+                                showDeleteConfirmationDialog = false
                             }
                         },
                         enabled = !isDeleting
@@ -461,12 +489,8 @@ fun TransactionDetailScreen(
             currentCategory = currentCategory,
             onDismiss = { if (!isAssigning) showCategorySelector = false },
             onCategorySelected = { selectedCategory ->
-                // Store the choice temporarily
                 pendingCategoryChange = selectedCategory
-                Log.d("CAT_ASSIGN_UI", "Attempting assignment: TxID='${transaction.id}', Selected CatID='${selectedCategory.id}'")
-                // Trigger the ViewModel assignment (which sets isAssigning = true)
                 viewModel.assignCategoryToTransaction(transaction, selectedCategory)
-                // Close the dialog immediately (or could keep it open until success/failure)
                 showCategorySelector = false
             }
         )

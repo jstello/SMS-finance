@@ -153,6 +153,8 @@ class SharedPrefsManager(private val context: Context) {
             Category(id = "e9f1d7b3-a4c8-4e6f-9a1d-b5c8e3a7d1b9", name = "Investments", color = 0xFF009688.toInt()),
             Category(id = "c5d9e1a7-8b3f-4c5e-a9d1-f3b7c5e1a9d3", name = "Payroll", color = 0xFF4CAF50.toInt()),
             Category(id = "f8a3d9c1-7e5b-4f1a-8c9d-e1b7a5d9c3e7", name = "Pets", color = 0xFFFF9800.toInt()),
+            Category(id = "d7c5b3a1-9e7f-4a3d-8c5b-1e3a7d9c5b3a", name = "Travel", color = 0xFF03A9F4.toInt()),
+            Category(id = "b5a3c7e1-9d5f-4b7a-8c3e-7d5b9a3c1e7d", name = "Subscriptions", color = 0xFF673AB7.toInt()),
             Category(id = "a0a0a0a0-a0a0-a0a0-a0a0-a0a0a0a0a0a0", name = "Other", color = 0xFF9E9E9E.toInt()) // Special ID for Other
         )
     }

@@ -59,4 +59,26 @@ interface CategoryRepository {
      * This object typically has a null ID.
      */
     fun getUncategorizedCategoryPlaceholder(): Category
+
+    /**
+     * Saves a mapping between a provider name and a category ID for a user.
+     */
+    suspend fun saveProviderCategoryMapping(userId: String, providerName: String, categoryId: String): Result<Unit>
+
+    /**
+     * Retrieves the category ID mapped to a given provider name for a user.
+     * Returns null if no mapping exists.
+     */
+    suspend fun getCategoryForProvider(userId: String, providerName: String): Result<String?>
+
+    /**
+     * Deletes a mapping for a given provider name for a user.
+     */
+    suspend fun deleteProviderCategoryMapping(userId: String, providerName: String): Result<Unit>
+
+    /**
+     * Retrieves all provider-category mappings for a user.
+     * Returns a map where the key is the provider name and the value is the category ID.
+     */
+    suspend fun getAllProviderCategoryMappings(userId: String): Result<Map<String, String>>
 } 

@@ -108,6 +108,10 @@ class CategoriesViewModel @Inject constructor(
     private val _assignmentResult = MutableStateFlow<Result<Unit>?>(null)
     val assignmentResult: StateFlow<Result<Unit>?> = _assignmentResult.asStateFlow()
     
+    // State for saving provider-category mapping
+    private val _saveProviderMappingResult = MutableStateFlow<Result<Unit>?>(null)
+    val saveProviderMappingResult: StateFlow<Result<Unit>?> = _saveProviderMappingResult.asStateFlow()
+    
     init {
         initialLoadData()
     }
@@ -845,5 +849,36 @@ class CategoriesViewModel @Inject constructor(
                 _isLoading.value = false
             }
         }
+    }
+
+    fun saveProviderCategoryPreference(providerName: String, categoryId: String) {
+        viewModelScope.launch {
+            val userId = authRepository.currentUser?.uid
+            if (userId == null) {
+                Log.e("PROVIDER_MAP_VM", "User not logged in, cannot save provider preference.")
+                _saveProviderMappingResult.value = Result.failure(IllegalStateException("User not logged in"))
+                return@launch
+            }
+            if (providerName.isBlank()) {
+                Log.e("PROVIDER_MAP_VM", "Provider name is blank, cannot save provider preference.")
+                _saveProviderMappingResult.value = Result.failure(IllegalArgumentException("Provider name cannot be blank"))
+                return@launch
+            }
+
+            Log.d("PROVIDER_MAP_VM", "Attempting to save preference: Provider '$providerName' -> CategoryID '$categoryId' for UserID '$userId'")
+            _saveProviderMappingResult.value = null // Reset before new attempt
+            
+            val result = categoryRepository.saveProviderCategoryMapping(userId.toString(), providerName, categoryId)
+            _saveProviderMappingResult.value = result
+            if (result.isSuccess) {
+                Log.i("PROVIDER_MAP_VM", "Successfully saved provider preference for '$providerName'.")
+            } else {
+                Log.e("PROVIDER_MAP_VM", "Failed to save provider preference for '$providerName'.", result.exceptionOrNull())
+            }
+        }
+    }
+
+    fun clearSaveProviderMappingResult() {
+        _saveProviderMappingResult.value = null
     }
 }
