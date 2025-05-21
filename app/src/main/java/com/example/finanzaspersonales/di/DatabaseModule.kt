@@ -19,13 +19,7 @@ object DatabaseModule {
     @Provides
     @Singleton
     fun provideFinanzasDatabase(@ApplicationContext context: Context): FinanzasDatabase {
-        return Room.databaseBuilder(
-            context,
-            FinanzasDatabase::class.java,
-            "finanzas_db"
-        )
-            .fallbackToDestructiveMigration()
-            .build()
+        return FinanzasDatabase.getDatabase(context)
     }
 
     @Provides

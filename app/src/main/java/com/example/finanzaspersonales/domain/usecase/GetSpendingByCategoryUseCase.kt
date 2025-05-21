@@ -4,6 +4,7 @@ import android.util.Log
 import com.example.finanzaspersonales.data.model.Category
 import com.example.finanzaspersonales.data.repository.CategoryRepository
 import com.example.finanzaspersonales.data.repository.TransactionRepository
+import com.example.finanzaspersonales.data.local.SharedPrefsManager // For Other Category ID
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import javax.inject.Inject
@@ -20,13 +21,16 @@ class GetSpendingByCategoryUseCase @Inject constructor(
         Log.d("SPENDING_USE_CASE", "====== Getting Spending By Category ======")
         Log.d("SPENDING_USE_CASE", "Filter - Year: $year, Month: $month, IsIncome: $isIncome")
 
-        val categories = categoryRepository.getCategories()
-        Log.d("SPENDING_USE_CASE", "Total categories: ${categories.size}")
+        val allCategories = categoryRepository.getCategories()
+        if (allCategories.isEmpty()) {
+            Log.w("SPENDING_USE_CASE", "No categories found in the repository. Returning empty map.")
+            return@withContext emptyMap()
+        }
+        Log.d("SPENDING_USE_CASE", "Total categories from repository: ${allCategories.size}")
 
-        val transactions = transactionRepository.getTransactions()
-        Log.d("SPENDING_USE_CASE", "Total transactions: ${transactions.size}")
+        val transactions = transactionRepository.getTransactions(forceRefresh = false) // Use cached transactions for performance
+        Log.d("SPENDING_USE_CASE", "Total transactions from repository: ${transactions.size}")
 
-        // Filter transactions by year, month, and type
         val filteredTransactions = transactionRepository.filterTransactions(
             transactions = transactions,
             year = year,
@@ -36,36 +40,41 @@ class GetSpendingByCategoryUseCase @Inject constructor(
         Log.d("SPENDING_USE_CASE", "Filtered transactions (Year: $year, Month: $month, IsIncome: $isIncome): ${filteredTransactions.size}")
 
         val result = mutableMapOf<Category, Float>()
-
-        // Get "Other" category
-        val otherCategory = categories.find { it.name == "Other" } ?: categories.lastOrNull()
-        if (otherCategory == null) {
-            Log.e("SPENDING_USE_CASE", "Could not find 'Other' category or any category to fall back on.")
-            return@withContext emptyMap() // Return empty if no categories exist at all
+        // Initialize all categories with 0.0f spending
+        allCategories.forEach {
+            result[it] = 0.0f
         }
-        Log.d("SPENDING_USE_CASE", "Other category: ${otherCategory.name} (${otherCategory.id})")
 
-        // Add up spending for each transaction
+        val otherCategoryId = SharedPrefsManager.DEFAULT_CATEGORIES.find { it.name == "Other" }?.id
+        val otherCategory = allCategories.find { it.id == otherCategoryId }
+
+        if (otherCategory == null) {
+            Log.e("SPENDING_USE_CASE", "Critical: 'Other' category with ID '$otherCategoryId' not found in the database. Uncategorized transactions might be missed.")
+            // Continue without a specific 'Other' category if not found, though this is an error state.
+        }
+
         filteredTransactions.forEach { transaction ->
             val categoryId = transaction.categoryId
-            val category = if (categoryId != null) {
-                categories.find { it.id == categoryId }
+            val foundCategory = if (categoryId != null && categoryId.isNotBlank()) {
+                allCategories.find { it.id == categoryId }
             } else {
-                null
+                null // Explicitly null for uncategorized or blank categoryId
             }
 
-            val targetCategory = category ?: otherCategory // Assign to found category or fallback to 'Other'
-
-            val oldAmount = result[targetCategory] ?: 0.0f
-            val newAmount = oldAmount + transaction.amount
-            result[targetCategory] = newAmount
-            Log.v("SPENDING_USE_CASE", "Added ${transaction.amount} to '${targetCategory.name}', total: $newAmount (Tx Date: ${transaction.date})")
+            val targetCategory = foundCategory ?: otherCategory // Fallback to 'Other' if found, otherwise tx remains unmapped from a specific category object if 'Other' is also missing
+            
+            if (targetCategory != null) {
+                 val currentAmount = result[targetCategory] ?: 0.0f
+                 result[targetCategory] = currentAmount + transaction.amount
+            } else if (categoryId.isNullOrBlank()) {
+                // This case should ideally not happen if 'Other' category exists and is found.
+                // If 'otherCategory' is null, uncategorized transactions will not be grouped.
+                Log.w("SPENDING_USE_CASE", "Transaction with ID ${transaction.id} is uncategorized (CatID: '$categoryId') but 'Other' category was not found. This spending will not be attributed.")
+            } else {
+                Log.w("SPENDING_USE_CASE", "Transaction with ID ${transaction.id} has CategoryID '$categoryId' but this category was not found in allCategories. This spending will not be attributed.")
+            }
         }
-
-        // Return only categories with spending > 0
-        val nonZeroResults = result.filter { it.value > 0 }
-        Log.d("SPENDING_USE_CASE", "Categories with spending > 0: ${nonZeroResults.size}")
-
-        nonZeroResults
+        Log.d("SPENDING_USE_CASE", "Spending calculation complete. Result map size: ${result.size}")
+        result // Return all categories, including those with 0 spending for the period
     }
 } 
