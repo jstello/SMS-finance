@@ -99,4 +99,9 @@ interface TransactionRepository {
      * Updates an existing transaction in the cache and Firestore.
      */
     suspend fun updateTransaction(transaction: TransactionData): Result<Unit>
+    
+    /**
+     * Gets the total number of transactions in the database.
+     */
+    suspend fun getTransactionCount(): Int
 } 

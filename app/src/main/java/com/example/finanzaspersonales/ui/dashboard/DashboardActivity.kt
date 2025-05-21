@@ -82,16 +82,12 @@ import com.example.finanzaspersonales.domain.usecase.CategoryAssignmentUseCase
 import com.example.finanzaspersonales.domain.usecase.ExtractTransactionDataUseCase
 import com.example.finanzaspersonales.ui.sms.SmsPermissionActivity
 import com.example.finanzaspersonales.ui.theme.FinanzasPersonalesTheme
-import com.example.finanzaspersonales.ui.auth.AuthViewModel
-import com.example.finanzaspersonales.ui.auth.LoginScreen
 import androidx.hilt.navigation.compose.hiltViewModel
 import dagger.hilt.android.AndroidEntryPoint
 import java.text.NumberFormat
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
-import com.example.finanzaspersonales.data.auth.AuthRepository
-import com.example.finanzaspersonales.data.auth.AuthRepositoryImpl
 import com.example.finanzaspersonales.ui.transaction_list.TransactionListActivity
 import kotlin.math.abs
 import kotlin.math.round
@@ -100,6 +96,7 @@ import com.example.finanzaspersonales.ui.add_transaction.AddTransactionActivity
 import androidx.compose.ui.platform.LocalContext
 import com.example.finanzaspersonales.ui.settings.SettingsActivity
 import com.example.finanzaspersonales.ui.raw_sms_list.RawSmsListActivity
+import androidx.compose.material3.HorizontalDivider
 
 // Helper function to format large numbers to millions with one decimal place
 private fun formatToMillions(value: Float): String {
@@ -153,36 +150,21 @@ class DashboardActivity : ComponentActivity() {
                     modifier = Modifier.fillMaxSize(),
                     color = MaterialTheme.colorScheme.background
                 ) {
-                    // Choose Login or Dashboard based on auth state
-                    val authViewModel: AuthViewModel = hiltViewModel()
-                    val currentUser by authViewModel.currentUserState.collectAsState()
-
-                    if (currentUser == null) {
-                        LoginScreen(onLoginSuccess = {
-                            // After successful login, load dashboard data
-                            viewModel.loadDashboardData()
-                        })
-                    } else {
-                        DashboardScreen(
-                            viewModel = viewModel,
-                            onNavigateToCategories = { navigateToCategories() },
-                            onNavigateToTransactions = { navigateToTransactions() },
-                            onNavigateToProviders = { navigateToProviders() },
-                            onNavigateToAddTransaction = { navigateToAddTransaction() },
-                            onNavigateToRawSmsList = { navigateToRawSmsList() }
-                        )
-                    }
+                    // Show Dashboard unconditionally as authentication is removed
+                    DashboardScreen(
+                        viewModel = viewModel,
+                        onNavigateToCategories = { navigateToCategories() },
+                        onNavigateToTransactions = { navigateToTransactions() },
+                        onNavigateToProviders = { navigateToProviders() },
+                        onNavigateToAddTransaction = { navigateToAddTransaction() },
+                        onNavigateToRawSmsList = { navigateToRawSmsList() }
+                    )
                 }
             }
         }
 
         // Check permissions when activity is created
-        // Need AuthRepository instance for this check. We'll handle this with Hilt modules.
-        // val currentUser = authRepository.currentUser
-        // if (currentUser != null) {
-            checkPermissionsAndLoadData() // Still need to check permissions
-        //     viewModel.performInitialSyncIfNecessary(currentUser.uid)
-        // }
+        checkPermissionsAndLoadData() // Still need to check permissions
     }
     
     private fun checkPermissionsAndLoadData() {
@@ -430,9 +412,9 @@ fun DashboardScreen(
             ) {
                 // Raw SMS Log
                 DashboardActionItem(
-                    icon = Icons.Filled.ReceiptLong, // Using the correct icon
+                    icon = Icons.Filled.ReceiptLong,
                     title = "Raw SMS Log",
-                    backgroundColor = MaterialTheme.colorScheme.surfaceVariant, // Example color, adjust as needed
+                    backgroundColor = MaterialTheme.colorScheme.surfaceVariant,
                     modifier = Modifier.weight(1f),
                     onClick = onNavigateToRawSmsList
                 )
@@ -502,7 +484,7 @@ fun DashboardScreen(
                         recentTransactions.forEachIndexed { index, transaction ->
                             TransactionItem(transaction = transaction)
                             if (index < recentTransactions.size - 1) {
-                                Divider()
+                                HorizontalDivider()
                             }
                         }
                     }

@@ -81,4 +81,9 @@ interface CategoryRepository {
      * Returns a map where the key is the provider name and the value is the category ID.
      */
     suspend fun getAllProviderCategoryMappings(userId: String): Result<Map<String, String>>
+
+    /**
+     * Gets the total number of categories in the database.
+     */
+    suspend fun getCategoryCount(): Int
 } 

@@ -10,7 +10,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.ui.Modifier
-import com.example.finanzaspersonales.data.auth.AuthRepositoryImpl
+// import com.example.finanzaspersonales.data.auth.AuthRepositoryImpl // Removed
 import com.example.finanzaspersonales.data.local.SharedPrefsManager
 import com.example.finanzaspersonales.data.local.SmsDataSource
 import com.example.finanzaspersonales.data.repository.CategoryRepositoryImpl

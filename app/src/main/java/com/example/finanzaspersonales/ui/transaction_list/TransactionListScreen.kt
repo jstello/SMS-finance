@@ -49,9 +49,11 @@ fun TransactionListScreen(viewModel: TransactionListViewModel) {
                 },
                 navigationIcon = {
                     val context = LocalContext.current
-                    // Simple back arrow for now, assumes Activity handles finish()
                     IconButton(onClick = { (context as? ComponentActivity)?.finish() }) {
-                        Icon(Icons.Filled.ArrowBack, contentDescription = "Back")
+                        Icon(
+                            imageVector = Icons.Filled.ArrowBack,
+                            contentDescription = "Back"
+                        )
                     }
                 },
                  colors = TopAppBarDefaults.topAppBarColors(
@@ -91,7 +93,7 @@ fun TransactionListScreen(viewModel: TransactionListViewModel) {
                     ) {
                         items(transactions, key = { it.transaction.id!! }) { item ->
                             TransactionListItem(item = item)
-                            Divider()
+                            HorizontalDivider()
                         }
                     }
                 }

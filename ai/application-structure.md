@@ -22,9 +22,19 @@ app/
     │   │           └── finanzaspersonales
     │   │               ├── FinanzasApp.kt
     │   │               ├── data
-    │   │               │   ├── auth
-    │   │               │   │   ├── AuthRepository.kt
-    │   │               │   │   └── AuthRepositoryImpl.kt
+    │   │               │   ├── db
+    │   │               │   │   ├── dao
+    │   │               │   │   │   ├── CategoryDao.kt
+    │   │               │   │   │   ├── ProviderAliasDao.kt
+    │   │               │   │   │   └── TransactionDao.kt
+    │   │               │   │   ├── entity
+    │   │               │   │   │   ├── CategoryEntity.kt
+    │   │               │   │   │   ├── ProviderAliasEntity.kt
+    │   │               │   │   │   └── TransactionEntity.kt
+    │   │               │   │   ├── mapper
+    │   │               │   │   │   ├── CategoryMapper.kt
+    │   │               │   │   │   └── TransactionMapper.kt
+    │   │               │   │   └── FinanzasDatabase.kt
     │   │               │   ├── local
     │   │               │   │   ├── SharedPrefsManager.kt
     │   │               │   │   └── SmsDataSource.kt
@@ -42,6 +52,7 @@ app/
     │   │               │       └── SmsReceiver.kt
     │   │               ├── di
     │   │               │   ├── AppModule.kt
+    │   │               │   ├── DatabaseModule.kt
     │   │               │   └── RepositoryModule.kt
     │   │               ├── domain
     │   │               │   ├── usecase
@@ -58,9 +69,6 @@ app/
     │   │                   │   ├── AddTransactionActivity.kt
     │   │                   │   ├── AddTransactionScreen.kt
     │   │                   │   └── AddTransactionViewModel.kt
-    │   │                   ├── auth
-    │   │                   │   ├── AuthViewModel.kt
-    │   │                   │   └── LoginScreen.kt
     │   │                   ├── categories
     │   │                   │   ├── CategoriesActivity.kt
     │   │                   │   ├── CategoriesScreen.kt
@@ -146,7 +154,6 @@ app/
 ## Top-Level Files and Directories (`app/`)
 
 *   `build.gradle.kts`: The main build script for the application module, using Kotlin DSL. Defines dependencies, plugins, and build configurations.
-*   `google-services.json`: Configuration file for integrating Firebase services.
 *   `proguard-rules.pro`: Rules for ProGuard/R8, used for code shrinking and obfuscation.
 *   `.gitignore`: Specifies intentionally untracked files that Git should ignore.
 *   `src/`: Contains the application's source code and resources.
@@ -158,78 +165,74 @@ app/
 *   `AndroidManifest.xml`: The core manifest file describing essential information about the app to the Android system (permissions, components, features, etc.).
 *   `java/`: Contains the Java/Kotlin source code.
     *   `com/example/finanzaspersonales/`: The main package for the application code.
-        *   `data/`: Contains data source implementations (local, remote, SMS receiver), repositories, and data models.
+        *   `data/`: Contains data source implementations (local Room DB, SMS receiver), repositories, data models, and DB entities/DAOs/mappers.
         *   `domain/`: Contains business logic (use cases) and utility classes.
         *   `usecase/`: Contains specific business logic operations, encapsulating interactions between repositories (e.g., `CategoryAssignmentUseCase`, `ExtractTransactionDataUseCase`, `GetSpendingByCategoryUseCase`).
         *   `util/`: Contains helper classes for common tasks like date/time manipulation, contact fetching, string operations, and text extraction.
-        *   `ui/`: Contains UI-related code (Activities, Composables, ViewModels, themes), organized by feature (accounts, auth, categories, dashboard, providers, raw_sms_list, sms, transaction_list).
-        *   `FinanzasApp.kt`: The custom `Application` class, used for application-level initialization.
+        *   `ui/`: Contains UI-related code (Activities, Composables, ViewModels, themes), organized by feature (categories, dashboard, providers, raw_sms_list, sms, transaction_list).
+        *   `FinanzasApp.kt`: The custom `Application` class, used for application-level initialization (e.g., Hilt).
 *   `res/`: Contains application resources (drawables, layouts, menus, icons, values, XML).
 *   `ic_launcher-playstore.png`: The high-resolution launcher icon for the Play Store listing.
 
 ## Summary
 
 The project follows a standard Android structure with Gradle (Kotlin DSL) for building. It adopts a layered architecture (`data`, `domain`, `ui`) within the main package `com.example.finanzaspersonales`.
-Recent additions include:
-*   User registration functionality (email/password sign-up).
-*   The ability to manually add transactions via the new `ui/add_transaction` feature module (includes Amount, Provider, Date, Type, Category fields).
-*   Functionality to delete incorrectly parsed transactions from the category detail view.
-*   Refactored repositories to break a dependency cycle: removed direct dependency of `CategoryRepositoryImpl` on `TransactionRepository`. Methods requiring both repositories (like calculating spending by category) are moved into dedicated Use Cases (e.g., `GetSpendingByCategoryUseCase`).
-*   Added a Developer Settings screen (`ui/settings`) with a button to clear user transactions and resync data.
-*   Added a "Raw SMS Transactions" screen (`ui/raw_sms_list`) to display a raw list of SMS messages for debugging.
+**Core changes in this iteration involve the removal of all Firebase Authentication and Firestore dependencies, migrating to a Room-based local database for all data persistence.**
 
-Key structural improvements made previously:
-*   SMS-related code (`SmsReceiver`, `SmsPermissionActivity`) moved into appropriate `data` and `ui` layers (`data/sms`, `ui/sms`).
-*   `CategoriesActivity` moved into the `ui/categories` package.
-*   Legacy/temporary files (`.py`, `.txt`) removed from the source set.
-*   Empty top-level directories (`components`, `routes`) removed.
-*   Documentation files (`.md`) previously in the source set are located in the `ai/` directory.
+Recent additions/changes:
+*   **Room Database Integration**:
+    *   Entities (`TransactionEntity`, `CategoryEntity`, `ProviderAliasEntity`) defined in `data/db/entity/`.
+    *   DAOs (`TransactionDao`, `CategoryDao`, `ProviderAliasDao`) defined in `data/db/dao/`.
+    *   Mappers (`TransactionMapper`, `CategoryMapper`) defined in `data/db/mapper/`.
+    *   `FinanzasDatabase` class and Hilt `DatabaseModule` for providing DB instances.
+*   Repositories (`TransactionRepositoryImpl`, `CategoryRepositoryImpl`) refactored to use Room DAOs instead of Firestore. All Firestore-related methods now throw `UnsupportedOperationException`.
+*   Firebase Authentication and related UI (`LoginScreen`, `AuthViewModel`) and data components (`AuthRepository`, `AuthRepositoryImpl`) have been removed.
+*   The ability to manually add transactions via the `ui/add_transaction` feature module.
+*   Functionality to delete incorrectly parsed transactions from the category detail view (now operates on Room data).
+*   Developer Settings screen (`ui/settings`) updated to clear user transactions from Room and resync SMS data.
+*   "Raw SMS Transactions" screen (`ui/raw_sms_list`) for displaying raw SMS messages.
 
-The structure is now cleaner and better adheres to layered architecture principles, improving modularity and maintainability. 
+Key structural improvements maintained/updated:
+*   SMS-related code (`SmsReceiver`, `SmsPermissionActivity`) in appropriate `data` and `ui` layers.
+*   Layered architecture (`data`, `domain`, `ui`) is now centered around local Room persistence and SMS processing.
+*   Use Cases (`CategoryAssignmentUseCase`, `ExtractTransactionDataUseCase`, `GetSpendingByCategoryUseCase`) operate on Room-backed repositories.
 
-- **Repository**
-  - `repository/TransactionRepositoryImpl.kt` (mdc:app/src/main/java/com/example/finanzaspersonales/data/repository/TransactionRepositoryImpl.kt): Extracts, caches, and assigns categories to transactions.
-    - Manages an in-memory cache (`cachedTransactions`).
-    - The `getTransactions(forceRefresh: Boolean)` method implements a cache-first strategy:
-      - If `forceRefresh = false` and the cache is populated, a processed copy of the cache is returned.
-      - If `forceRefresh = true` or the cache is empty, it performs a full data retrieval:
-        1. Fetches transactions from Firestore.
-        2. Scans all local SMS messages (internally calling `refreshSmsData(0)` which processes SMS and updates its portion of the cache).
-        3. Merges the Firestore and SMS-derived transactions.
-        4. Applies category assignments (from SharedPreferences) and provider fallbacks.
-        5. Updates the main `cachedTransactions` with this merged and processed list.
-  - `repository/CategoryRepositoryImpl.kt` (mdc:app/src/main/java/com/example/finanzaspersonales/data/repository/CategoryRepositoryImpl.kt): Loads categories, assigns categories to transactions, calculates spending.
-    - Manages category persistence (SharedPreferences as fallback, with Firestore as primary for logged-in users).
-    - Provides `getUncategorizedCategoryPlaceholder(): Category` which returns a standard `Category` object (e.g., with `id = null`, `name = "Other"`) to represent uncategorized transactions.
+The structure is focused on local data management, improving offline capabilities and simplifying the data layer by removing remote synchronization logic.
 
-- **Domain Layer** (`app/src/main/java/com/example/finanzaspersonales/domain`)
-  - `usecase/ExtractTransactionDataUseCase.kt` (mdc:app/src/main/java/com/example/finanzaspersonales/domain/usecase/ExtractTransactionDataUseCase.kt): Converts SMS into `TransactionData`.
-  - `usecase/CategoryAssignmentUseCase.kt` (mdc:app/src/main/java/com/example/finanzaspersonales/domain/usecase/CategoryAssignmentUseCase.kt): Rule‐based category assignment.
-  - `usecase/GetSpendingByCategoryUseCase.kt`: (Path not provided) Calculates total spending for each category.
-    - Note: Should be updated to use `CategoryRepository.getUncategorizedCategoryPlaceholder()` when creating the summary for uncategorized transactions to ensure consistency with how "Other" is handled in detail views.
-  - `util/DateTimeUtils.kt` (mdc:app/src/main/java/com/example/finanzaspersonales/domain/util/DateTimeUtils.kt): Date helpers.
+- **Data Layer (`app/src/main/java/com/example/finanzaspersonales/data`)**
+  - **Database (`data/db`)**
+    - `dao/`: Contains Data Access Objects for Room (e.g., `TransactionDao`, `CategoryDao`).
+    - `entity/`: Contains Room entity classes (e.g., `TransactionEntity`, `CategoryEntity`).
+    - `mapper/`: Contains functions to map between Room entities and domain models.
+    - `FinanzasDatabase.kt`: Defines the Room database.
+  - **Local (`data/local`)**
+    - `SmsDataSource.kt`: Responsible for reading SMS messages from the device.
+    - `SharedPrefsManager.kt`: Manages simple key-value storage (e.g., for user preferences, though categories are now in Room).
+  - **Repository (`data/repository`)**
+    - `TransactionRepositoryImpl.kt`: Manages transaction data, sourcing from `SmsDataSource` and persisting to `TransactionDao`. Assigns categories via `CategoryAssignmentUseCase`.
+      - The `getTransactions(forceRefresh: Boolean)` method now primarily relies on Room:
+        - If `forceRefresh = true`, it calls `refreshSmsData()` to process new SMS messages and insert/update them in Room via `TransactionDao`.
+        - Fetches transactions from `TransactionDao`.
+    - `CategoryRepositoryImpl.kt`: Manages category data, persisting to `CategoryDao`.
+      - Provides `getUncategorizedCategoryPlaceholder(): Category`.
+  - **SMS (`data/sms`)**
+    - `SmsReceiver.kt`: Listens for incoming SMS messages to trigger transaction processing.
+
+- **Domain Layer (`app/src/main/java/com/example/finanzaspersonales/domain`)**
+  - `usecase/ExtractTransactionDataUseCase.kt`: Converts SMS messages into `TransactionData` domain models.
+  - `usecase/CategoryAssignmentUseCase.kt`: Implements rule-based category assignment for transactions.
+  - `usecase/GetSpendingByCategoryUseCase.kt`: Calculates total spending for each category using data from repositories.
+  - `util/`: Utility classes (DateTime, String manipulation, etc.).
+
+- **DI Layer (`app/src/main/java/com/example/finanzaspersonales/di`)**
+    - `AppModule.kt`: Provides application-level dependencies (e.g., UseCases).
+    - `DatabaseModule.kt`: Provides Room database and DAO instances.
+    - `RepositoryModule.kt`: Provides repository implementations.
 
 - **UI Layer** (`app/src/main/java/com/example/finanzaspersonales/ui`)
   - **Dashboard**
-    - `ui/dashboard/DashboardViewModel.kt` (mdc:app/src/main/java/com/example/finanzaspersonales/ui/dashboard/DashboardViewModel.kt)
-      - Note: Should be updated to use the cache-first approach (`getTransactions(forceRefresh = false)` for initial load, `getTransactions(forceRefresh = true)` for explicit refresh) similar to `CategoriesViewModel`.
+    - `ui/dashboard/DashboardViewModel.kt`: Loads data from `TransactionRepository` and `CategoryRepository` for display.
   - **Categories**
-    - `ui/categories/CategoriesActivity.kt` (mdc:app/src/main/java/com/example/finanzaspersonales/ui/categories/CategoriesActivity.kt)
-    - `ui/categories/CategoriesViewModel.kt` (mdc:app/src/main/java/com/example/finanzaspersonales/ui/categories/CategoriesViewModel.kt)
-      - Implements cache-first loading: calls `transactionRepository.getTransactions(forceRefresh = false)` for initial data population.
-      - Explicit refresh actions (e.g., refresh button) call `transactionRepository.getTransactions(forceRefresh = true)` to get fresh data.
-      - Uses `categoryRepository.getUncategorizedCategoryPlaceholder()` to identify and fetch details for the "Other" category (i.e., transactions with `categoryId = null` or empty).
-    - `ui/categories/TransactionDetailScreen.kt` (mdc:app/src/main/java/com/example/finanzaspersonales/ui/categories/TransactionDetailScreen.kt)
-  - **Raw SMS List**
-    - `ui/raw_sms_list/RawSmsListActivity.kt`
-    - `ui/raw_sms_list/RawSmsListScreen.kt`
-    - `ui/raw_sms_list/RawSmsListViewModel.kt`
-  - **Transactions List**
-    - `ui/transaction_list/TransactionListActivity.kt` (mdc:app/src/main/java/com/example/finanzaspersonales/ui/transaction_list/TransactionListActivity.kt)
-    - `ui/transaction_list/TransactionListViewModel.kt` (mdc:app/src/main/java/com/example/finanzaspersonales/ui/transaction_list/TransactionListViewModel.kt)
-    - `ui/transaction_list/TransactionListScreen.kt` (mdc:app/src/main/java/com/example/finanzaspersonales/ui/transaction_list/TransactionListScreen.kt)
-    - `ui/transaction_list/TransactionListViewModel.kt` (mdc:app/src/main/java/com/example/finanzaspersonales/ui/transaction_list/TransactionListViewModel.kt)
-    - `ui/transaction_list/TransactionListViewModelFactory.kt` (mdc:app/src/main/java/com/example/finanzaspersonales/ui/transaction_list/TransactionListViewModelFactory.kt)
-    - `ui/transaction_list/TransactionListScreen.kt` (mdc:app/src/main/java/com/example/finanzaspersonales/ui/transaction_list/TransactionListScreen.kt)
-
-The structure is now cleaner and better adheres to layered architecture principles, improving modularity and maintainability. 
+    - `ui/categories/CategoriesViewModel.kt`: Manages category and transaction display, filtering, and interaction, using Room-backed repositories.
+      - Uses `categoryRepository.getUncategorizedCategoryPlaceholder()` for "Other" category.
+  - Other UI modules (`add_transaction`, `providers`, `raw_sms_list`, `settings`, `transaction_list`) operate on ViewModels that interact with the Room-backed repositories.

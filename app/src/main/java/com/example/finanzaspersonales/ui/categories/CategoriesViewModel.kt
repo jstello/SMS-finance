@@ -7,7 +7,6 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.*
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.example.finanzaspersonales.data.auth.AuthRepository
 import com.example.finanzaspersonales.data.model.Category
 import com.example.finanzaspersonales.data.model.TransactionData
 import com.example.finanzaspersonales.data.repository.CategoryRepository
@@ -50,8 +49,7 @@ enum class TransactionType {
 class CategoriesViewModel @Inject constructor(
     private val categoryRepository: CategoryRepository,
     private val transactionRepository: TransactionRepository,
-    private val getSpendingByCategoryUseCase: GetSpendingByCategoryUseCase,
-    private val authRepository: AuthRepository
+    private val getSpendingByCategoryUseCase: GetSpendingByCategoryUseCase
 ) : ViewModel() {
     
     // State for selected transaction type tab
@@ -784,7 +782,6 @@ class CategoriesViewModel @Inject constructor(
         _assignmentResult.value = null
     }
 
-
     /**
      * Delete a transaction by its ID
      * @param transactionId The ID of the transaction to delete.
@@ -792,28 +789,8 @@ class CategoriesViewModel @Inject constructor(
      */
     fun deleteTransaction(transactionId: String, onResult: (Result<Unit>) -> Unit) {
         viewModelScope.launch {
-            val userId = authRepository.currentUser?.uid // Get user ID from AuthRepository
-            if (userId == null) {
-                Log.e("CategoriesViewModel", "Cannot delete transaction: User not authenticated.")
-                onResult(Result.failure(Exception("User not authenticated")))
-                return@launch
-            }
-
-            Log.d("CategoriesViewModel", "Attempting to delete transaction: $transactionId for user: $userId")
-            val result = transactionRepository.deleteTransactionFromFirestore(transactionId, userId)
-            if (result.isSuccess) {
-                Log.i("CategoriesViewModel", "Transaction $transactionId deleted successfully.")
-                // Reload data after successful deletion
-                loadAllTransactions(forceRemoteRefresh = true) // Force refresh to ensure cache is updated from source
-                loadCategorySpending() // Recalculate category spending
-                // If a category detail screen was active, reload its specific transactions
-                _selectedCategory.value?.let { category ->
-                    loadTransactionsForCategory(category, _selectedTransactionType.value)
-                }
-            } else {
-                Log.e("CategoriesViewModel", "Failed to delete transaction $transactionId", result.exceptionOrNull())
-            }
-            onResult(result) // Notify the caller (UI) about the result
+            // Deletion of individual transactions is no longer supported
+            onResult(Result.failure(UnsupportedOperationException("Deleting individual transactions is not supported")))
         }
     }
 
@@ -852,30 +829,8 @@ class CategoriesViewModel @Inject constructor(
     }
 
     fun saveProviderCategoryPreference(providerName: String, categoryId: String) {
-        viewModelScope.launch {
-            val userId = authRepository.currentUser?.uid
-            if (userId == null) {
-                Log.e("PROVIDER_MAP_VM", "User not logged in, cannot save provider preference.")
-                _saveProviderMappingResult.value = Result.failure(IllegalStateException("User not logged in"))
-                return@launch
-            }
-            if (providerName.isBlank()) {
-                Log.e("PROVIDER_MAP_VM", "Provider name is blank, cannot save provider preference.")
-                _saveProviderMappingResult.value = Result.failure(IllegalArgumentException("Provider name cannot be blank"))
-                return@launch
-            }
-
-            Log.d("PROVIDER_MAP_VM", "Attempting to save preference: Provider '$providerName' -> CategoryID '$categoryId' for UserID '$userId'")
-            _saveProviderMappingResult.value = null // Reset before new attempt
-            
-            val result = categoryRepository.saveProviderCategoryMapping(userId.toString(), providerName, categoryId)
-            _saveProviderMappingResult.value = result
-            if (result.isSuccess) {
-                Log.i("PROVIDER_MAP_VM", "Successfully saved provider preference for '$providerName'.")
-            } else {
-                Log.e("PROVIDER_MAP_VM", "Failed to save provider preference for '$providerName'.", result.exceptionOrNull())
-            }
-        }
+        // Provider mapping is no longer supported
+        _saveProviderMappingResult.value = Result.failure(UnsupportedOperationException("Provider mapping is no longer supported"))
     }
 
     fun clearSaveProviderMappingResult() {

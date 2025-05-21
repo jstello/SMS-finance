@@ -48,6 +48,7 @@ import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.TextButton
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material3.HorizontalDivider
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -74,7 +75,10 @@ fun RawSmsListScreen(
                 title = { Text("Raw SMS Transactions") },
                 navigationIcon = {
                     IconButton(onClick = { navController.popBackStack() }) {
-                        Icon(Icons.Filled.ArrowBack, contentDescription = "Back")
+                        Icon(
+                            imageVector = Icons.Filled.ArrowBack,
+                            contentDescription = "Back"
+                        )
                     }
                 },
                 actions = {
@@ -132,7 +136,7 @@ fun RawSmsListScreen(
                     modifier = Modifier.weight(0.3f) // Adjusted weight
                 )
             }
-            Divider()
+            HorizontalDivider()
 
             if (isLoading) {
                 Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
@@ -154,7 +158,7 @@ fun RawSmsListScreen(
                                 showDialog = true
                             }
                         )
-                        Divider()
+                        HorizontalDivider()
                     }
                 }
             }

@@ -6,6 +6,6 @@
         android:id="@+id/action_sms_test"
         android:title="SMS Test"
         android:orderInCategory="100"
-        app:showAsAction="never" />
+        android:showAsAction="never" />
     
 </menu> 

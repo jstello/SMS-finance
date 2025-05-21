@@ -1,6 +1,5 @@
 package com.example.finanzaspersonales.data.model
 
-import com.google.firebase.firestore.DocumentId
 import java.util.Date
 
 /**
@@ -8,7 +7,6 @@ import java.util.Date
  * Updated for Firestore compatibility.
  */
 data class TransactionData(
-    @DocumentId
     val id: String? = null,
     val userId: String? = null,
     val date: Date,

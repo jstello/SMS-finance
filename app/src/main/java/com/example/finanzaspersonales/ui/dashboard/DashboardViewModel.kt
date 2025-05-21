@@ -161,6 +161,10 @@ class DashboardViewModel @Inject constructor(
                     .take(5)
                 
                 Log.d("DASHBOARD_LOAD", "Dashboard data loaded successfully. Income: ${_monthlyIncome.value}, Expenses: ${_monthlyExpenses.value}, Recent: ${_recentTransactions.value.size}")
+                
+                // Log database contents
+                logDatabaseContents()
+                
             } catch (e: Exception) {
                 Log.e("DASHBOARD_LOAD", "Error loading dashboard data", e)
                 // Handle error - e.g., clear data or show error message
@@ -181,5 +185,20 @@ class DashboardViewModel @Inject constructor(
      */
     fun formatCurrency(amount: Float): String {
         return "$ %.2f".format(amount)
+    }
+    
+    /**
+     * Logs the current counts of entities in the Room database.
+     */
+    private fun logDatabaseContents() {
+        viewModelScope.launch {
+            try {
+                val transactionCount = transactionRepository.getTransactionCount()
+                val categoryCount = categoryRepository.getCategoryCount()
+                Log.d("DATABASE_LOG", "Current Database Counts: Transactions = $transactionCount, Categories = $categoryCount")
+            } catch (e: Exception) {
+                Log.e("DATABASE_LOG", "Error fetching database counts for logging", e)
+            }
+        }
     }
 } 

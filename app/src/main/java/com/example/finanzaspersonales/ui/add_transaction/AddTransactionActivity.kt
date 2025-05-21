@@ -6,11 +6,6 @@ import androidx.activity.compose.setContent
 import androidx.activity.viewModels
 import androidx.compose.material3.Surface
 import androidx.compose.ui.Modifier
-import com.example.finanzaspersonales.data.auth.AuthRepositoryImpl
-import com.example.finanzaspersonales.data.local.SharedPrefsManager
-import com.example.finanzaspersonales.data.local.SmsDataSource
-import com.example.finanzaspersonales.data.repository.CategoryRepositoryImpl
-import com.example.finanzaspersonales.data.repository.TransactionRepositoryImpl
 import com.example.finanzaspersonales.domain.usecase.CategoryAssignmentUseCase
 import com.example.finanzaspersonales.domain.usecase.ExtractTransactionDataUseCase
 import com.example.finanzaspersonales.ui.theme.FinanzasPersonalesTheme

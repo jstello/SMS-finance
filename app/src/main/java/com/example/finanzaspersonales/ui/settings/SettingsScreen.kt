@@ -31,7 +31,7 @@ fun SettingsScreen(
     val context = LocalContext.current
     val isLoading by settingsViewModel.isLoading.collectAsState()
     val showConfirmationDialog by settingsViewModel.showConfirmationDialog.collectAsState()
-    val currentUser by settingsViewModel.currentUser.collectAsState()
+    // val currentUser by settingsViewModel.currentUser.collectAsState() // Commented out due to auth removal
     val userMessage by settingsViewModel.userMessage.collectAsState()
 
     val snackbarHostState = remember { SnackbarHostState() }
@@ -77,7 +77,7 @@ fun SettingsScreen(
             ) {
                 Button(
                     onClick = { settingsViewModel.onShowDialog() },
-                    enabled = currentUser != null && !isLoading,
+                    enabled = false, // currentUser is commented out
                     colors = ButtonDefaults.buttonColors(
                         containerColor = Color.Red.copy(alpha = 0.1f),
                         contentColor = Color.Red

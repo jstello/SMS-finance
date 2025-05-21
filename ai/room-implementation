@@ -1,0 +1,40 @@
+# Room Migration Progress for FinanzasPersonales2
+
+**Start Date**: 2025-05-21
+
+## Phase 0: Project Setup & Pre-requisites
+- [ ] 0.1 Create Git feature branch (e.g., `feature/room-migration`)
+- [X] 0.2 Add Room, Coroutines, (Optional: DataStore) dependencies to `app/build.gradle.kts`
+- [X] 0.3 Remove unnecessary Firebase dependencies from `app/build.gradle.kts`
+- [X] 0.4 Ensure `kotlin-kapt` or `ksp` plugin is applied in `app/build.gradle.kts`
+- [ ] 0.5 Sync Gradle project
+
+## Phase 1: Room Database Setup
+- [X] 1.1 Define `TransactionEntity` (data/db/entity/TransactionEntity.kt)
+- [X] 1.2 Define `CategoryEntity` (data/db/entity/CategoryEntity.kt)
+- [X] 1.3 Define `ProviderAliasEntity` (data/db/entity/ProviderAliasEntity.kt) *(optional)*
+- [X] 1.4 Create `TransactionDao` (data/db/dao/TransactionDao.kt)
+- [X] 1.5 Create `CategoryDao` (data/db/dao/CategoryDao.kt)
+- [X] 1.6 Create `ProviderAliasDao` (data/db/dao/ProviderAliasDao.kt) *(optional)*
+- [X] 1.7 Implement `FinanzasDatabase` (data/db/FinanzasDatabase.kt)
+- [X] 1.8 Implement `DatabaseModule` Hilt Module (di/DatabaseModule.kt)
+
+## Phase 2: Data-Model Adaptation
+- [ ] 2.1 Create entity ↔ domain mappers (data/db/mapper/)
+- [ ] 2.2 Implement `TransactionIdGenerator` (utils or data/db)
+- [ ] 2.3 Ensure `rawSmsContent` mapping
+
+## Phase 3: Repository Refactoring
+- [ ] 3.1 Refactor `TransactionRepositoryImpl` to use Room DAO
+- [ ] 3.2 Refactor `CategoryRepositoryImpl` to use Room DAO
+
+## Phase 4: Use-Case and UI Integration
+- [ ] 4.1 Update use-cases to leverage Room-backed repos
+- [ ] 4.2 Update ViewModels to observe Flows from repos
+
+## Phase 5: Cleanup & Testing
+- [ ] 5.1 Remove Firebase dependencies & code
+- [ ] 5.2 Write DAO unit tests
+- [ ] 5.3 Write Repository unit tests
+- [ ] 5.4 Write DB migration tests
+- [ ] 5.5 Update UI tests

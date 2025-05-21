@@ -4,16 +4,13 @@ import com.example.finanzaspersonales.data.model.Category
 import com.example.finanzaspersonales.data.model.TransactionData
 import com.example.finanzaspersonales.data.repository.CategoryRepository
 import android.util.Log
-import com.example.finanzaspersonales.data.auth.AuthRepository
-import kotlinx.coroutines.flow.firstOrNull
 import javax.inject.Inject
 
 /**
  * Use case for assigning categories to transactions based on patterns in transaction data
  */
 class CategoryAssignmentUseCase @Inject constructor(
-    private val categoryRepository: CategoryRepository,
-    private val authRepository: AuthRepository
+    private val categoryRepository: CategoryRepository
 ) {
     // Cached list of categories
     private var categories: List<Category> = emptyList()
@@ -22,61 +19,11 @@ class CategoryAssignmentUseCase @Inject constructor(
      * Assign a category to a transaction based on its content
      */
     suspend fun assignCategoryToTransaction(transaction: TransactionData): Category? {
-        // 0. Get current user ID
-        val userId = authRepository.currentUserState.firstOrNull()?.uid
-
-        // 1. Check for provider-specific category mapping if provider and user ID exist
-        if (userId != null && transaction.provider != null && transaction.provider!!.isNotBlank()) { // Ensure provider is not blank
-            Log.d("CategoryAssign", "Attempting to find mapping for provider: '${transaction.provider}' for user: $userId")
-            val providerCategoryMappingResult = categoryRepository.getCategoryForProvider(userId, transaction.provider!!)
-            providerCategoryMappingResult.fold(
-                onSuccess = { categoryId ->
-                    if (categoryId != null) {
-                        if (categories.isEmpty()) { // Ensure categories are loaded
-                            Log.d("CategoryAssign", "Categories list empty, fetching from repository.")
-                            categories = categoryRepository.getCategories()
-                            Log.d("CategoryAssign", "Loaded ${categories.size} categories.")
-                        }
-                        val mappedCategory = categories.find { it.id == categoryId }
-                        if (mappedCategory != null) {
-                            Log.i("CategoryAssign", "SUCCESS: Assigned category '${mappedCategory.name}' (ID: $categoryId) based on provider '${transaction.provider}' mapping.")
-                            return mappedCategory
-                        } else {
-                            Log.w("CategoryAssign", "Provider mapping found for '${transaction.provider}' to categoryId '$categoryId', but category not in local list. Categories count: ${categories.size}")
-                            // Optional: Log available categories for debugging
-                            // categories.forEach { cat -> Log.d("CategoryAssign", "Available cat: ${cat.name} (ID: ${cat.id})") }
-                        }
-                    } else {
-                        Log.d("CategoryAssign", "No category mapping found for provider: '${transaction.provider}'. Proceeding to keyword matching.")
-                    }
-                },
-                onFailure = { exception ->
-                    Log.e("CategoryAssign", "Error fetching provider category mapping for '${transaction.provider}'. Proceeding to keyword matching.", exception)
-                    // Proceed to keyword-based assignment
-                }
-            )
-        } else {
-            if (userId == null) Log.d("CategoryAssign", "User not logged in, skipping provider mapping check.")
-            if (transaction.provider == null || transaction.provider!!.isBlank()) Log.d("CategoryAssign", "Transaction provider is null or blank, skipping provider mapping check.")
-        }
-
-        // Load categories if needed (might have been loaded above, but check again for safety if not found via provider mapping)
         if (categories.isEmpty()) {
-            Log.d("CategoryAssign", "Categories list still empty before keyword assignment, fetching.")
             categories = categoryRepository.getCategories()
-            Log.d("CategoryAssign", "Loaded ${categories.size} categories for keyword assignment.")
         }
-
-        // 2. Fallback to keyword-based assignment (existing logic)
-        Log.d("CategoryAssign", "Attempting keyword-based assignment for provider: '${transaction.provider}'")
         val keywords = extractKeywords(transaction)
-        val keywordBasedCategory = findMatchingCategory(keywords, transaction.isIncome)
-        if (keywordBasedCategory != null) {
-            Log.i("CategoryAssign", "SUCCESS: Assigned category '${keywordBasedCategory.name}' based on keywords for provider '${transaction.provider}'.")
-        } else {
-            Log.w("CategoryAssign", "No category could be assigned via keywords for provider '${transaction.provider}'.")
-        }
-        return keywordBasedCategory
+        return findMatchingCategory(keywords, transaction.isIncome)
     }
     
     /**

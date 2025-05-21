@@ -42,10 +42,9 @@ object AppModule {
     @Provides
     @Singleton
     fun provideCategoryAssignmentUseCase(
-        categoryRepository: com.example.finanzaspersonales.data.repository.CategoryRepository,
-        authRepository: com.example.finanzaspersonales.data.auth.AuthRepository
+        categoryRepository: com.example.finanzaspersonales.data.repository.CategoryRepository
     ): CategoryAssignmentUseCase {
-        return CategoryAssignmentUseCase(categoryRepository, authRepository)
+        return CategoryAssignmentUseCase(categoryRepository)
     }
 
     // Add provides for other dependencies if needed (e.g., Retrofit, Room database)

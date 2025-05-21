@@ -1,9 +1,8 @@
 plugins {
     alias(libs.plugins.android.application)
-    alias(libs.plugins.kotlin.android) version "2.0.0"
-    alias(libs.plugins.kotlin.compose)
-    alias(libs.plugins.google.gms.google.services)
-    id("kotlin-kapt")
+    alias(libs.plugins.kotlin.android)
+    alias(libs.plugins.compose.compiler)
+    alias(libs.plugins.ksp)
     id("com.google.dagger.hilt.android")
 }
 
@@ -58,15 +57,11 @@ android {
     kotlinOptions {
         jvmTarget = "1.8"
         freeCompilerArgs += listOf(
-            "-opt-in=androidx.compose.material3.ExperimentalMaterial3Api",
-            "-opt-in=androidx.compose.material.ExperimentalMaterialApi"
+            "-opt-in=androidx.compose.material3.ExperimentalMaterial3Api"
         )
     }
     buildFeatures {
         compose = true
-    }
-    composeOptions {
-        kotlinCompilerExtensionVersion = "1.5.1"
     }
     packaging {
         resources {
@@ -80,7 +75,6 @@ dependencies {
     implementation(platform("androidx.compose:compose-bom:2024.06.00"))
     implementation(libs.androidx.compose.foundation)
     implementation(libs.androidx.compose.ui)
-    implementation("androidx.compose.ui:ui-text")
     implementation(libs.androidx.compose.material3)
     implementation(libs.androidx.material.icons.extended)
     implementation(libs.androidx.activity.compose)
@@ -100,22 +94,14 @@ dependencies {
     implementation("androidx.constraintlayout:constraintlayout:2.1.4")
     
     // Coroutines
-    implementation("org.jetbrains.kotlinx:kotlinx-coroutines-core:1.7.3")
-    implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.7.3")
-    implementation("org.jetbrains.kotlinx:kotlinx-coroutines-play-services:1.7.3")
-    
-    // Firebase
-    // Import the Firebase BoM
-    implementation(platform("com.google.firebase:firebase-bom:33.1.1")) // Use the latest version
-    // Add the dependency for Firebase Authentication KTX
-    implementation("com.google.firebase:firebase-auth-ktx")
-    // Add the dependency for Google Play Services Auth (for Google Sign In)
-    implementation("com.google.android.gms:play-services-auth:21.2.0") // Use a recent version
-    // Add the dependency for Cloud Firestore KTX
-    implementation("com.google.firebase:firebase-firestore-ktx")
-    // Add other Firebase dependencies as needed (e.g., Analytics)
-    // implementation("com.google.firebase:firebase-analytics-ktx")
-    
+    implementation(libs.kotlinx.coroutines.core)
+    implementation(libs.kotlinx.coroutines.android)
+
+    // Room Persistence Library
+    implementation(libs.androidx.room.runtime)
+    implementation(libs.androidx.room.ktx)
+    ksp(libs.androidx.room.compiler)
+
     // Testing
     testImplementation(libs.junit)
     androidTestImplementation(libs.androidx.junit)
@@ -135,14 +121,10 @@ dependencies {
     implementation(libs.vico.compose.m3)
     implementation(libs.vico.core)
 
-    // Add Material Compose for pull-to-refresh
-    implementation("androidx.compose.material:material:1.4.3")
-    
     // Category charts and visualizations
     implementation("com.github.PhilJay:MPAndroidChart:v3.1.0")
 
     // Ensure these dependencies are included
-    implementation("androidx.compose.ui:ui")
     implementation("androidx.compose.foundation:foundation")
     implementation("androidx.compose.material3:material3")
     implementation("androidx.compose.ui:ui-tooling-preview")
@@ -150,27 +132,12 @@ dependencies {
     // Core library desugaring
     coreLibraryDesugaring(libs.desugar.jdk.libs)
 
-    // Firebase BOM (Bill of Materials)
-    implementation(platform(libs.firebase.bom))
-    // Firebase Analytics
-    implementation(libs.firebase.analytics.ktx)
-    // Firebase Authentication
-    implementation(libs.firebase.auth.ktx)
-    // Firebase Firestore
-    implementation(libs.firebase.firestore.ktx)
-    // Google Sign-In for Firebase Authentication
-    implementation(libs.play.services.auth)
-
     // Hilt Dependencies
     implementation("com.google.dagger:hilt-android:2.51.1")
-    kapt("com.google.dagger:hilt-compiler:2.51.1")
+    ksp("com.google.dagger:hilt-compiler:2.51.1")
 
     // ViewModel integration for Hilt (Optional but recommended)
     implementation("androidx.hilt:hilt-navigation-compose:1.2.0") // If using compose navigation
-
-    // Kotlin Coroutines
-    implementation(libs.kotlinx.coroutines.core)
-    implementation(libs.kotlinx.coroutines.android)
 
     // ViewModel and LiveData
     implementation(libs.androidx.lifecycle.viewmodel.ktx)
@@ -179,10 +146,10 @@ dependencies {
     // Compose dependencies
     implementation(libs.androidx.ui.graphics)
     implementation(libs.androidx.constraintlayout.compose)
-    implementation(libs.androidx.compose.material.icons.core) // Core icons
+    implementation(libs.androidx.compose.material.icons.core)
 }
 
 // Allow references to generated code
-kapt {
-    correctErrorTypes = true
-}
+// kapt {
+//    correctErrorTypes = true
+// }

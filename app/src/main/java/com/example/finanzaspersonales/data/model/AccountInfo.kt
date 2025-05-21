@@ -1,13 +1,10 @@
 package com.example.finanzaspersonales.data.model
 
-import com.google.firebase.firestore.DocumentId
-
 /**
  * Data class representing account information.
  * Updated for Firestore compatibility.
  */
 data class AccountInfo(
-    @DocumentId
     val id: String? = null,
     val userId: String? = null,
     val contactName: String = "",

@@ -17,7 +17,6 @@ import com.example.finanzaspersonales.data.repository.TransactionRepositoryImpl
 import com.example.finanzaspersonales.domain.usecase.CategoryAssignmentUseCase
 import com.example.finanzaspersonales.domain.usecase.ExtractTransactionDataUseCase
 import com.example.finanzaspersonales.ui.theme.FinanzasPersonalesTheme
-import com.example.finanzaspersonales.data.auth.AuthRepositoryImpl // Import AuthRepositoryImpl
 import com.example.finanzaspersonales.data.repository.ProviderStat // Import ProviderStat
 import com.example.finanzaspersonales.ui.transaction_list.TransactionListScreen // <-- ADDED IMPORT
 import com.example.finanzaspersonales.data.repository.CategoryRepository

@@ -483,7 +483,7 @@ fun SpendingBarChart(
 
         // --- List of categories with zero spending --- 
         if (spendingCategories.isNotEmpty() && zeroSpendingCategories.isNotEmpty()) {
-             Divider(modifier = Modifier.padding(vertical = 8.dp)) // Add divider if both lists have items
+             HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp)) // Add divider if both lists have items
         }
         
         if (zeroSpendingCategories.isNotEmpty()) {
