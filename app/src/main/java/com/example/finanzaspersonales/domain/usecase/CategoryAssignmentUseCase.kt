@@ -4,16 +4,16 @@ import com.example.finanzaspersonales.data.model.Category
 import com.example.finanzaspersonales.data.model.TransactionData
 import com.example.finanzaspersonales.data.repository.CategoryRepository
 import android.util.Log
-import com.example.finanzaspersonales.data.auth.AuthRepository
-import kotlinx.coroutines.flow.firstOrNull
+// import com.example.finanzaspersonales.data.auth.AuthRepository // Temporarily removed
+// import kotlinx.coroutines.flow.firstOrNull // Temporarily removed
 import javax.inject.Inject
 
 /**
  * Use case for assigning categories to transactions based on patterns in transaction data
  */
 class CategoryAssignmentUseCase @Inject constructor(
-    private val categoryRepository: CategoryRepository,
-    private val authRepository: AuthRepository
+    private val categoryRepository: CategoryRepository
+    // private val authRepository: AuthRepository // Temporarily removed
 ) {
     // Cached list of categories
     private var categories: List<Category> = emptyList()
@@ -22,8 +22,9 @@ class CategoryAssignmentUseCase @Inject constructor(
      * Assign a category to a transaction based on its content
      */
     suspend fun assignCategoryToTransaction(transaction: TransactionData): Category? {
-        // 0. Get current user ID
-        val userId = authRepository.currentUserState.firstOrNull()?.uid
+        // TODO: Restore AuthRepository and userId usage for provider-specific category mapping
+        val userId: String? = null // Temporarily null
+        // val userId = authRepository.currentUserState.firstOrNull()?.uid // Temporarily removed
 
         // 1. Check for provider-specific category mapping if provider and user ID exist
         if (userId != null && transaction.provider != null && transaction.provider!!.isNotBlank()) { // Ensure provider is not blank
@@ -56,7 +57,8 @@ class CategoryAssignmentUseCase @Inject constructor(
                 }
             )
         } else {
-            if (userId == null) Log.d("CategoryAssign", "User not logged in, skipping provider mapping check.")
+            // if (userId == null) Log.d("CategoryAssign", "User not logged in, skipping provider mapping check.") // Temporarily adjusted
+            if (userId == null) Log.d("CategoryAssign", "User ID not available (AuthRepository removed), skipping provider mapping check.")
             if (transaction.provider == null || transaction.provider!!.isBlank()) Log.d("CategoryAssign", "Transaction provider is null or blank, skipping provider mapping check.")
         }
 

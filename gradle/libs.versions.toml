@@ -21,8 +21,8 @@ androidGradlePlugin = "8.3.2"
 # google-services-plugin = "4.4.2" # Removed
 # Added versions for missing libraries
 desugar = "2.0.4"
-# firebaseBom = "33.1.1" # Removed
-# playServicesAuth = "21.2.0" # Removed
+firebaseBom = "33.1.1"
+# playServicesAuth = "21.2.0" # Removed - play-services-auth does not need a version here if bom is used
 coroutines = "1.7.3"
 lifecycle = "2.7.0" # Used for viewmodel/livedata ktx
 constraintlayoutCompose = "1.0.1"
@@ -58,12 +58,10 @@ vico-compose = { group = "com.patrykandpatrick.vico", name = "compose", version.
 vico-compose-m3 = { group = "com.patrykandpatrick.vico", name = "compose-m3", version.ref = "vico" }
 vico-core = { group = "com.patrykandpatrick.vico", name = "core", version.ref = "vico" }
 
-# --- Removed Firebase library definitions ---
-# firebase-bom = { group = "com.google.firebase", name = "firebase-bom", version.ref = "firebaseBom" } # Removed
-# firebase-analytics-ktx = { group = "com.google.firebase", name = "firebase-analytics-ktx" } # Removed
-# firebase-auth-ktx = { group = "com.google.firebase", name = "firebase-auth-ktx" } # Removed
-# firebase-firestore-ktx = { group = "com.google.firebase", name = "firebase-firestore-ktx" } # Removed
-# play-services-auth = { group = "com.google.android.gms", name = "play-services-auth", version.ref = "playServicesAuth" } # Removed
+# --- Added Firebase library definitions ---
+firebase-bom = { group = "com.google.firebase", name = "firebase-bom", version.ref = "firebaseBom" }
+firebase-auth-ktx = { group = "com.google.firebase", name = "firebase-auth-ktx" } # Version managed by BOM
+firebase-firestore-ktx = { group = "com.google.firebase", name = "firebase-firestore-ktx" } # Version managed by BOM
 
 # --- Added Room library definitions ---
 androidx-room-runtime = { group = "androidx.room", name = "room-runtime", version.ref = "room" }
