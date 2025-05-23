@@ -5,6 +5,7 @@ import android.util.Log
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.finanzaspersonales.data.local.SharedPrefsManager
+import com.example.finanzaspersonales.data.model.Category
 import com.example.finanzaspersonales.data.model.TransactionData
 import com.example.finanzaspersonales.data.repository.CategoryRepository
 import com.example.finanzaspersonales.data.repository.TransactionRepository
@@ -34,9 +35,17 @@ class DashboardViewModel @Inject constructor(
     private val _monthlyIncome = MutableStateFlow(0.0f)
     val monthlyIncome: StateFlow<Float> = _monthlyIncome.asStateFlow()
     
+    // Monthly balance (income - expenses)
+    private val _monthlyBalance = MutableStateFlow(0.0f)
+    val monthlyBalance: StateFlow<Float> = _monthlyBalance.asStateFlow()
+    
     // Recent transactions
     private val _recentTransactions = MutableStateFlow<List<TransactionData>>(emptyList())
     val recentTransactions: StateFlow<List<TransactionData>> = _recentTransactions.asStateFlow()
+    
+    // Category breakdown
+    private val _categoryBreakdown = MutableStateFlow<List<Category>>(emptyList())
+    val categoryBreakdown: StateFlow<List<Category>> = _categoryBreakdown.asStateFlow()
     
     // Loading state
     private val _isLoading = MutableStateFlow(false)
@@ -154,13 +163,17 @@ class DashboardViewModel @Inject constructor(
                 
                 _monthlyExpenses.value = expenseSum
                 _monthlyIncome.value = incomeSum
+                _monthlyBalance.value = incomeSum - expenseSum
                 
                 // Get recent transactions (last 5)
                 _recentTransactions.value = allTransactions
                     .sortedByDescending { it.date }
                     .take(5)
                 
-                Log.d("DASHBOARD_LOAD", "Dashboard data loaded successfully. Income: ${_monthlyIncome.value}, Expenses: ${_monthlyExpenses.value}, Recent: ${_recentTransactions.value.size}")
+                // Load categories for breakdown
+                _categoryBreakdown.value = categoryRepository.getCategories()
+                
+                Log.d("DASHBOARD_LOAD", "Dashboard data loaded successfully. Income: ${_monthlyIncome.value}, Expenses: ${_monthlyExpenses.value}, Balance: ${_monthlyBalance.value}, Recent: ${_recentTransactions.value.size}, Categories: ${_categoryBreakdown.value.size}")
                 
                 // Log database contents
                 logDatabaseContents()
@@ -170,7 +183,9 @@ class DashboardViewModel @Inject constructor(
                 // Handle error - e.g., clear data or show error message
                 _monthlyExpenses.value = 0.0f
                 _monthlyIncome.value = 0.0f
+                _monthlyBalance.value = 0.0f
                 _recentTransactions.value = emptyList()
+                _categoryBreakdown.value = emptyList()
             } finally {
                  // Don't hide loading if sync indicator is active
                 if (!_isSyncing.value) {

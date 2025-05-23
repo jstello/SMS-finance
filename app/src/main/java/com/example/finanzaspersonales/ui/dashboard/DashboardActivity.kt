@@ -101,6 +101,8 @@ import androidx.compose.material3.HorizontalDivider
 import com.example.finanzaspersonales.ui.debug.TransactionDebugActivity
 import androidx.compose.material.icons.filled.BugReport
 import androidx.compose.material.icons.automirrored.filled.ReceiptLong
+import androidx.compose.material3.windowsizeclass.ExperimentalMaterial3WindowSizeClassApi
+import androidx.compose.material3.windowsizeclass.calculateWindowSizeClass
 
 // Helper function to format large numbers to millions with one decimal place
 private fun formatToMillions(value: Float): String {
@@ -145,6 +147,7 @@ class DashboardActivity : ComponentActivity() {
         }
     }
     
+    @OptIn(ExperimentalMaterial3WindowSizeClassApi::class)
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         
@@ -154,21 +157,24 @@ class DashboardActivity : ComponentActivity() {
                     modifier = Modifier.fillMaxSize(),
                     color = MaterialTheme.colorScheme.background
                 ) {
-                    // Show Dashboard unconditionally as authentication is removed
-                    DashboardScreen(
+                    val windowSizeClass = calculateWindowSizeClass(this@DashboardActivity)
+                    
+                    ExpressiveDashboardScreen(
                         viewModel = viewModel,
+                        windowSizeClass = windowSizeClass,
                         onNavigateToCategories = { navigateToCategories() },
                         onNavigateToTransactions = { navigateToTransactions() },
                         onNavigateToProviders = { navigateToProviders() },
                         onNavigateToAddTransaction = { navigateToAddTransaction() },
-                        onNavigateToRawSmsList = { navigateToRawSmsList() }
+                        onNavigateToSettings = { navigateToSettings() },
+                        onNavigateToDebug = { navigateToDebug() }
                     )
                 }
             }
         }
 
         // Check permissions when activity is created
-        checkPermissionsAndLoadData() // Still need to check permissions
+        checkPermissionsAndLoadData()
     }
     
     private fun checkPermissionsAndLoadData() {
@@ -211,426 +217,20 @@ class DashboardActivity : ComponentActivity() {
         startActivity(Intent(this, ProvidersActivity::class.java))
     }
 
-    // TODO: Implement navigation to AddTransactionScreen
     private fun navigateToAddTransaction() {
-        // Start AddTransactionActivity using an Intent
         val intent = Intent(this, AddTransactionActivity::class.java)
         startActivity(intent)
     }
 
+    private fun navigateToSettings() {
+        startActivity(Intent(this, SettingsActivity::class.java))
+    }
+
+    private fun navigateToDebug() {
+        startActivity(Intent(this, TransactionDebugActivity::class.java))
+    }
+
     private fun navigateToRawSmsList() {
         startActivity(Intent(this, RawSmsListActivity::class.java))
-    }
-    
-
-}
-
-@OptIn(ExperimentalMaterial3Api::class)
-@Composable
-fun DashboardScreen(
-    viewModel: DashboardViewModel,
-    onNavigateToCategories: () -> Unit,
-    onNavigateToTransactions: () -> Unit,
-    onNavigateToProviders: () -> Unit,
-    onNavigateToAddTransaction: () -> Unit,
-    onNavigateToRawSmsList: () -> Unit
-) {
-    val monthlyIncome by viewModel.monthlyIncome.collectAsState()
-    val monthlyExpenses by viewModel.monthlyExpenses.collectAsState()
-    val recentTransactions by viewModel.recentTransactions.collectAsState()
-    val isLoading by viewModel.isLoading.collectAsState()
-    val context = LocalContext.current // Get context for Toast and starting activities
-    val monthlyBalance = monthlyIncome - monthlyExpenses
-
-    LaunchedEffect(Unit) {
-        // Initial load or refresh logic if needed within the composable
-        // viewModel.loadDashboardData() // Maybe called from Activity already
-    }
-
-    Scaffold(
-        topBar = {
-            TopAppBar(
-                title = { Text("Dashboard") },
-                colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = MaterialTheme.colorScheme.primaryContainer,
-                    titleContentColor = MaterialTheme.colorScheme.onPrimaryContainer,
-                ),
-                actions = {
-                    IconButton(onClick = { viewModel.loadDashboardData() }) {
-                        Icon(Icons.Filled.Refresh, contentDescription = "Refresh Data")
-                    }
-                    IconButton(onClick = { 
-                        context.startActivity(Intent(context, SettingsActivity::class.java))
-                    }) {
-                        Icon(Icons.Filled.Settings, contentDescription = "Settings")
-                    }
-                    IconButton(onClick = { 
-                        context.startActivity(Intent(context, TransactionDebugActivity::class.java))
-                    }) {
-                        Icon(Icons.Filled.BugReport, contentDescription = "Debug")
-                    }
-                }
-            )
-        },
-        floatingActionButton = { // Add FAB here
-            FloatingActionButton(onClick = onNavigateToAddTransaction) {
-                Icon(Icons.Default.Add, contentDescription = "Add Transaction")
-            }
-        }
-    ) { paddingValues ->
-        Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(paddingValues)
-                .verticalScroll(rememberScrollState())
-                .padding(16.dp),
-            verticalArrangement = Arrangement.spacedBy(16.dp)
-        ) {
-            // Financial summary card
-            Card(
-                modifier = Modifier.fillMaxWidth(),
-                colors = CardDefaults.cardColors(
-                    containerColor = MaterialTheme.colorScheme.surfaceVariant
-                ),
-                elevation = CardDefaults.cardElevation(4.dp)
-            ) {
-                Column(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(16.dp)
-                ) {
-                    Text(
-                        text = "This Month's Overview",
-                        fontWeight = FontWeight.Bold,
-                        fontSize = 18.sp
-                    )
-                    Spacer(modifier = Modifier.height(16.dp))
-                    
-                    if (isLoading) {
-                        Box(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(16.dp),
-                            contentAlignment = Alignment.Center
-                        ) {
-                            CircularProgressIndicator()
-                        }
-                    } else {
-                        Text(
-                            text = formatToMillions(monthlyBalance),
-                            fontSize = 36.sp,
-                            fontWeight = FontWeight.Bold,
-                            color = if (monthlyBalance >= 0) MaterialTheme.colorScheme.primary else Color.Red
-                        )
-                        Text(
-                            text = "This Month's Balance",
-                            fontSize = 14.sp,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
-                        Spacer(modifier = Modifier.height(8.dp))
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.SpaceBetween
-                        ) {
-                            Column {
-                                Text(
-                                    text = formatToMillions(monthlyIncome),
-                                    fontSize = 18.sp,
-                                    fontWeight = FontWeight.Medium,
-                                    color = Color.Green
-                                )
-                                Text(
-                                    text = "Income",
-                                    fontSize = 12.sp,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                                )
-                            }
-                            Column {
-                                Text(
-                                    text = formatToMillions(monthlyExpenses),
-                                    fontSize = 18.sp,
-                                    fontWeight = FontWeight.Medium,
-                                    color = Color.Red
-                                )
-                                Text(
-                                    text = "Expenses",
-                                    fontSize = 12.sp,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                                )
-                            }
-                        }
-                    }
-                }
-            }
-            
-            // Quick Actions
-            Text(
-                text = "Quick Actions",
-                fontSize = 18.sp,
-                fontWeight = FontWeight.Bold,
-                modifier = Modifier.padding(vertical = 8.dp)
-            )
-            
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween
-            ) {
-                // Categories
-                DashboardActionItem(
-                    icon = Icons.Default.Category,
-                    title = "Categories",
-                    backgroundColor = MaterialTheme.colorScheme.primaryContainer,
-                    modifier = Modifier.weight(1f),
-                    onClick = onNavigateToCategories
-                )
-                
-                // Transactions
-                DashboardActionItem(
-                    icon = Icons.Default.AccountBalance,
-                    title = "Transactions",
-                    backgroundColor = MaterialTheme.colorScheme.secondaryContainer,
-                    modifier = Modifier.weight(1f),
-                    onClick = onNavigateToTransactions
-                )
-            }
-            
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween
-            ) {
-                // Providers (renamed from Reports)
-                DashboardActionItem(
-                    icon = Icons.Default.Storefront,
-                    title = "Providers",
-                    backgroundColor = MaterialTheme.colorScheme.tertiaryContainer,
-                    modifier = Modifier.weight(1f),
-                    onClick = onNavigateToProviders
-                )
-                
-                // Jars (renamed from SMS Test)
-                DashboardActionItem(
-                    icon = Icons.Default.Savings,
-                    title = "Jars",
-                    backgroundColor = MaterialTheme.colorScheme.errorContainer,
-                    modifier = Modifier.weight(1f),
-                    onClick = { Toast.makeText(context, "Coming Soon: Manage your savings jars/goals!", Toast.LENGTH_SHORT).show() }
-                )
-            }
-
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween
-            ) {
-                // Raw SMS Log
-                DashboardActionItem(
-                    icon = Icons.Filled.ReceiptLong,
-                    title = "Raw SMS Log",
-                    backgroundColor = MaterialTheme.colorScheme.surfaceVariant,
-                    modifier = Modifier.weight(1f),
-                    onClick = onNavigateToRawSmsList
-                )
-                
-                // Spacer to keep two items per row if that's the design, or add another action item
-                Spacer(modifier = Modifier.weight(1f).padding(4.dp)) 
-            }
-            
-            // Recent Transactions
-            Text(
-                text = "Recent Transactions",
-                fontSize = 18.sp,
-                fontWeight = FontWeight.Bold,
-                modifier = Modifier.padding(vertical = 8.dp)
-            )
-            
-            if (isLoading) {
-                Box(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(32.dp),
-                    contentAlignment = Alignment.Center
-                ) {
-                    CircularProgressIndicator()
-                }
-            } else if (recentTransactions.isEmpty()) {
-                // Empty state for transactions
-                Card(
-                    modifier = Modifier.fillMaxWidth(),
-                    colors = CardDefaults.cardColors(
-                        containerColor = MaterialTheme.colorScheme.surface
-                    ),
-                    elevation = CardDefaults.cardElevation(2.dp)
-                ) {
-                    Column(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(24.dp),
-                        horizontalAlignment = Alignment.CenterHorizontally,
-                        verticalArrangement = Arrangement.Center
-                    ) {
-                        Text(
-                            text = "No recent transactions",
-                            fontSize = 16.sp,
-                            fontWeight = FontWeight.Medium,
-                            textAlign = TextAlign.Center
-                        )
-                        Spacer(modifier = Modifier.height(8.dp))
-                        Text(
-                            text = "Transactions will appear here once they're detected from SMS messages",
-                            fontSize = 14.sp,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            textAlign = TextAlign.Center
-                        )
-                    }
-                }
-            } else {
-                // Transaction list
-                Card(
-                    modifier = Modifier.fillMaxWidth(),
-                    colors = CardDefaults.cardColors(
-                        containerColor = MaterialTheme.colorScheme.surface
-                    ),
-                    elevation = CardDefaults.cardElevation(2.dp)
-                ) {
-                    Column(modifier = Modifier.fillMaxWidth()) {
-                        recentTransactions.forEachIndexed { index, transaction ->
-                            TransactionItem(transaction = transaction)
-                            if (index < recentTransactions.size - 1) {
-                                HorizontalDivider()
-                            }
-                        }
-                    }
-                }
-            }
-        }
-    }
-}
-
-@Composable
-fun TransactionItem(transaction: TransactionData) {
-    val currencyFormat = NumberFormat.getCurrencyInstance(Locale("es", "CO"))
-    val dateFormat = SimpleDateFormat("dd MMM yyyy", Locale.getDefault())
-    
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(16.dp),
-        verticalAlignment = Alignment.CenterVertically
-    ) {
-        Column(
-            modifier = Modifier.weight(1f)
-        ) {
-            Text(
-                text = transaction.provider ?: "Unknown",
-                fontWeight = FontWeight.Medium,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis
-            )
-            Text(
-                text = dateFormat.format(transaction.date),
-                fontSize = 12.sp,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
-            )
-        }
-        
-        Text(
-            text = currencyFormat.format(transaction.amount),
-            fontWeight = FontWeight.Bold,
-            color = if (transaction.isIncome) Color.Green else Color.Red
-        )
-    }
-}
-
-@Composable
-fun DashboardActionItem(
-    icon: ImageVector,
-    title: String,
-    backgroundColor: Color,
-    modifier: Modifier = Modifier,
-    onClick: () -> Unit
-) {
-    Box(
-        modifier = modifier
-            .padding(4.dp)
-            .clip(RoundedCornerShape(12.dp))
-            .background(backgroundColor)
-            .clickable(onClick = onClick)
-            .padding(16.dp),
-        contentAlignment = Alignment.Center
-    ) {
-        Column(
-            horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.Center
-        ) {
-            Icon(
-                imageVector = icon,
-                contentDescription = title,
-                tint = MaterialTheme.colorScheme.onPrimaryContainer,
-                modifier = Modifier.padding(bottom = 8.dp)
-            )
-            Text(
-                text = title,
-                fontWeight = FontWeight.Medium,
-                fontSize = 14.sp,
-                color = MaterialTheme.colorScheme.onPrimaryContainer,
-                textAlign = TextAlign.Center
-            )
-        }
-    }
-}
-
-@Composable
-fun QuickActionCard(title: String, icon: ImageVector, onClick: () -> Unit, modifier: Modifier = Modifier) {
-    Card(
-        modifier = modifier
-            .fillMaxWidth()
-            .padding(vertical = 4.dp) 
-            .clickable(onClick = onClick),
-        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
-        shape = RoundedCornerShape(8.dp)
-    ) {
-        Column(
-            horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.Center,
-            modifier = Modifier
-                .padding(16.dp)
-                .fillMaxWidth()
-        ) {
-            Icon(imageVector = icon, contentDescription = title, tint = MaterialTheme.colorScheme.primary)
-            Spacer(modifier = Modifier.height(8.dp))
-            Text(text = title, style = MaterialTheme.typography.bodyMedium, textAlign = TextAlign.Center)
-        }
-    }
-}
-
-@Composable
-fun SummaryCard(
-    title: String,
-    amount: String,
-    cardColor: Color,
-    modifier: Modifier = Modifier
-) {
-    Card(
-        modifier = modifier
-            .fillMaxWidth()
-            .padding(8.dp),
-        colors = CardDefaults.cardColors(
-            containerColor = cardColor
-        )
-    ) {
-        Column(
-            modifier = Modifier.padding(16.dp),
-            horizontalAlignment = Alignment.CenterHorizontally
-        ) {
-            Text(
-                text = title,
-                style = MaterialTheme.typography.bodyMedium
-            )
-            Spacer(modifier = Modifier.height(4.dp))
-            Text(
-                text = amount,
-                style = MaterialTheme.typography.titleMedium,
-                fontWeight = FontWeight.Bold
-            )
-        }
     }
 } 
