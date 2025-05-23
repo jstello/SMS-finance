@@ -27,6 +27,9 @@ class SharedPrefsManager(private val context: Context) {
     // Sync preferences
     private val syncPrefs = context.getSharedPreferences(SYNC_PREFS, Context.MODE_PRIVATE)
     
+    // Preferences for provider-category mappings
+    private val providerCategoryPrefs = context.getSharedPreferences(PROVIDER_CATEGORY_PREFS, Context.MODE_PRIVATE)
+    
     /**
      * Save accounts
      */
@@ -128,16 +131,60 @@ class SharedPrefsManager(private val context: Context) {
         return "${KEY_INITIAL_SYNC_STATUS_PREFIX}_$userId"
     }
     
+    /**
+     * Save provider-category mappings.
+     * The map key is providerName, value is categoryId.
+     */
+    fun saveProviderCategoryMappings(mappings: Map<String, String>) {
+        val json = gson.toJson(mappings)
+        Log.d("SharedPrefsManager", "Saving provider-category mappings JSON: $json (Size: ${mappings.size})")
+        try {
+            providerCategoryPrefs.edit().putString(KEY_PROVIDER_CATEGORY_MAPPINGS, json).apply()
+            Log.d("SharedPrefsManager", "Successfully applied provider-category mappings save.")
+        } catch (e: Exception) {
+            Log.e("SharedPrefsManager", "Error saving provider-category mappings to SharedPreferences", e)
+        }
+    }
+
+    /**
+     * Load provider-category mappings.
+     * Returns a map where key is providerName, value is categoryId.
+     */
+    fun loadProviderCategoryMappings(): Map<String, String> {
+        val json = providerCategoryPrefs.getString(KEY_PROVIDER_CATEGORY_MAPPINGS, null)
+        return if (json != null) {
+            val type = object : TypeToken<Map<String, String>>() {}.type
+            gson.fromJson(json, type)
+        } else {
+            emptyMap()
+        }
+    }
+
+    /**
+     * Clears all provider-category mappings from SharedPreferences.
+     */
+    fun clearProviderCategoryMappings() {
+        Log.d("SharedPrefsManager", "Clearing all provider-category mappings.")
+        try {
+            providerCategoryPrefs.edit().remove(KEY_PROVIDER_CATEGORY_MAPPINGS).apply()
+            Log.d("SharedPrefsManager", "Successfully cleared provider-category mappings.")
+        } catch (e: Exception) {
+            Log.e("SharedPrefsManager", "Error clearing provider-category mappings from SharedPreferences", e)
+        }
+    }
+    
     companion object {
         private const val ACCOUNT_PREFS = "account_prefs"
         private const val CATEGORY_PREFS = "category_prefs"
         private const val TRANSACTION_PREFS = "transaction_prefs"
         private const val SYNC_PREFS = "sync_prefs"
+        private const val PROVIDER_CATEGORY_PREFS = "provider_category_prefs" // New prefs file name
         
         private const val KEY_ACCOUNTS = "accounts"
         private const val KEY_CATEGORIES = "categories"
         private const val KEY_TRANSACTION_CATEGORIES = "transaction_categories"
         private const val KEY_INITIAL_SYNC_STATUS_PREFIX = "initial_sync_status"
+        private const val KEY_PROVIDER_CATEGORY_MAPPINGS = "provider_category_mappings" // New key
         
         // Default categories with stable UUIDs
         val DEFAULT_CATEGORIES = listOf(

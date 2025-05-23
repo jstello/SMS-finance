@@ -20,20 +20,20 @@
 - [X] 1.8 Implement `DatabaseModule` Hilt Module (di/DatabaseModule.kt)
 
 ## Phase 2: Data-Model Adaptation
-- [ ] 2.1 Create entity ↔ domain mappers (data/db/mapper/)
-- [ ] 2.2 Implement `TransactionIdGenerator` (utils or data/db)
-- [ ] 2.3 Ensure `rawSmsContent` mapping
+- [X] 2.1 Create entity ↔ domain mappers (data/db/mapper/)
+- [X] 2.2 Implement `TransactionIdGenerator` (utils or data/db)
+- [X] 2.3 Ensure `rawSmsContent` mapping
 
 ## Phase 3: Repository Refactoring
-- [ ] 3.1 Refactor `TransactionRepositoryImpl` to use Room DAO
-- [ ] 3.2 Refactor `CategoryRepositoryImpl` to use Room DAO
+- [X] 3.1 Refactor `TransactionRepositoryImpl` to use Room DAO
+- [X] 3.2 Refactor `CategoryRepositoryImpl` to use Room DAO
 
 ## Phase 4: Use-Case and UI Integration
-- [ ] 4.1 Update use-cases to leverage Room-backed repos
-- [ ] 4.2 Update ViewModels to observe Flows from repos
+- [X] 4.1 Update use-cases to leverage Room-backed repos
+- [X] 4.2 Update ViewModels to observe Flows from repos
 
 ## Phase 5: Cleanup & Testing
-- [ ] 5.1 Remove Firebase dependencies & code
+- [X] 5.1 Remove Firebase dependencies & code
 - [ ] 5.2 Write DAO unit tests
 - [ ] 5.3 Write Repository unit tests
 - [ ] 5.4 Write DB migration tests

@@ -25,17 +25,23 @@ app/
     │   │               │   ├── db
     │   │               │   │   ├── dao
     │   │               │   │   │   ├── CategoryDao.kt
-    │   │               │   │   │   ├── ProviderAliasDao.kt
     │   │               │   │   │   └── TransactionDao.kt
-    │   │               │   │   ├── entity
-    │   │               │   │   │   ├── CategoryEntity.kt
-    │   │               │   │   │   ├── ProviderAliasEntity.kt
-    │   │               │   │   │   └── TransactionEntity.kt
+    │   │               │   │   ├── entity (Note: Mappers are in data/db/mapper, Entities are data/local/room/*Entity.kt)
+    │   │               │   │   │   ├── CategoryEntity.kt  (Correct path: data/local/room/CategoryEntity.kt)
+    │   │               │   │   │   └── TransactionEntity.kt (Correct path: data/local/room/TransactionEntity.kt)
     │   │               │   │   ├── mapper
     │   │               │   │   │   ├── CategoryMapper.kt
     │   │               │   │   │   └── TransactionMapper.kt
-    │   │               │   │   └── FinanzasDatabase.kt
+    │   │               │   │   └── FinanzasDatabase.kt (Correct path: data/local/room/FinanzasDatabase.kt)
     │   │               │   ├── local
+    │   │               │   │   ├── room // DAOs and Entities are actually here
+    │   │               │   │   │   ├── dao/
+    │   │               │   │   │   │   ├── CategoryDao.kt
+    │   │               │   │   │   │   └── TransactionDao.kt
+    │   │               │   │   │   ├── CategoryEntity.kt
+    │   │               │   │   │   ├── Converters.kt
+    │   │               │   │   │   ├── FinanzasDatabase.kt
+    │   │               │   │   │   └── TransactionEntity.kt
     │   │               │   │   ├── SharedPrefsManager.kt
     │   │               │   │   └── SmsDataSource.kt
     │   │               │   ├── model
@@ -80,6 +86,10 @@ app/
     │   │                   │   ├── DashboardActivity.kt
     │   │                   │   ├── DashboardViewModel.kt
     │   │                   │   └── DashboardViewModelFactory.kt
+    │   │                   ├── debug
+    │   │                   │   ├── TransactionDebugActivity.kt
+    │   │                   │   ├── TransactionDebugScreen.kt
+    │   │                   │   └── TransactionDebugViewModel.kt
     │   │                   ├── providers
     │   │                   │   ├── ProvidersActivity.kt
     │   │                   │   ├── ProvidersScreen.kt
@@ -165,11 +175,16 @@ app/
 *   `AndroidManifest.xml`: The core manifest file describing essential information about the app to the Android system (permissions, components, features, etc.).
 *   `java/`: Contains the Java/Kotlin source code.
     *   `com/example/finanzaspersonales/`: The main package for the application code.
-        *   `data/`: Contains data source implementations (local Room DB, SMS receiver), repositories, data models, and DB entities/DAOs/mappers.
+        *   `data/`: Contains data source implementations (local Room DB, SMS receiver), repositories, data models.
+            *   `db/mapper/`: Contains mappers between Room entities and domain models.
+            *   `local/`: Contains `SharedPrefsManager.kt`, `SmsDataSource.kt`, and the `room/` subdirectory.
+                *   `room/`: Contains Room database definition (`FinanzasDatabase.kt`), DAOs (`CategoryDao.kt`, `TransactionDao.kt`), entities (`CategoryEntity.kt`, `TransactionEntity.kt`), and `Converters.kt`.
+            *   `model/`: Contains domain model data classes.
+            *   `repository/`: Contains repository interfaces and implementations.
+            *   `sms/`: Contains `SmsReceiver.kt`.
+        *   `di/`: Contains Hilt dependency injection modules.
         *   `domain/`: Contains business logic (use cases) and utility classes.
-        *   `usecase/`: Contains specific business logic operations, encapsulating interactions between repositories (e.g., `CategoryAssignmentUseCase`, `ExtractTransactionDataUseCase`, `GetSpendingByCategoryUseCase`).
-        *   `util/`: Contains helper classes for common tasks like date/time manipulation, contact fetching, string operations, and text extraction.
-        *   `ui/`: Contains UI-related code (Activities, Composables, ViewModels, themes), organized by feature (categories, dashboard, providers, raw_sms_list, sms, transaction_list).
+        *   `ui/`: Contains UI-related code (Activities, Composables, ViewModels, themes), organized by feature.
         *   `FinanzasApp.kt`: The custom `Application` class, used for application-level initialization (e.g., Hilt).
 *   `res/`: Contains application resources (drawables, layouts, menus, icons, values, XML).
 *   `ic_launcher-playstore.png`: The high-resolution launcher icon for the Play Store listing.
@@ -177,50 +192,51 @@ app/
 ## Summary
 
 The project follows a standard Android structure with Gradle (Kotlin DSL) for building. It adopts a layered architecture (`data`, `domain`, `ui`) within the main package `com.example.finanzaspersonales`.
-**Core changes in this iteration involve the removal of all Firebase Authentication and Firestore dependencies, migrating to a Room-based local database for all data persistence.**
+**Core changes involve the removal of all Firebase Authentication and Firestore dependencies, migrating to a Room-based local database for all data persistence. Provider-category mappings are stored using `SharedPrefsManager`.**
 
 Recent additions/changes:
 *   **Room Database Integration**:
-    *   Entities (`TransactionEntity`, `CategoryEntity`, `ProviderAliasEntity`) defined in `data/db/entity/`.
-    *   DAOs (`TransactionDao`, `CategoryDao`, `ProviderAliasDao`) defined in `data/db/dao/`.
+    *   Entities (`TransactionEntity`, `CategoryEntity`) defined in `data/local/room/`.
+    *   DAOs (`TransactionDao`, `CategoryDao`) defined in `data/local/room/dao/`.
     *   Mappers (`TransactionMapper`, `CategoryMapper`) defined in `data/db/mapper/`.
     *   `FinanzasDatabase` class and Hilt `DatabaseModule` for providing DB instances.
-*   Repositories (`TransactionRepositoryImpl`, `CategoryRepositoryImpl`) refactored to use Room DAOs instead of Firestore. All Firestore-related methods now throw `UnsupportedOperationException`.
-*   Firebase Authentication and related UI (`LoginScreen`, `AuthViewModel`) and data components (`AuthRepository`, `AuthRepositoryImpl`) have been removed.
+*   Repositories (`TransactionRepositoryImpl`, `CategoryRepositoryImpl`) refactored to use Room DAOs. All Firestore-related methods now throw `UnsupportedOperationException`.
+*   Firebase Authentication and related components have been removed.
 *   The ability to manually add transactions via the `ui/add_transaction` feature module.
-*   Functionality to delete incorrectly parsed transactions from the category detail view (now operates on Room data).
 *   Developer Settings screen (`ui/settings`) updated to clear user transactions from Room and resync SMS data.
 *   "Raw SMS Transactions" screen (`ui/raw_sms_list`) for displaying raw SMS messages.
+*   Debug screen (`ui/debug`) for inspecting transactions.
+*   Provider-category mappings are managed via `SharedPrefsManager` and `CategoryRepositoryImpl`.
 
-Key structural improvements maintained/updated:
-*   SMS-related code (`SmsReceiver`, `SmsPermissionActivity`) in appropriate `data` and `ui` layers.
-*   Layered architecture (`data`, `domain`, `ui`) is now centered around local Room persistence and SMS processing.
+Key structural points:
+*   SMS-related code (`SmsReceiver`, `SmsDataSource`, `SmsPermissionActivity`) in appropriate `data` and `ui` layers.
+*   Layered architecture (`data`, `domain`, `ui`) is centered around local Room persistence and SMS processing.
 *   Use Cases (`CategoryAssignmentUseCase`, `ExtractTransactionDataUseCase`, `GetSpendingByCategoryUseCase`) operate on Room-backed repositories.
 
 The structure is focused on local data management, improving offline capabilities and simplifying the data layer by removing remote synchronization logic.
 
 - **Data Layer (`app/src/main/java/com/example/finanzaspersonales/data`)**
-  - **Database (`data/db`)**
-    - `dao/`: Contains Data Access Objects for Room (e.g., `TransactionDao`, `CategoryDao`).
-    - `entity/`: Contains Room entity classes (e.g., `TransactionEntity`, `CategoryEntity`).
-    - `mapper/`: Contains functions to map between Room entities and domain models.
-    - `FinanzasDatabase.kt`: Defines the Room database.
   - **Local (`data/local`)**
     - `SmsDataSource.kt`: Responsible for reading SMS messages from the device.
-    - `SharedPrefsManager.kt`: Manages simple key-value storage (e.g., for user preferences, though categories are now in Room).
+    - `SharedPrefsManager.kt`: Manages simple key-value storage, including provider-category mappings.
+    - `room/`: Houses all Room database components.
+        - `dao/`: Contains Data Access Objects for Room (e.g., `TransactionDao`, `CategoryDao`).
+        - `CategoryEntity.kt`, `TransactionEntity.kt`, `Converters.kt`, `FinanzasDatabase.kt`.
+  - **Database Mappers (`data/db/mapper`)**
+    - Contains functions to map between Room entities and domain models.
   - **Repository (`data/repository`)**
     - `TransactionRepositoryImpl.kt`: Manages transaction data, sourcing from `SmsDataSource` and persisting to `TransactionDao`. Assigns categories via `CategoryAssignmentUseCase`.
       - The `getTransactions(forceRefresh: Boolean)` method now primarily relies on Room:
-        - If `forceRefresh = true`, it calls `refreshSmsData()` to process new SMS messages and insert/update them in Room via `TransactionDao`.
+        - If `forceRefresh = true`, it calls `refreshSmsData()` (which processes SMS and inserts/updates them in Room via `TransactionDao`).
         - Fetches transactions from `TransactionDao`.
-    - `CategoryRepositoryImpl.kt`: Manages category data, persisting to `CategoryDao`.
+    - `CategoryRepositoryImpl.kt`: Manages category data, persisting to `CategoryDao`. Also handles provider-category mappings via `SharedPrefsManager`.
       - Provides `getUncategorizedCategoryPlaceholder(): Category`.
   - **SMS (`data/sms`)**
     - `SmsReceiver.kt`: Listens for incoming SMS messages to trigger transaction processing.
 
 - **Domain Layer (`app/src/main/java/com/example/finanzaspersonales/domain`)**
   - `usecase/ExtractTransactionDataUseCase.kt`: Converts SMS messages into `TransactionData` domain models.
-  - `usecase/CategoryAssignmentUseCase.kt`: Implements rule-based category assignment for transactions.
+  - `usecase/CategoryAssignmentUseCase.kt`: Implements rule-based category assignment for transactions, utilizing provider-category mappings from `CategoryRepository` (which uses `SharedPrefsManager`).
   - `usecase/GetSpendingByCategoryUseCase.kt`: Calculates total spending for each category using data from repositories.
   - `util/`: Utility classes (DateTime, String manipulation, etc.).
 
@@ -233,6 +249,6 @@ The structure is focused on local data management, improving offline capabilitie
   - **Dashboard**
     - `ui/dashboard/DashboardViewModel.kt`: Loads data from `TransactionRepository` and `CategoryRepository` for display.
   - **Categories**
-    - `ui/categories/CategoriesViewModel.kt`: Manages category and transaction display, filtering, and interaction, using Room-backed repositories.
+    - `ui/categories/CategoriesViewModel.kt`: Manages category and transaction display, filtering, and interaction, using Room-backed repositories and `SharedPrefsManager` for provider rules via `CategoryRepository`.
       - Uses `categoryRepository.getUncategorizedCategoryPlaceholder()` for "Other" category.
-  - Other UI modules (`add_transaction`, `providers`, `raw_sms_list`, `settings`, `transaction_list`) operate on ViewModels that interact with the Room-backed repositories.
+  - Other UI modules (`add_transaction`, `debug`, `providers`, `raw_sms_list`, `settings`, `transaction_list`) operate on ViewModels that interact with the Room-backed repositories and `SharedPrefsManager` where applicable.

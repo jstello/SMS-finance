@@ -7,6 +7,7 @@ A personal finance management Android application that automatically tracks tran
 - **Local data persistence using Room**
 - Provider recognition and contact matching
 - Spending analytics by category/provider
+- Provider-category mapping/rules stored in SharedPreferences.
 
 ## Key Technical Components
 
@@ -14,90 +15,99 @@ A personal finance management Android application that automatically tracks tran
 ```
 app/
 ├── data/
-│   ├── local/           # SMS processing & DataStore (for preferences)
-│   ├── db/              # Room Database: DAOs, Entities, TypeConverters
-│   ├── model/           # Data classes (Transaction, Category)
-│   ├── repository/      # Main business logic (interacts with Room & SMS)
+│   ├── local/           # SMS processing, SharedPreferences, Room DB components
+│   │   ├── room/
+│   │   │   ├── dao/
+│   │   │   └── (Entities, Database, Converters directly under local/room)
+│   │   └── (SmsDataSource.kt, SharedPrefsManager.kt directly under local/)
+│   ├── db/
+│   │   └── mapper/      # Room Entity to Domain model mappers
+│   ├── model/           # Data classes (TransactionData, Category, SmsMessage, AccountInfo)
+│   ├── repository/      # Main business logic (interacts with Room DAOs, SmsDataSource, SharedPrefsManager)
 │   └── sms/             # SMS receiver implementation
 ├── domain/
 │   ├── usecase/         # Business logic components
-│   └── util/            # Helpers (date, strings, contacts)
+│   └── util/            # Helpers (date, strings, contacts, text extraction)
 └── ui/
     ├── add_transaction/ # Manual entry UI
-    ├── categories/      # Category management
+    ├── categories/      # Category management & transaction details
     ├── dashboard/       # Spending overview
+    ├── debug/           # Debugging utilities for transactions
     ├── providers/       # Transaction sources analysis
+    ├── raw_sms_list/    # Listing of raw SMS messages
+    ├── settings/        # Application settings
     └── transaction_list/# Full transaction history
 ```
 
 ### 2. Data Processing Pipeline
 
-#### SMS Extraction Rules (from `Rules for Processing.md`)
+#### SMS Extraction Rules (from `Rules for Processing.md` & `TextExtractors.kt`)
 ```kotlin
 // Simplified processing flow:
-1. SMS Filtering:
-   - Exclude messages with URLs
-   - Detect financial transaction patterns
+1. SMS Filtering (SmsDataSource.kt):
+   - Exclude messages that don't start with "Bancolombia:" (currently hardcoded in SmsDataSource and SmsReceiver).
+   - Keyword-based filtering for financial institutions (e.g., "%Bancolombia%", "%Nequi%") in SmsDataSource.
+   - TextExtractors.isPromotionalMessage(body) (checks for URLs or promo keywords) is used in TextExtractors but not directly in SmsDataSource's main read path.
 
-2. Field Extraction:
-   - Date: Regex `(\d{2}/\d{2}/\d{4})` with fallback to SMS timestamp
-   - Amount: COP currency patterns with decimal handling
-   - Provider: Hierarchical detection:
-     a) Direct pattern matching (e.g., "de PROVIDER a tu cuenta")
-     b) Contact name lookup from phone number
-     c) Fallback to SMS sender
+2. Field Extraction (TextExtractors.kt, ExtractTransactionDataUseCase.kt):
+   - Date: Primarily from SMS metadata (Telephony.Sms.DATE), fallback to DateTimeUtils.extractDateTimeFromBody(body).
+   - Amount: COP currency patterns ($ or COP prefix), e.g., TextExtractors.extractAmountFromBody() & parseToFloat().
+   - Provider (ExtractTransactionDataUseCase & TextExtractors.extractProviderFromBody):
+     a) Specific patterns (e.g., "de PROVIDER a tu cuenta", "Pagaste ... a PROVIDER desde").
+     b) Contact name lookup via phone number (if phone extracted from account info).
+     c) General ALL CAPS sequence in message body.
+     d) Fallback to SMS sender address (message.address).
+   - Contact Name: From phone number lookup if account info yields a phone number (TextExtractors.lookupContactName).
+   - Account Info: TextExtractors.detectAccountInfo (various patterns for *XXXX, Nequi, DaviPlata etc.).
 
-3. Transaction Classification:
-   - Income detection via keywords: "recibiste", "nómina"
-   - Expense default classification
+3. Transaction Classification (TextExtractors.isIncome):
+   - Income detection: body.contains("recibiste", ignoreCase = true).
+   - Expense is the default if not income.
 
-4. Account Detection:
-   - Bancolombia pattern: "producto [*XXXX]"
-   - Nequi/Daviplata mobile wallet detection
+4. ID Generation (ExtractTransactionDataUseCase.generateStableId):
+   - MD5 hash of "${dateTime.time}-${address}-${body}". Fallback to UUID if MD5 fails.
+   - For manual transactions (AddTransactionViewModel), if ID is null, UUID.randomUUID().toString() is used in TransactionRepositoryImpl.addTransaction.
 ```
 
 ### 3. Transaction Handling (Local Persistence)
 ```kotlin
 data class TransactionData(
-    val id: String,       // Stable hash of content fields
+    val id: String? = null,       // Nullable for new manual entries, generated by repository or use case.
+    val userId: String? = null,   // Not currently used with local DB.
     val date: Date,
     val amount: Float,
     val isIncome: Boolean,
-    val provider: String?,
-    val contactName: String?,
-    var categoryId: String? // Persisted in Room, mapped to CategoryEntity
+    val description: String? = null, // Original SMS body or null for manual entries
+    val provider: String? = null,
+    val contactName: String? = null,
+    val accountInfo: String? = null, // Flattened from AccountInfo model
+    var categoryId: String? = null   // Persisted in Room, mapped to CategoryEntity
 )
 ```
-- **ID Generation:** SHA-256 hash of (date, amount, type, provider)
+- **ID Generation:** As described above (MD5/UUID for SMS, UUID for manual if null).
 - **Caching:**
-  1. Memory cache for quick access (managed by Repositories)
+  1. Repositories might hold data in memory briefly, but primary interaction is with Room.
   2. **Room database** serves as the persistent source of truth.
-- **Data Storage:** All transaction data is stored in local Room tables.
+- **Data Storage:** All transaction data is stored in the local Room `transactions` table (via `TransactionEntity`).
 
 ### 4. Category System (Local Persistence)
-- Default categories can be pre-populated in Room on first launch.
-- Custom categories are stored in the Room `categories` table.
+- Default categories are pre-populated in Room on first DB creation (`FinanzasDatabase.onCreate`).
+- Custom categories are stored in the Room `categories` table (via `CategoryEntity`).
 - "Other" category handling:
   ```kotlin
-  fun getUncategorizedCategoryPlaceholder() = Category(
-      id = null, // Or a special constant ID for 'Other'
-      name = "Other",
-      color = Color.GRAY
-  )
+  // In CategoryRepositoryImpl
+  override fun getUncategorizedCategoryPlaceholder(): Category =
+      Category(id = null, name = "Other", color = 0xFF808080.toInt(), userId = null)
+  // The actual "Other" category in DEFAULT_CATEGORIES has id = "a0a0a0a0-a0a0-a0a0-a0a0-a0a0a0a0a0a0"
   ```
-- Assignment persistence using `transactionId → categoryId` mapping within the `TransactionEntity`.
+- Assignment persistence using `transactionId → categoryId` mapping within the `TransactionEntity.categoryId` field.
+- Provider-to-Category mappings are stored in SharedPreferences via `SharedPrefsManager` and accessed through `CategoryRepository`.
 
-### 5. Provider Analysis (Local Persistence)
-- Automatic detection from SMS patterns.
-- Manual override with persistence:
-  ```kotlin
-  // Example of how this might be stored, perhaps in a dedicated Provider table or DataStore
-  fun saveCustomProviderName(key: String, name: String) {
-      // dataStore.edit { preferences -> preferences["provider_$key"] = name }
-      // Or, update a ProviderEntity in Room
-  }
-  ```
-- Stats aggregation by normalized provider/contact, queried from Room.
+### 5. Provider Analysis (Local Persistence & SharedPreferences)
+- Automatic detection from SMS patterns (see Field Extraction).
+- Provider name can be manually edited in `TransactionDetailScreen`, updating the specific `TransactionData` instance in Room.
+- Provider-to-Category mapping rules can be saved from `TransactionDetailScreen` (via `CategoriesViewModel.saveProviderCategoryPreference`), which stores them in SharedPreferences.
+- Stats aggregation (`TransactionRepository.getProviderStats`) by `contactName` then `provider`, queried from Room.
 
 ## Local Database Schema (Room)
 
@@ -105,88 +115,81 @@ data class TransactionData(
 ```kotlin
 @Entity(tableName = "transactions")
 data class TransactionEntity(
-    @PrimaryKey val id: String,      // SHA-256 hash
+    @PrimaryKey val id: String,      // Stable ID (MD5 or UUID)
+    val userId: String?,             // Currently not used post-Firebase removal
     val date: Long,                  // Store as timestamp for easier querying
     val amount: Float,
     val isIncome: Boolean,
-    val providerName: String?,       // Derived/Resolved provider name
-    val originalSmsSender: String?,  // Raw sender from SMS for reference
+    val description: String?,        // Original SMS body / manual entry description
+    val provider: String?,           // Derived/Resolved provider name
     val contactName: String?,        // Matched contact, if any
     val accountInfo: String?,        // Extracted account identifier (e.g., *XXXX)
-    var categoryId: String?,         // Foreign key to CategoryEntity
-    val rawSmsContent: String?       // Full SMS message text for debugging/reprocessing
+    var categoryId: String?          // Foreign key to CategoryEntity
 )
+// Note: originalSmsSender and rawSmsContent from the initial schema are not present.
+// description field now serves for SMS body.
 ```
 
 ### `CategoryEntity`
 ```kotlin
 @Entity(tableName = "categories")
 data class CategoryEntity(
-    @PrimaryKey val id: String = UUID.randomUUID().toString(), // Auto-generated or predefined
+    @PrimaryKey val id: String, // Can be predefined UUID or auto-generated
+    val userId: String?,        // Currently not used
     val name: String,
-    val color: Int, // Store as ARGB Int
-    val isDefault: Boolean = false // To distinguish user-created from pre-populated
+    val color: Int,             // Store as ARGB Int
 )
+// Note: isDefault field from initial schema is not present. Default categories are identified by their known IDs/names.
 ```
 
-### `ProviderAliasEntity` (Optional, for managing provider name normalization)
-```kotlin
-@Entity(tableName = "provider_aliases")
-data class ProviderAliasEntity(
-    @PrimaryKey val originalName: String, // e.g., "BCO Davivienda", "DAVIVIENDA S.A."
-    val normalizedName: String            // e.g., "Davivienda"
-)
-```
+(ProviderAliasEntity was in initial plans but not implemented in FinanzasDatabase entities)
 
 ## Key Architectural Patterns (Offline-First)
 1. **Single Source of Truth (Room):**
-   - `TransactionRepository` and `CategoryRepository` interact primarily with Room DAOs.
+   - `TransactionRepository` and `CategoryRepository` interact primarily with Room DAOs for transaction and category data.
+   - `CategoryRepository` also uses `SharedPrefsManager` for provider-category mappings.
    - SMS data is processed and immediately inserted/updated in Room.
-   - UI observes LiveData/Flows from Repositories, which are backed by Room queries.
+   - UI observes StateFlows from ViewModels, which source data from Repositories backed by Room queries and SharedPreferences.
 
 2. **Dependency Injection (Hilt):**
-   - Hilt components for ViewModel creation.
-   - Repository and DAO dependencies managed via constructor injection.
-   - A `DatabaseModule` provides Room database and DAO instances.
+   - Hilt for ViewModel creation and injecting dependencies (Repositories, DAOs, UseCases, Context, SharedPrefsManager).
+   - `AppModule`, `DatabaseModule`, `RepositoryModule` define bindings.
 
 3. **Error Resiliency:**
-   - SMS processing error handling with potential for failed messages to be stored for retry.
-   - Data consistency managed by Room transactions.
+   - SMS processing errors are logged; `ExtractTransactionDataUseCase` has a fallback for ID generation if MD5 fails.
+   - Database operations are generally wrapped in try-catch blocks in repositories or use cases.
 
 ## Required Dependencies (for `app/build.gradle.kts`)
+(Assuming these are already correctly in the build.gradle.kts file based on project state)
 ```gradle
 // Room
-def room_version = "2.6.1"
+def room_version = "2.6.1" // Example, use actual version
 implementation("androidx.room:room-runtime:$room_version")
-kapt("androidx.room:room-compiler:$room_version") // Or ksp for Kotlin Symbol Processing
+kapt("androidx.room:room-compiler:$room_version") // Or ksp
 implementation("androidx.room:room-ktx:$room_version")
 
-// DataStore (for app preferences, replacing SharedPreferences)
-def datastore_version = "1.1.0"
-implementation("androidx.datastore:datastore-preferences:$datastore_version")
+// SharedPreferences is a built-in Android component, Gson for serialization if complex objects were stored (but here it's for Map<String, String> which is fine)
+implementation("com.google.code.gson:gson:2.10.1") // Example for SharedPrefsManager's use of Gson
 
-// Kotlin Coroutines (essential for Room and modern Android development)
-def coroutines_version = "1.8.1"
+// Kotlin Coroutines
+def coroutines_version = "1.8.0" // Example
 implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:$coroutines_version")
 
-// ViewModel and LiveData (likely already present)
-def lifecycle_version = "2.8.0"
+// ViewModel and LiveData/StateFlow
+def lifecycle_version = "2.7.0" // Example
 implementation("androidx.lifecycle:lifecycle-viewmodel-ktx:$lifecycle_version")
-implementation("androidx.lifecycle:lifecycle-livedata-ktx:$lifecycle_version")
+implementation("androidx.lifecycle:lifecycle-runtime-compose:$lifecycle_version") // For collectAsState
 
-// Hilt (likely already present)
-def hilt_version = "2.51.1"
+// Hilt
+def hilt_version = "2.48.1" // Example
 implementation("com.google.dagger:hilt-android:$hilt_version")
 kapt("com.google.dagger:hilt-compiler:$hilt_version") // Or ksp
-
-// Optional: SQLCipher for database encryption
-// implementation("net.zetetic:android-database-sqlcipher:4.5.4")
-// implementation("androidx.sqlite:sqlite-ktx:2.4.0") // For SQLCipher support factory
 ```
 
 ## LLM Context Notes
 - This document describes a **fully offline application**. All Firebase/cloud features are removed.
 - All monetary values in COP (Colombian Pesos).
-- Date formats follow `dd/MM/yyyy` in UI, but stored as `Long` (timestamp) in Room.
-- Primary SMS patterns from Bancolombia, Nequi, Daviplata remain relevant.
-- Transaction IDs are content-hash stable across app restarts.
+- Date formats `dd/MM/yyyy` in UI, stored as `Long` (timestamp) in Room.
+- Primary SMS patterns from Bancolombia. Other banks (Nequi, Daviplata) have some patterns but Bancolombia is the most enforced.
+- Transaction IDs: Stable for SMS-derived (MD5 hash). For manually added, UUID if not provided.
+- Provider-Category rules are persisted in SharedPreferences.

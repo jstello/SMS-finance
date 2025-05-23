@@ -77,14 +77,23 @@ fun SettingsScreen(
             ) {
                 Button(
                     onClick = { settingsViewModel.onShowDialog() },
-                    enabled = false, // currentUser is commented out
+                    enabled = !isLoading,
                     colors = ButtonDefaults.buttonColors(
-                        containerColor = Color.Red.copy(alpha = 0.1f),
-                        contentColor = Color.Red
+                        containerColor = MaterialTheme.colorScheme.errorContainer,
+                        contentColor = MaterialTheme.colorScheme.onErrorContainer
                     ),
-                    border = BorderStroke(1.dp, Color.Red)
+                    border = BorderStroke(1.dp, MaterialTheme.colorScheme.error),
+                    modifier = Modifier.fillMaxWidth()
                 ) {
-                    Text("Developer: Clear My Transactions & Resync")
+                    if (isLoading) {
+                        CircularProgressIndicator(
+                            modifier = Modifier.size(24.dp),
+                            color = MaterialTheme.colorScheme.onErrorContainer,
+                            strokeWidth = 2.dp
+                        )
+                    } else {
+                        Text("Clear All Transactions & Resync")
+                    }
                 }
 
                 if (showConfirmationDialog) {

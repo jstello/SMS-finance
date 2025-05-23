@@ -829,8 +829,18 @@ class CategoriesViewModel @Inject constructor(
     }
 
     fun saveProviderCategoryPreference(providerName: String, categoryId: String) {
-        // Provider mapping is no longer supported
-        _saveProviderMappingResult.value = Result.failure(UnsupportedOperationException("Provider mapping is no longer supported"))
+        viewModelScope.launch {
+            _saveProviderMappingResult.value = null // Reset before operation
+            Log.d("CategoriesVM", "Attempting to save provider rule: Provider '$providerName' -> Category '$categoryId'")
+            // Assuming userId is not strictly needed for SharedPrefs, pass empty if repository handles it.
+            val result = categoryRepository.saveProviderCategoryMapping("", providerName, categoryId)
+            _saveProviderMappingResult.value = result
+            if (result.isSuccess) {
+                Log.i("CategoriesVM", "Successfully saved provider rule for '$providerName'.")
+            } else {
+                Log.e("CategoriesVM", "Failed to save provider rule for '$providerName'.", result.exceptionOrNull())
+            }
+        }
     }
 
     fun clearSaveProviderMappingResult() {

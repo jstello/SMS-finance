@@ -82,7 +82,7 @@ class AddTransactionViewModel @Inject constructor(
                 )
 
                 Log.d("AddTransactionVM", "Attempting to save transaction: $newTransaction")
-                val result = transactionRepository.saveTransactionToFirestore(newTransaction)
+                val result = transactionRepository.addTransaction(newTransaction)
                 _saveResult.value = result
 
                 if(result.isSuccess) {

@@ -104,4 +104,10 @@ interface TransactionRepository {
      * Gets the total number of transactions in the database.
      */
     suspend fun getTransactionCount(): Int
+
+    /**
+     * Adds a new transaction to the local Room database.
+     * If the transaction ID is null, a new one will be generated.
+     */
+    suspend fun addTransaction(transaction: TransactionData): Result<Unit>
 } 

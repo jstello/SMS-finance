@@ -6,6 +6,8 @@ import com.example.finanzaspersonales.data.model.SmsMessage
 import com.example.finanzaspersonales.data.model.TransactionData
 import com.example.finanzaspersonales.domain.util.TextExtractors
 import dagger.hilt.android.qualifiers.ApplicationContext
+import java.security.MessageDigest
+import java.util.UUID
 import javax.inject.Inject
 
 /**
@@ -59,8 +61,12 @@ class ExtractTransactionDataUseCase @Inject constructor(
                 }
                 // --- End New Check ---
 
+                // Generate a deterministic ID based on SMS content
+                val uniqueInput = "${message.dateTime.time}-${message.address}-${message.body}"
+                val stableId = generateStableId(uniqueInput)
+
                 TransactionData(
-                    id = null, // ID should be generated later by the repository
+                    id = stableId, // ID is now generated here
                     date = message.dateTime,
                     amount = message.numericAmount,
                     isIncome = TextExtractors.isIncome(message.body),
@@ -72,6 +78,17 @@ class ExtractTransactionDataUseCase @Inject constructor(
             } else {
                  null // Skip messages without date or amount
             }
+        }
+    }
+
+    private fun generateStableId(input: String): String {
+        return try {
+            val bytes = MessageDigest.getInstance("MD5").digest(input.toByteArray())
+            bytes.joinToString("") { "%02x".format(it) }
+        } catch (e: Exception) {
+            // Fallback to UUID if hashing fails, though this should be rare
+            Log.e("ExtractTransactionDataUseCase", "MD5 hashing failed, falling back to UUID", e)
+            UUID.randomUUID().toString()
         }
     }
 } 

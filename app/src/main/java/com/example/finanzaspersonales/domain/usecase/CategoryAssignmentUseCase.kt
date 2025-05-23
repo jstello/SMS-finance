@@ -7,6 +7,7 @@ import android.util.Log
 // import com.example.finanzaspersonales.data.auth.AuthRepository // Temporarily removed
 // import kotlinx.coroutines.flow.firstOrNull // Temporarily removed
 import javax.inject.Inject
+import com.example.finanzaspersonales.data.local.SharedPrefsManager
 
 /**
  * Use case for assigning categories to transactions based on patterns in transaction data
@@ -23,17 +24,17 @@ class CategoryAssignmentUseCase @Inject constructor(
      */
     suspend fun assignCategoryToTransaction(transaction: TransactionData): Category? {
         // TODO: Restore AuthRepository and userId usage for provider-specific category mapping
-        val userId: String? = null // Temporarily null
-        // val userId = authRepository.currentUserState.firstOrNull()?.uid // Temporarily removed
+        val userId: String = "" // Using empty string as userId is not used by SharedPrefs based mapping.
 
-        // 1. Check for provider-specific category mapping if provider and user ID exist
-        if (userId != null && transaction.provider != null && transaction.provider!!.isNotBlank()) { // Ensure provider is not blank
-            Log.d("CategoryAssign", "Attempting to find mapping for provider: '${transaction.provider}' for user: $userId")
+        // 1. Check for provider-specific category mapping if provider exists
+        if (transaction.provider != null && transaction.provider!!.isNotBlank()) { 
+            Log.d("CategoryAssign", "Attempting to find mapping for provider: '${transaction.provider}'")
             val providerCategoryMappingResult = categoryRepository.getCategoryForProvider(userId, transaction.provider!!)
+            
             providerCategoryMappingResult.fold(
                 onSuccess = { categoryId ->
                     if (categoryId != null) {
-                        if (categories.isEmpty()) { // Ensure categories are loaded
+                        if (categories.isEmpty()) { 
                             Log.d("CategoryAssign", "Categories list empty, fetching from repository.")
                             categories = categoryRepository.getCategories()
                             Log.d("CategoryAssign", "Loaded ${categories.size} categories.")
@@ -41,11 +42,16 @@ class CategoryAssignmentUseCase @Inject constructor(
                         val mappedCategory = categories.find { it.id == categoryId }
                         if (mappedCategory != null) {
                             Log.i("CategoryAssign", "SUCCESS: Assigned category '${mappedCategory.name}' (ID: $categoryId) based on provider '${transaction.provider}' mapping.")
+                            // Check if this mapped category is the "Other" category.
+                            // If so, we still want to treat it as truly uncategorized (null).
+                            val defaultOtherCategoryId = SharedPrefsManager.DEFAULT_CATEGORIES.find { it.name == "Other" }?.id
+                            if (mappedCategory.id == defaultOtherCategoryId) {
+                                Log.i("CategoryAssign", "Provider mapping for '${transaction.provider}' resolved to 'Other' category. Marking as truly uncategorized (returning null).")
+                                return null // This makes transaction.categoryId null
+                            }
                             return mappedCategory
                         } else {
                             Log.w("CategoryAssign", "Provider mapping found for '${transaction.provider}' to categoryId '$categoryId', but category not in local list. Categories count: ${categories.size}")
-                            // Optional: Log available categories for debugging
-                            // categories.forEach { cat -> Log.d("CategoryAssign", "Available cat: ${cat.name} (ID: ${cat.id})") }
                         }
                     } else {
                         Log.d("CategoryAssign", "No category mapping found for provider: '${transaction.provider}'. Proceeding to keyword matching.")
@@ -53,13 +59,12 @@ class CategoryAssignmentUseCase @Inject constructor(
                 },
                 onFailure = { exception ->
                     Log.e("CategoryAssign", "Error fetching provider category mapping for '${transaction.provider}'. Proceeding to keyword matching.", exception)
-                    // Proceed to keyword-based assignment
                 }
             )
         } else {
-            // if (userId == null) Log.d("CategoryAssign", "User not logged in, skipping provider mapping check.") // Temporarily adjusted
-            if (userId == null) Log.d("CategoryAssign", "User ID not available (AuthRepository removed), skipping provider mapping check.")
-            if (transaction.provider == null || transaction.provider!!.isBlank()) Log.d("CategoryAssign", "Transaction provider is null or blank, skipping provider mapping check.")
+            if (transaction.provider == null || transaction.provider!!.isBlank()) {
+                Log.d("CategoryAssign", "Transaction provider is null or blank, skipping provider mapping check.")
+            }
         }
 
         // Load categories if needed (might have been loaded above, but check again for safety if not found via provider mapping)
@@ -69,16 +74,25 @@ class CategoryAssignmentUseCase @Inject constructor(
             Log.d("CategoryAssign", "Loaded ${categories.size} categories for keyword assignment.")
         }
 
-        // 2. Fallback to keyword-based assignment (existing logic)
-        Log.d("CategoryAssign", "Attempting keyword-based assignment for provider: '${transaction.provider}'")
+        // 2. Fallback to keyword-based assignment
+        Log.d("CategoryAssign", "Attempting keyword-based assignment for transaction from provider: '${transaction.provider}' with description: '${transaction.description?.take(50)}'")
         val keywords = extractKeywords(transaction)
-        val keywordBasedCategory = findMatchingCategory(keywords, transaction.isIncome)
-        if (keywordBasedCategory != null) {
-            Log.i("CategoryAssign", "SUCCESS: Assigned category '${keywordBasedCategory.name}' based on keywords for provider '${transaction.provider}'.")
+        val keywordBasedCategoryMatch = findMatchingCategory(keywords, transaction.isIncome)
+
+        if (keywordBasedCategoryMatch != null) {
+            // If the matched category is the "Other" category, treat it as unassigned (return null).
+            val defaultOtherCategoryId = SharedPrefsManager.DEFAULT_CATEGORIES.find { it.name == "Other" }?.id
+            
+            if (keywordBasedCategoryMatch.id == defaultOtherCategoryId) {
+                Log.i("CategoryAssign", "Keyword assignment for provider '${transaction.provider}' resulted in 'Other' category. Marking as truly uncategorized (returning null).")
+                return null // This makes transaction.categoryId null
+            }
+            Log.i("CategoryAssign", "SUCCESS: Assigned category '${keywordBasedCategoryMatch.name}' (ID: ${keywordBasedCategoryMatch.id}) based on keywords for provider '${transaction.provider}'.")
+            return keywordBasedCategoryMatch
         } else {
-            Log.w("CategoryAssign", "No category could be assigned via keywords for provider '${transaction.provider}'.")
+            Log.w("CategoryAssign", "No category could be assigned via keywords for provider '${transaction.provider}'. Returning null.")
+            return null // No match found, so it's uncategorized
         }
-        return keywordBasedCategory
     }
     
     /**

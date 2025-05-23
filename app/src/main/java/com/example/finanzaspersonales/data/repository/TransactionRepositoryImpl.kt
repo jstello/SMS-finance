@@ -14,6 +14,7 @@ import com.example.finanzaspersonales.domain.util.DateTimeUtils.toYear
 import kotlinx.coroutines.flow.first
 import javax.inject.Inject
 import javax.inject.Singleton
+import java.util.UUID
 
 @Singleton
 class TransactionRepositoryImpl @Inject constructor(
@@ -27,8 +28,11 @@ class TransactionRepositoryImpl @Inject constructor(
         smsDataSource.readSmsMessages()
 
     override suspend fun refreshSmsData(limitToRecentMonths: Int) {
+        // Extract and insert unique transactions from SMS messages
         val smsList = smsDataSource.readSmsMessages(limitToRecentMonths)
         val transactions = extractTransactionDataUseCase.execute(smsList)
+            .distinctBy { it.id }
+        
         transactions.forEach { tx ->
             val assignedCategory = categoryAssignmentUseCase.assignCategoryToTransaction(tx)
             val entity = tx.copy(categoryId = assignedCategory?.id).toEntity()
@@ -115,5 +119,16 @@ class TransactionRepositoryImpl @Inject constructor(
 
     override suspend fun getTransactionCount(): Int {
         return transactionDao.getTransactionCount()
+    }
+
+    override suspend fun addTransaction(transaction: TransactionData): Result<Unit> = runCatching {
+        val entity = transaction.let {
+            if (it.id == null) {
+                it.copy(id = UUID.randomUUID().toString())
+            } else {
+                it
+            }
+        }.toEntity()
+        transactionDao.insertTransaction(entity)
     }
 } 

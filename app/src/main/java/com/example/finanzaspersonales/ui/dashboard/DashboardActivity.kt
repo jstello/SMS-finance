@@ -36,6 +36,7 @@ import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.Storefront
 import androidx.compose.material.icons.filled.Savings
 import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.BugReport
 import androidx.compose.material.icons.filled.ReceiptLong
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
@@ -97,6 +98,9 @@ import androidx.compose.ui.platform.LocalContext
 import com.example.finanzaspersonales.ui.settings.SettingsActivity
 import com.example.finanzaspersonales.ui.raw_sms_list.RawSmsListActivity
 import androidx.compose.material3.HorizontalDivider
+import com.example.finanzaspersonales.ui.debug.TransactionDebugActivity
+import androidx.compose.material.icons.filled.BugReport
+import androidx.compose.material.icons.automirrored.filled.ReceiptLong
 
 // Helper function to format large numbers to millions with one decimal place
 private fun formatToMillions(value: Float): String {
@@ -217,6 +221,8 @@ class DashboardActivity : ComponentActivity() {
     private fun navigateToRawSmsList() {
         startActivity(Intent(this, RawSmsListActivity::class.java))
     }
+    
+
 }
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -257,6 +263,11 @@ fun DashboardScreen(
                         context.startActivity(Intent(context, SettingsActivity::class.java))
                     }) {
                         Icon(Icons.Filled.Settings, contentDescription = "Settings")
+                    }
+                    IconButton(onClick = { 
+                        context.startActivity(Intent(context, TransactionDebugActivity::class.java))
+                    }) {
+                        Icon(Icons.Filled.BugReport, contentDescription = "Debug")
                     }
                 }
             )
@@ -592,6 +603,34 @@ fun QuickActionCard(title: String, icon: ImageVector, onClick: () -> Unit, modif
 }
 
 @Composable
-fun SummaryCard(title: String, amount: String, cardColor: Color, modifier: Modifier = Modifier) {
-    // Implementation of SummaryCard function
+fun SummaryCard(
+    title: String,
+    amount: String,
+    cardColor: Color,
+    modifier: Modifier = Modifier
+) {
+    Card(
+        modifier = modifier
+            .fillMaxWidth()
+            .padding(8.dp),
+        colors = CardDefaults.cardColors(
+            containerColor = cardColor
+        )
+    ) {
+        Column(
+            modifier = Modifier.padding(16.dp),
+            horizontalAlignment = Alignment.CenterHorizontally
+        ) {
+            Text(
+                text = title,
+                style = MaterialTheme.typography.bodyMedium
+            )
+            Spacer(modifier = Modifier.height(4.dp))
+            Text(
+                text = amount,
+                style = MaterialTheme.typography.titleMedium,
+                fontWeight = FontWeight.Bold
+            )
+        }
+    }
 } 

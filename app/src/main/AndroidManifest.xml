@@ -92,6 +92,13 @@
             android:exported="false"
             android:label="@string/title_activity_raw_sms_list"
             android:theme="@style/Theme.FinanzasPersonales" />
+            
+        <!-- Transaction Debug Activity -->
+        <activity
+            android:name=".ui.debug.TransactionDebugActivity"
+            android:exported="false"
+            android:label="Transaction Debug"
+            android:theme="@style/Theme.FinanzasPersonales" />
     </application>
 
 </manifest>

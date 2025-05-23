@@ -19,7 +19,7 @@ fun TransactionEntity.toDomain(): TransactionData = TransactionData(
 )
 
 fun TransactionData.toEntity(): TransactionEntity = TransactionEntity(
-    id = this.id ?: UUID.randomUUID().toString(),
+    id = this.id ?: throw IllegalStateException("Transaction ID cannot be null when converting to Entity"),
     userId = this.userId,
     date = this.date.time,
     amount = this.amount,

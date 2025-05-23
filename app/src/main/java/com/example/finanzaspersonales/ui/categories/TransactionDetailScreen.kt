@@ -108,22 +108,16 @@ fun TransactionDetailScreen(
                 val newlySelectedCategory = pendingCategoryChange
                 currentCategory = newlySelectedCategory
                 
+                // If successful and provider exists, save the rule automatically
                 val providerForRule = transaction.provider
                 if (newlySelectedCategory != null && newlySelectedCategory.id != null && !providerForRule.isNullOrBlank()) {
-                    scope.launch {
-                        val snackbarResult = snackbarHostState.showSnackbar(
-                            message = "Category updated to '${newlySelectedCategory.name}'. Save for provider '${providerForRule}'?",
-                            actionLabel = "Save Rule",
-                            duration = SnackbarDuration.Long
-                        )
-                        if (snackbarResult == SnackbarResult.ActionPerformed) {
-                            viewModel.saveProviderCategoryPreference(providerForRule, newlySelectedCategory.id!!)
-                        }
-                    }
-                } else {
-                    scope.launch {
-                        snackbarHostState.showSnackbar("Category updated successfully!")
-                    }
+                    viewModel.saveProviderCategoryPreference(providerForRule, newlySelectedCategory.id!!)
+                    // No need for a separate snackbar for the rule saving itself, as it's automatic.
+                    // The main success snackbar will cover the category update.
+                }
+
+                scope.launch {
+                    snackbarHostState.showSnackbar("Category updated to '${newlySelectedCategory?.name ?: "Uncategorized"}'")
                 }
                 pendingCategoryChange = null
             } else {
