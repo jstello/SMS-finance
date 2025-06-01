@@ -99,6 +99,13 @@
             android:exported="false"
             android:label="Transaction Debug"
             android:theme="@style/Theme.FinanzasPersonales" />
+        
+        <!-- Spending Insights Test Activity -->
+        <activity
+            android:name=".ui.debug.SpendingInsightsTestActivity"
+            android:exported="false"
+            android:label="Spending Insights Test"
+            android:theme="@style/Theme.FinanzasPersonales" />
     </application>
 
 </manifest>

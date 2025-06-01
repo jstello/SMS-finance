@@ -37,6 +37,7 @@ import androidx.compose.material.icons.filled.Storefront
 import androidx.compose.material.icons.filled.Savings
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.BugReport
+import androidx.compose.material.icons.filled.Psychology
 import androidx.compose.material.icons.filled.ReceiptLong
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
@@ -99,6 +100,7 @@ import com.example.finanzaspersonales.ui.settings.SettingsActivity
 import com.example.finanzaspersonales.ui.raw_sms_list.RawSmsListActivity
 import androidx.compose.material3.HorizontalDivider
 import com.example.finanzaspersonales.ui.debug.TransactionDebugActivity
+import com.example.finanzaspersonales.ui.debug.SpendingInsightsTestActivity
 import androidx.compose.material.icons.filled.BugReport
 import androidx.compose.material.icons.automirrored.filled.ReceiptLong
 import androidx.compose.material3.windowsizeclass.ExperimentalMaterial3WindowSizeClassApi
@@ -167,7 +169,8 @@ class DashboardActivity : ComponentActivity() {
                         onNavigateToProviders = { navigateToProviders() },
                         onNavigateToAddTransaction = { navigateToAddTransaction() },
                         onNavigateToSettings = { navigateToSettings() },
-                        onNavigateToDebug = { navigateToDebug() }
+                        onNavigateToDebug = { navigateToDebug() },
+                        onNavigateToSpendingInsightsTest = { navigateToSpendingInsightsTest() }
                     )
                 }
             }
@@ -228,6 +231,10 @@ class DashboardActivity : ComponentActivity() {
 
     private fun navigateToDebug() {
         startActivity(Intent(this, TransactionDebugActivity::class.java))
+    }
+
+    private fun navigateToSpendingInsightsTest() {
+        startActivity(Intent(this, SpendingInsightsTestActivity::class.java))
     }
 
     private fun navigateToRawSmsList() {

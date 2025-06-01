@@ -21,6 +21,7 @@ import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.Storefront
 import androidx.compose.material.icons.filled.TrendingDown
 import androidx.compose.material.icons.filled.TrendingUp
+import androidx.compose.material.icons.filled.Psychology
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FloatingActionButton
@@ -57,7 +58,8 @@ fun ExpressiveDashboardScreen(
     onNavigateToProviders: () -> Unit,
     onNavigateToAddTransaction: () -> Unit,
     onNavigateToSettings: () -> Unit,
-    onNavigateToDebug: () -> Unit
+    onNavigateToDebug: () -> Unit,
+    onNavigateToSpendingInsightsTest: () -> Unit
 ) {
     val context = LocalContext.current
     val isLoading by viewModel.isLoading.collectAsState()
@@ -114,6 +116,13 @@ fun ExpressiveDashboardScreen(
                                 Icon(
                                     Icons.Filled.BugReport, 
                                     contentDescription = "Debug",
+                                    tint = MaterialTheme.colorScheme.onSurface
+                                )
+                            }
+                            IconButton(onClick = onNavigateToSpendingInsightsTest) {
+                                Icon(
+                                    Icons.Filled.Psychology, 
+                                    contentDescription = "Test Spending Insights",
                                     tint = MaterialTheme.colorScheme.onSurface
                                 )
                             }

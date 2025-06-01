@@ -393,7 +393,7 @@ class CategoriesViewModel @Inject constructor(
                 // OR if its name matches the placeholder's name (as a fallback, though ID check is primary)
                 val isEffectivelyUncategorized = (categoryId == uncategorizedPlaceholder.id) || 
                                                  (categoryId == null) || // Explicitly handle if a truly null ID object is passed
-                                                 (categoryName == uncategorizedPlaceholder.name && categoryId != null) // Fallback for old ID a0a0... if name is 'Other'
+                                                 (categoryName == uncategorizedPlaceholder.name) // Fallback for old ID a0a0... if name is 'Other'
 
                 if (isEffectivelyUncategorized) {
                     Log.d("CAT_DETAIL_VM", "   'Other'/Uncategorized category type detected (ID: $categoryId, Name: $categoryName). Fetching all transactions then filtering locally for actual uncategorized items.")

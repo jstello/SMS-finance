@@ -4,8 +4,14 @@ import android.content.Context
 import android.content.SharedPreferences
 import com.example.finanzaspersonales.data.local.SharedPrefsManager
 import com.example.finanzaspersonales.data.local.SmsDataSource
+import com.example.finanzaspersonales.data.repository.CategoryRepository
+import com.example.finanzaspersonales.data.repository.TransactionRepository
 import com.example.finanzaspersonales.domain.usecase.CategoryAssignmentUseCase
 import com.example.finanzaspersonales.domain.usecase.ExtractTransactionDataUseCase
+import com.example.finanzaspersonales.domain.usecase.GetSpendingByCategoryUseCase
+import com.example.finanzaspersonales.domain.tools.SpendingInsightsTool
+import com.google.gson.Gson
+import com.google.gson.GsonBuilder
 import dagger.Module
 import dagger.Provides
 import dagger.hilt.InstallIn
@@ -42,9 +48,35 @@ object AppModule {
     @Provides
     @Singleton
     fun provideCategoryAssignmentUseCase(
-        categoryRepository: com.example.finanzaspersonales.data.repository.CategoryRepository
+        categoryRepository: CategoryRepository
     ): CategoryAssignmentUseCase {
         return CategoryAssignmentUseCase(categoryRepository)
+    }
+
+    // Provides Gson for JSON serialization/deserialization
+    @Provides
+    @Singleton
+    fun provideGson(): Gson {
+        return GsonBuilder()
+            .setPrettyPrinting()
+            .create()
+    }
+
+    // Provides SpendingInsightsTool for user-focused financial insights
+    @Provides
+    @Singleton
+    fun provideSpendingInsightsTool(
+        getSpendingByCategoryUseCase: GetSpendingByCategoryUseCase,
+        transactionRepository: TransactionRepository,
+        categoryRepository: CategoryRepository,
+        gson: Gson
+    ): SpendingInsightsTool {
+        return SpendingInsightsTool(
+            getSpendingByCategoryUseCase,
+            transactionRepository,
+            categoryRepository,
+            gson
+        )
     }
 
     // Add provides for other dependencies if needed (e.g., Retrofit, Room database)
