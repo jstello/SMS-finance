@@ -1,8 +1,13 @@
 package com.example.finanzaspersonales.ui.navigation
 
+import androidx.compose.foundation.horizontalScroll
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.AccountBalance
 import androidx.compose.material.icons.filled.Add
@@ -20,13 +25,17 @@ import androidx.compose.material3.NavigationRailItem
 import androidx.compose.material3.PermanentDrawerSheet
 import androidx.compose.material3.PermanentNavigationDrawer
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.windowsizeclass.WindowSizeClass
 import androidx.compose.material3.windowsizeclass.WindowWidthSizeClass
 import androidx.compose.runtime.Composable
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.compose.foundation.layout.width
 
 data class NavigationDestination(
     val route: String,
@@ -40,7 +49,6 @@ val financeDestinations = listOf(
     NavigationDestination("categories", Icons.Default.Category, "Categories"),
     NavigationDestination("transactions", Icons.Default.AccountBalance, "Transactions"),
     NavigationDestination("providers", Icons.Default.Storefront, "Providers"),
-    NavigationDestination("settings", Icons.Default.Settings, "Settings")
 )
 
 @Composable
@@ -100,29 +108,33 @@ private fun CompactNavigationScaffold(
 ) {
     Scaffold(
         bottomBar = {
-            NavigationBar(
-                containerColor = MaterialTheme.colorScheme.surfaceVariant
+            Surface(
+                modifier = Modifier.fillMaxWidth(),
+                color = MaterialTheme.colorScheme.surfaceVariant,
+                tonalElevation = 3.dp
             ) {
-                financeDestinations.take(4).forEach { destination -> // Limit to 4 for bottom nav
-                    NavigationBarItem(
-                        icon = { 
-                            Icon(
-                                destination.icon, 
-                                contentDescription = destination.label
-                            ) 
-                        },
-                        label = { Text(destination.label) },
-                        selected = currentDestination == destination.route,
-                        onClick = { onDestinationClick(destination.route) }
-                    )
+                Row(
+                    modifier = Modifier
+                        .horizontalScroll(rememberScrollState()),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    financeDestinations.forEach { destination ->
+                        NavigationBarItem(
+                            modifier = Modifier
+                                .width(100.dp)
+                                .padding(horizontal = 8.dp),
+                            icon = {
+                                Icon(
+                                    destination.icon,
+                                    contentDescription = destination.label
+                                )
+                            },
+                            label = { Text(destination.label, softWrap = false) },
+                            selected = currentDestination == destination.route,
+                            onClick = { onDestinationClick(destination.route) }
+                        )
+                    }
                 }
-                // Add button as the 5th item
-                NavigationBarItem(
-                    icon = { Icon(Icons.Default.Add, contentDescription = "Add Transaction") },
-                    label = { Text("Add") },
-                    selected = false,
-                    onClick = onAddClick
-                )
             }
         }
     ) { paddingValues ->
@@ -166,13 +178,6 @@ private fun MediumNavigationScaffold(
                         onClick = { onDestinationClick(destination.route) }
                     )
                 }
-                // Add button
-                NavigationRailItem(
-                    icon = { Icon(Icons.Default.Add, contentDescription = "Add Transaction") },
-                    label = { Text("Add") },
-                    selected = false,
-                    onClick = onAddClick
-                )
             }
             
             Column(
@@ -219,15 +224,6 @@ private fun ExpandedNavigationScaffold(
                             modifier = Modifier.padding(vertical = 4.dp)
                         )
                     }
-                    
-                    // Add button
-                    NavigationDrawerItem(
-                        icon = { Icon(Icons.Default.Add, contentDescription = "Add Transaction") },
-                        label = { Text("Add Transaction") },
-                        selected = false,
-                        onClick = onAddClick,
-                        modifier = Modifier.padding(vertical = 4.dp)
-                    )
                 }
             }
         }

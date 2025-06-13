@@ -12,6 +12,7 @@ import androidx.compose.material3.windowsizeclass.WindowSizeClass
 import androidx.compose.material3.windowsizeclass.WindowWidthSizeClass
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.SideEffect
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalView
@@ -20,37 +21,49 @@ import androidx.compose.foundation.ExperimentalFoundationApi
 
 // Enhanced color schemes with financial app-appropriate colors
 private val DarkColorScheme = darkColorScheme(
-    primary = Purple80,
-    secondary = PurpleGrey80,
-    tertiary = Pink80,
-    // Financial-specific colors
-    primaryContainer = Purple80.copy(alpha = 0.3f),
-    secondaryContainer = PurpleGrey80.copy(alpha = 0.3f),
-    tertiaryContainer = Pink80.copy(alpha = 0.3f),
-    // Surface colors for cards and elevated components
-    surfaceVariant = Purple80.copy(alpha = 0.1f)
+    primary = PrimaryBlue,
+    secondary = SecondaryTeal,
+    tertiary = AccentGold,
+    background = BackgroundDark,
+    surface = SurfaceDark,
+    onPrimary = Color.White,
+    onSecondary = Color.White,
+    onTertiary = TextPrimaryLight,
+    onBackground = TextPrimaryDark,
+    onSurface = TextPrimaryDark,
+    primaryContainer = PrimaryBlue.copy(alpha = 0.2f),
+    onPrimaryContainer = TextPrimaryDark,
+    secondaryContainer = SecondaryTeal.copy(alpha = 0.2f),
+    onSecondaryContainer = TextPrimaryDark,
+    tertiaryContainer = AccentGold.copy(alpha = 0.2f),
+    onTertiaryContainer = TextPrimaryLight,
+    surfaceVariant = SurfaceVariantDark,
+    onSurfaceVariant = TextPrimaryDark,
+    error = ExpenseRed,
+    onError = Color.White
 )
 
 private val LightColorScheme = lightColorScheme(
-    primary = Purple40,
-    secondary = PurpleGrey40,
-    tertiary = Pink40,
-    // Financial-specific colors
-    primaryContainer = Purple40.copy(alpha = 0.2f),
-    secondaryContainer = PurpleGrey40.copy(alpha = 0.2f),
-    tertiaryContainer = Pink40.copy(alpha = 0.2f),
-    // Surface colors for cards and elevated components
-    surfaceVariant = Purple40.copy(alpha = 0.05f)
-
-    /* Other default colors to override
-    background = Color(0xFFFFFBFE),
-    surface = Color(0xFFFFFBFE),
+    primary = PrimaryBlue,
+    secondary = SecondaryTeal,
+    tertiary = AccentGold,
+    background = BackgroundLight,
+    surface = SurfaceLight,
     onPrimary = Color.White,
     onSecondary = Color.White,
-    onTertiary = Color.White,
-    onBackground = Color(0xFF1C1B1F),
-    onSurface = Color(0xFF1C1B1F),
-    */
+    onTertiary = TextPrimaryLight,
+    onBackground = TextPrimaryLight,
+    onSurface = TextPrimaryLight,
+    primaryContainer = PrimaryBlue.copy(alpha = 0.1f),
+    onPrimaryContainer = PrimaryBlue,
+    secondaryContainer = SecondaryTeal.copy(alpha = 0.1f),
+    onSecondaryContainer = SecondaryTeal,
+    tertiaryContainer = AccentGold.copy(alpha = 0.15f),
+    onTertiaryContainer = TextPrimaryLight,
+    surfaceVariant = SurfaceVariantLight,
+    onSurfaceVariant = TextPrimaryLight,
+    error = ExpenseRed,
+    onError = Color.White
 )
 
 @OptIn(ExperimentalFoundationApi::class)
@@ -58,7 +71,7 @@ private val LightColorScheme = lightColorScheme(
 fun FinanzasPersonalesTheme(
     darkTheme: Boolean = isSystemInDarkTheme(),
     // Dynamic color is available on Android 12+
-    dynamicColor: Boolean = true,
+    dynamicColor: Boolean = false,
     windowSizeClass: WindowSizeClass? = null,
     content: @Composable () -> Unit
 ) {

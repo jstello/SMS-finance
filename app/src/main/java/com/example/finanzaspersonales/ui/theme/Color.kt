@@ -2,44 +2,38 @@ package com.example.finanzaspersonales.ui.theme
 
 import androidx.compose.ui.graphics.Color
 
-// Base Material 3 colors
-val Purple80 = Color(0xFFD0BCFF)
-val PurpleGrey80 = Color(0xFFCCC2DC)
-val Pink80 = Color(0xFFEFB8C8)
+// New Professional Color Palette
+val PrimaryBlue = Color(0xFF0D47A1) // A slightly more standard deep blue
+val SecondaryTeal = Color(0xFF00796B) // A more standard teal
+val AccentGold = Color(0xFFFFC107) // A standard amber/gold color
 
-val Purple40 = Color(0xFF6650a4)
-val PurpleGrey40 = Color(0xFF625b71)
-val Pink40 = Color(0xFF7D5260)
-
-// Financial app expressive colors
-// Income/Success colors
-val SuccessGreen = Color(0xFF4CAF50)
-val SuccessGreenLight = Color(0xFF81C784)
-val SuccessGreenDark = Color(0xFF388E3C)
-
-// Expense/Warning colors
-val ExpenseRed = Color(0xFFF44336)
-val ExpenseRedLight = Color(0xFFEF5350)
-val ExpenseRedDark = Color(0xFFD32F2F)
-
-// Category colors for visual distinction
-val CategoryBlue = Color(0xFF2196F3)
-val CategoryOrange = Color(0xFFFF9800)
-val CategoryTeal = Color(0xFF009688)
-val CategoryIndigo = Color(0xFF3F51B5)
-val CategoryAmber = Color(0xFFFFC107)
-val CategoryDeepPurple = Color(0xFF673AB7)
-val CategoryCyan = Color(0xFF00BCD4)
-val CategoryLime = Color(0xFFCDDC39)
-
-// Surface variants for expressive theming
-val SurfaceVariantLight = Color(0xFFF5F5F5)
+val BackgroundLight = Color(0xFFF0F2F5) // A more distinct light grey background
+val BackgroundDark = Color(0xFF121212) // Standard dark background
+val SurfaceLight = Color(0xFFFFFFFF)
+val SurfaceDark = Color(0xFF1E1E1E)
+val SurfaceVariantLight = Color(0xFFE8EDF4)
 val SurfaceVariantDark = Color(0xFF2C2C2C)
 
-// Accent colors for highlights and emphasis
-val AccentGold = Color(0xFFFFD700)
-val AccentSilver = Color(0xFFC0C0C0)
-val AccentBronze = Color(0xFFCD7F32)
+val TextPrimaryLight = Color(0xFF1B1B1F)
+val TextPrimaryDark = Color(0xFFE3E3E6)
+val TextSecondaryLight = Color(0xFF475569)
+val TextSecondaryDark = Color(0xFF94A3B8)
+
+// Financial Indicators
+val SuccessGreen = Color(0xFF4CAF50)
+val ExpenseRed = Color(0xFFE53935)   // A slightly less harsh red
+
+// Category colors for visual distinction (can be refined)
+val CategoryBlue = Color(0xFF1976D2)
+val CategoryOrange = Color(0xFFF57C00)
+val CategoryTeal = Color(0xFF00897B)
+val CategoryIndigo = Color(0xFF3949AB)
+val CategoryAmber = Color(0xFFFFA000)
+val CategoryDeepPurple = Color(0xFF5E35B1)
+val CategoryCyan = Color(0xFF00ACC1)
+val CategoryLime = Color(0xFFC0CA33)
+// A special color for highlighting or warnings
+val WarningYellow = Color(0xFFFBC02D)
 
 // Semantic colors for financial states
 val PositiveGreen = Color(0xFF00C853)

@@ -16,6 +16,7 @@ import androidx.compose.material.icons.filled.AccountBalance
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.BugReport
 import androidx.compose.material.icons.filled.Category
+import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.Storefront
@@ -23,6 +24,8 @@ import androidx.compose.material.icons.filled.TrendingDown
 import androidx.compose.material.icons.filled.TrendingUp
 import androidx.compose.material.icons.filled.Psychology
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.Icon
@@ -36,6 +39,9 @@ import androidx.compose.material3.windowsizeclass.WindowSizeClass
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
@@ -68,6 +74,7 @@ fun ExpressiveDashboardScreen(
     val monthlyBalance by viewModel.monthlyBalance.collectAsState()
     val recentTransactions by viewModel.recentTransactions.collectAsState()
     val categoryBreakdown by viewModel.categoryBreakdown.collectAsState()
+    var showMenu by remember { mutableStateOf(false) }
 
     AdaptiveNavigationScaffold(
         windowSizeClass = windowSizeClass,
@@ -86,7 +93,7 @@ fun ExpressiveDashboardScreen(
             Scaffold(
                 topBar = {
                     TopAppBar(
-                        title = { 
+                        title = {
                             Text(
                                 "Financial Dashboard",
                                 style = MaterialTheme.typography.headlineMedium,
@@ -100,30 +107,45 @@ fun ExpressiveDashboardScreen(
                         actions = {
                             IconButton(onClick = { viewModel.loadDashboardData() }) {
                                 Icon(
-                                    Icons.Filled.Refresh, 
+                                    Icons.Filled.Refresh,
                                     contentDescription = "Refresh Data",
                                     tint = MaterialTheme.colorScheme.primary
                                 )
                             }
-                            IconButton(onClick = onNavigateToSettings) {
+                            IconButton(onClick = { showMenu = !showMenu }) {
                                 Icon(
-                                    Icons.Filled.Settings, 
-                                    contentDescription = "Settings",
+                                    Icons.Default.MoreVert,
+                                    contentDescription = "More Options",
                                     tint = MaterialTheme.colorScheme.onSurface
                                 )
                             }
-                            IconButton(onClick = onNavigateToDebug) {
-                                Icon(
-                                    Icons.Filled.BugReport, 
-                                    contentDescription = "Debug",
-                                    tint = MaterialTheme.colorScheme.onSurface
+                            DropdownMenu(
+                                expanded = showMenu,
+                                onDismissRequest = { showMenu = false }
+                            ) {
+                                DropdownMenuItem(
+                                    text = { Text("Settings") },
+                                    onClick = {
+                                        onNavigateToSettings()
+                                        showMenu = false
+                                    },
+                                    leadingIcon = { Icon(Icons.Default.Settings, contentDescription = "Settings") }
                                 )
-                            }
-                            IconButton(onClick = onNavigateToSpendingInsightsTest) {
-                                Icon(
-                                    Icons.Filled.Psychology, 
-                                    contentDescription = "Test Spending Insights",
-                                    tint = MaterialTheme.colorScheme.onSurface
+                                DropdownMenuItem(
+                                    text = { Text("Debug") },
+                                    onClick = {
+                                        onNavigateToDebug()
+                                        showMenu = false
+                                    },
+                                    leadingIcon = { Icon(Icons.Default.BugReport, contentDescription = "Debug") }
+                                )
+                                DropdownMenuItem(
+                                    text = { Text("Test Spending Insights") },
+                                    onClick = {
+                                        onNavigateToSpendingInsightsTest()
+                                        showMenu = false
+                                    },
+                                    leadingIcon = { Icon(Icons.Default.Psychology, contentDescription = "Test Spending Insights") }
                                 )
                             }
                         }
@@ -219,7 +241,7 @@ fun ExpressiveDashboardScreen(
                             }
                         )
                         
-                        // Quick Actions (removed redundant income/expense cards)
+                        // Quick Actions
                         Text(
                             text = "Quick Actions",
                             style = MaterialTheme.typography.headlineSmall,
@@ -235,7 +257,6 @@ fun ExpressiveDashboardScreen(
                                 title = "Categories",
                                 formattedAmount = categoryBreakdown.size.toString(),
                                 icon = Icons.Default.Category,
-                                subtitle = "${categoryBreakdown.size} categories",
                                 onClick = onNavigateToCategories,
                                 modifier = Modifier.weight(1f)
                             )
@@ -244,7 +265,6 @@ fun ExpressiveDashboardScreen(
                                 title = "Providers", 
                                 formattedAmount = recentTransactions.distinctBy { it.provider }.size.toString(),
                                 icon = Icons.Default.Storefront,
-                                subtitle = "${recentTransactions.distinctBy { it.provider }.size} providers",
                                 onClick = onNavigateToProviders,
                                 modifier = Modifier.weight(1f)
                             )
