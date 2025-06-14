@@ -7,6 +7,8 @@ A personal finance management Android application that automatically tracks tran
 - **Local data persistence using Room**
 - Provider recognition and contact matching
 - Spending analytics by category/provider
+- **Time-series spending visualizations**
+- Data statistics summary (total transactions, date range)
 - Provider-category mapping/rules stored in SharedPreferences.
 
 ## Key Technical Components
@@ -36,7 +38,9 @@ app/
     ├── providers/       # Transaction sources analysis
     ├── raw_sms_list/    # Listing of raw SMS messages
     ├── settings/        # Application settings
-    └── transaction_list/# Full transaction history
+    ├── stats/           # Data statistics screen
+    ├── transaction_list/# Full transaction history
+    └── visualizations/  # Spending charts
 ```
 
 ### 2. Data Processing Pipeline
@@ -108,6 +112,25 @@ data class TransactionData(
 - Provider name can be manually edited in `TransactionDetailScreen`, updating the specific `TransactionData` instance in Room.
 - Provider-to-Category mapping rules can be saved from `TransactionDetailScreen` (via `CategoriesViewModel.saveProviderCategoryPreference`), which stores them in SharedPreferences.
 - Stats aggregation (`TransactionRepository.getProviderStats`) by `contactName` then `provider`, queried from Room.
+
+### 6. Spending Visualizations (Local Persistence)
+- **Cumulative Spending Chart:** A line chart comparing the cumulative spending of the current month against the previous month.
+- **Data Source:** Fetches the last 12 months of transaction data from the local Room database to ensure accurate calculations.
+- **Implementation:**
+    - `VisualizationsScreen.kt` contains the main Composable UI.
+    - `VisualizationViewModel.kt` fetches data via `GetSpendingHistoryUseCase` and processes it into chart-ready data sets.
+    - Uses the `MPAndroidChart` library for rendering the line chart.
+    - The chart is theme-aware, adapting its colors for light and dark modes.
+
+### 7. Data Statistics (Local Persistence)
+- **Stats Screen:** A simple screen displaying key metrics about the stored transaction data.
+- **Metrics Displayed:**
+    - Total number of transactions in the database.
+    - Date of the oldest transaction.
+    - Date of the newest transaction.
+- **Implementation:**
+    - `StatsScreen.kt` displays the data.
+    - `StatsViewModel.kt` uses methods from `TransactionRepository` (`getTotalTransactionCount`, `getTransactionDateRange`) to fetch the metrics directly from Room.
 
 ## Local Database Schema (Room)
 
@@ -184,6 +207,9 @@ implementation("androidx.lifecycle:lifecycle-runtime-compose:$lifecycle_version"
 def hilt_version = "2.48.1" // Example
 implementation("com.google.dagger:hilt-android:$hilt_version")
 kapt("com.google.dagger:hilt-compiler:$hilt_version") // Or ksp
+
+// MPAndroidChart
+implementation("com.github.PhilJay:MPAndroidChart:v3.1.0")
 ```
 
 ## LLM Context Notes
