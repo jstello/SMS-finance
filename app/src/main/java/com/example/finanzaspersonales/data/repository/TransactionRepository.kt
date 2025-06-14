@@ -2,6 +2,8 @@ package com.example.finanzaspersonales.data.repository
 
 import com.example.finanzaspersonales.data.model.SmsMessage
 import com.example.finanzaspersonales.data.model.TransactionData
+import kotlinx.coroutines.flow.Flow
+import java.util.Date
 
 // Data class to hold aggregated spending per provider
 data class ProviderStat(val provider: String, val total: Float)
@@ -17,7 +19,12 @@ interface TransactionRepository {
     suspend fun getAllSmsMessages(): List<SmsMessage>
     
     /**
-     * Get transactions extracted from SMS messages
+     * Get transactions from a given date range
+     */
+    fun getTransactionsBetweenDates(startDate: Date, endDate: Date): Flow<List<TransactionData>>
+    
+    /**
+     * Get all transactions
      */
     suspend fun getTransactions(forceRefresh: Boolean = false): List<TransactionData>
     
@@ -50,7 +57,7 @@ interface TransactionRepository {
      * Refresh SMS data
      * @param limitToRecentMonths Number of months to limit SMS loading to. Use 0 for all messages.
      */
-    suspend fun refreshSmsData(limitToRecentMonths: Int = 1)
+    suspend fun refreshSmsData(limitToRecentMonths: Int = 12)
     
     /**
      * Initialize transactions with saved categories
@@ -104,6 +111,16 @@ interface TransactionRepository {
      * Gets the total number of transactions in the database.
      */
     suspend fun getTransactionCount(): Int
+
+    /**
+     * Returns the earliest transaction date or null if no transactions.
+     */
+    suspend fun getFirstTransactionDate(): java.util.Date?
+
+    /**
+     * Returns the latest transaction date or null if no transactions.
+     */
+    suspend fun getLastTransactionDate(): java.util.Date?
 
     /**
      * Adds a new transaction to the local Room database.

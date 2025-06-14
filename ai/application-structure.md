@@ -23,23 +23,16 @@ app/
     │   │               ├── FinanzasApp.kt
     │   │               ├── data
     │   │               │   ├── db
-    │   │               │   │   ├── dao
-    │   │               │   │   │   ├── CategoryDao.kt
-    │   │               │   │   │   └── TransactionDao.kt
-    │   │               │   │   ├── entity (Note: Mappers are in data/db/mapper, Entities are data/local/room/*Entity.kt)
-    │   │               │   │   │   ├── CategoryEntity.kt  (Correct path: data/local/room/CategoryEntity.kt)
-    │   │               │   │   │   └── TransactionEntity.kt (Correct path: data/local/room/TransactionEntity.kt)
-    │   │               │   │   ├── mapper
-    │   │               │   │   │   ├── CategoryMapper.kt
-    │   │               │   │   │   └── TransactionMapper.kt
-    │   │               │   │   └── FinanzasDatabase.kt (Correct path: data/local/room/FinanzasDatabase.kt)
+    │   │               │   │   └── mapper
+    │   │               │   │       ├── CategoryMapper.kt
+    │   │               │   │       └── TransactionMapper.kt
     │   │               │   ├── local
-    │   │               │   │   ├── room // DAOs and Entities are actually here
-    │   │               │   │   │   ├── dao/
-    │   │               │   │   │   │   ├── CategoryDao.kt
-    │   │               │   │   │   │   └── TransactionDao.kt
+    │   │               │   │   ├── room
     │   │               │   │   │   ├── CategoryEntity.kt
     │   │               │   │   │   ├── Converters.kt
+    │   │               │   │   │   ├── dao
+    │   │               │   │   │   │   ├── CategoryDao.kt
+    │   │               │   │   │   │   └── TransactionDao.kt
     │   │               │   │   │   ├── FinanzasDatabase.kt
     │   │               │   │   │   └── TransactionEntity.kt
     │   │               │   │   ├── SharedPrefsManager.kt
@@ -61,10 +54,13 @@ app/
     │   │               │   ├── DatabaseModule.kt
     │   │               │   └── RepositoryModule.kt
     │   │               ├── domain
+    │   │               │   ├── tools
+    │   │               │   │   └── SpendingInsightsTool.kt
     │   │               │   ├── usecase
     │   │               │   │   ├── CategoryAssignmentUseCase.kt
     │   │               │   │   ├── ExtractTransactionDataUseCase.kt
-    │   │               │   │   └── GetSpendingByCategoryUseCase.kt
+    │   │               │   │   ├── GetSpendingByCategoryUseCase.kt
+    │   │               │   │   └── GetSpendingHistoryUseCase.kt
     │   │               │   └── util
     │   │               │       ├── ContactsUtil.kt
     │   │               │       ├── DateTimeUtils.kt
@@ -82,14 +78,21 @@ app/
     │   │                   │   ├── CategoryDetailScreen.kt
     │   │                   │   ├── CategoryEditScreen.kt
     │   │                   │   └── TransactionDetailScreen.kt
+    │   │                   ├── components
+    │   │                   │   └── ExpressiveCards.kt
     │   │                   ├── dashboard
     │   │                   │   ├── DashboardActivity.kt
     │   │                   │   ├── DashboardViewModel.kt
-    │   │                   │   └── DashboardViewModelFactory.kt
+    │   │                   │   ├── DashboardViewModelFactory.kt
+    │   │                   │   └── ExpressiveDashboardScreen.kt
     │   │                   ├── debug
+    │   │                   │   ├── SpendingInsightsTestActivity.kt
+    │   │                   │   ├── SpendingInsightsTestScreen.kt
     │   │                   │   ├── TransactionDebugActivity.kt
     │   │                   │   ├── TransactionDebugScreen.kt
     │   │                   │   └── TransactionDebugViewModel.kt
+    │   │                   ├── navigation
+    │   │                   │   └── AdaptiveNavigationScaffold.kt
     │   │                   ├── providers
     │   │                   │   ├── ProvidersActivity.kt
     │   │                   │   ├── ProvidersScreen.kt
@@ -105,6 +108,10 @@ app/
     │   │                   │   └── SettingsViewModel.kt
     │   │                   ├── sms
     │   │                   │   └── SmsPermissionActivity.kt
+    │   │                   ├── stats
+    │   │                   │   ├── StatsActivity.kt
+    │   │                   │   ├── StatsScreen.kt
+    │   │                   │   └── StatsViewModel.kt
     │   │                   ├── theme
     │   │                   │   ├── Color.kt
     │   │                   │   ├── Theme.kt
@@ -114,6 +121,10 @@ app/
     │   │                       ├── TransactionListScreen.kt
     │   │                       ├── TransactionListViewModel.kt
     │   │                       └── TransactionListViewModelFactory.kt
+    │   │                       └── visualizations
+    │   │                           ├── VisualizationsActivity.kt
+    │   │                           ├── VisualizationsScreen.kt
+    │   │                           └── VisualizationViewModel.kt
     │   └── res
     │       ├── drawable
     │       │   ├── ic_launcher_background.xml
@@ -207,6 +218,8 @@ Recent additions/changes:
 *   "Raw SMS Transactions" screen (`ui/raw_sms_list`) for displaying raw SMS messages.
 *   Debug screen (`ui/debug`) for inspecting transactions.
 *   Provider-category mappings are managed via `SharedPrefsManager` and `CategoryRepositoryImpl`.
+*   **Visualizations screen (`ui/visualizations`)** for showing time-series charts of spending.
+*   **Database Stats screen (`ui/stats`)** for showing metadata about the stored transactions.
 
 Key structural points:
 *   SMS-related code (`SmsReceiver`, `SmsDataSource`, `SmsPermissionActivity`) in appropriate `data` and `ui` layers.

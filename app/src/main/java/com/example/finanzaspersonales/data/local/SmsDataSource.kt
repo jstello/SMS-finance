@@ -41,7 +41,7 @@ class SmsDataSource @Inject constructor(
      * Optionally limit by date range
      */
     fun readSmsMessages(
-        limitToRecentMonths: Int = 1,
+        limitToRecentMonths: Int = 12,
         maxResults: Int = 500
     ): List<SmsMessage> {
         // Check for permission first

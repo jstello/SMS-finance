@@ -15,6 +15,9 @@ import kotlinx.coroutines.flow.first
 import javax.inject.Inject
 import javax.inject.Singleton
 import java.util.UUID
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.map
+import java.util.Date
 
 @Singleton
 class TransactionRepositoryImpl @Inject constructor(
@@ -130,5 +133,21 @@ class TransactionRepositoryImpl @Inject constructor(
             }
         }.toEntity()
         transactionDao.insertTransaction(entity)
+    }
+
+    override fun getTransactionsBetweenDates(startDate: Date, endDate: Date): Flow<List<TransactionData>> {
+        return transactionDao.getTransactionsBetweenDates(startDate, endDate).map { entities ->
+            entities.map { it.toDomain() }
+        }
+    }
+
+    override suspend fun getFirstTransactionDate(): Date? {
+        val ts = transactionDao.getMinTransactionDateMillis() ?: return null
+        return Date(ts)
+    }
+
+    override suspend fun getLastTransactionDate(): Date? {
+        val ts = transactionDao.getMaxTransactionDateMillis() ?: return null
+        return Date(ts)
     }
 } 

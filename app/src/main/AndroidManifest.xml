@@ -106,6 +106,20 @@
             android:exported="false"
             android:label="Spending Insights Test"
             android:theme="@style/Theme.FinanzasPersonales" />
+        
+        <!-- Stats Activity -->
+        <activity
+            android:name=".ui.stats.StatsActivity"
+            android:exported="false"
+            android:label="Database Stats"
+            android:theme="@style/Theme.FinanzasPersonales" />
+        
+        <!-- Visualizations Activity -->
+        <activity
+            android:name=".ui.visualizations.VisualizationsActivity"
+            android:exported="false"
+            android:label="Visualizations"
+            android:theme="@style/Theme.FinanzasPersonales" />
     </application>
 
 </manifest>

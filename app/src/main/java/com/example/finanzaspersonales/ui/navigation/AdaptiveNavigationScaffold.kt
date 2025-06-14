@@ -15,6 +15,7 @@ import androidx.compose.material.icons.filled.Category
 import androidx.compose.material.icons.filled.Dashboard
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.Storefront
+import androidx.compose.material.icons.filled.TrendingUp
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.NavigationBar
@@ -46,6 +47,7 @@ data class NavigationDestination(
 
 val financeDestinations = listOf(
     NavigationDestination("dashboard", Icons.Default.Dashboard, "Dashboard"),
+    NavigationDestination("visualizations", Icons.Default.TrendingUp, "Visualizations"),
     NavigationDestination("categories", Icons.Default.Category, "Categories"),
     NavigationDestination("transactions", Icons.Default.AccountBalance, "Transactions"),
     NavigationDestination("providers", Icons.Default.Storefront, "Providers"),

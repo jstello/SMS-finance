@@ -14,6 +14,7 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.AccountBalance
 import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.Assessment
 import androidx.compose.material.icons.filled.BugReport
 import androidx.compose.material.icons.filled.Category
 import androidx.compose.material.icons.filled.MoreVert
@@ -62,10 +63,12 @@ fun ExpressiveDashboardScreen(
     onNavigateToCategories: () -> Unit,
     onNavigateToTransactions: () -> Unit,
     onNavigateToProviders: () -> Unit,
+    onNavigateToVisualizations: () -> Unit,
     onNavigateToAddTransaction: () -> Unit,
     onNavigateToSettings: () -> Unit,
     onNavigateToDebug: () -> Unit,
-    onNavigateToSpendingInsightsTest: () -> Unit
+    onNavigateToSpendingInsightsTest: () -> Unit,
+    onNavigateToStats: () -> Unit
 ) {
     val context = LocalContext.current
     val isLoading by viewModel.isLoading.collectAsState()
@@ -85,6 +88,7 @@ fun ExpressiveDashboardScreen(
                 "transactions" -> onNavigateToTransactions()
                 "providers" -> onNavigateToProviders()
                 "settings" -> onNavigateToSettings()
+                "visualizations" -> onNavigateToVisualizations()
                 "dashboard" -> { /* Already here */ }
             }
         },
@@ -146,6 +150,14 @@ fun ExpressiveDashboardScreen(
                                         showMenu = false
                                     },
                                     leadingIcon = { Icon(Icons.Default.Psychology, contentDescription = "Test Spending Insights") }
+                                )
+                                DropdownMenuItem(
+                                    text = { Text("Stats") },
+                                    onClick = {
+                                        onNavigateToStats()
+                                        showMenu = false
+                                    },
+                                    leadingIcon = { Icon(Icons.Default.Assessment, contentDescription = "Stats") }
                                 )
                             }
                         }

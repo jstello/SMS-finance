@@ -105,6 +105,8 @@ import androidx.compose.material.icons.filled.BugReport
 import androidx.compose.material.icons.automirrored.filled.ReceiptLong
 import androidx.compose.material3.windowsizeclass.ExperimentalMaterial3WindowSizeClassApi
 import androidx.compose.material3.windowsizeclass.calculateWindowSizeClass
+import com.example.finanzaspersonales.ui.visualizations.VisualizationsActivity
+import com.example.finanzaspersonales.ui.stats.StatsActivity
 
 // Helper function to format large numbers to millions with one decimal place
 private fun formatToMillions(value: Float): String {
@@ -167,10 +169,12 @@ class DashboardActivity : ComponentActivity() {
                         onNavigateToCategories = { navigateToCategories() },
                         onNavigateToTransactions = { navigateToTransactions() },
                         onNavigateToProviders = { navigateToProviders() },
+                        onNavigateToVisualizations = { navigateToVisualizations() },
                         onNavigateToAddTransaction = { navigateToAddTransaction() },
                         onNavigateToSettings = { navigateToSettings() },
                         onNavigateToDebug = { navigateToDebug() },
-                        onNavigateToSpendingInsightsTest = { navigateToSpendingInsightsTest() }
+                        onNavigateToSpendingInsightsTest = { navigateToSpendingInsightsTest() },
+                        onNavigateToStats = { navigateToStats() }
                     )
                 }
             }
@@ -209,7 +213,8 @@ class DashboardActivity : ComponentActivity() {
 
     // Navigation functions
     private fun navigateToCategories() {
-        startActivity(Intent(this, CategoriesActivity::class.java))
+        val intent = Intent(this, CategoriesActivity::class.java)
+        startActivity(intent)
     }
 
     private fun navigateToTransactions() {
@@ -237,7 +242,16 @@ class DashboardActivity : ComponentActivity() {
         startActivity(Intent(this, SpendingInsightsTestActivity::class.java))
     }
 
+    private fun navigateToVisualizations() {
+        val intent = Intent(this, VisualizationsActivity::class.java)
+        startActivity(intent)
+    }
+
     private fun navigateToRawSmsList() {
         startActivity(Intent(this, RawSmsListActivity::class.java))
+    }
+
+    private fun navigateToStats() {
+        startActivity(Intent(this, StatsActivity::class.java))
     }
 } 
