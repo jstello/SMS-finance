@@ -9,6 +9,8 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.filled.ArrowDownward
+import androidx.compose.material.icons.filled.ArrowUpward
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -33,6 +35,7 @@ fun TransactionDebugScreen(
     val transactions by viewModel.transactions.collectAsState()
     val queryType by viewModel.queryType.collectAsState()
     val isLoading by viewModel.isLoading.collectAsState()
+    val sortDirection by viewModel.sortDirection.collectAsState()
     val scrollState = rememberScrollState()
 
     Scaffold(
@@ -75,39 +78,14 @@ fun TransactionDebugScreen(
                 modifier = Modifier
                     .fillMaxWidth()
                     .padding(vertical = 8.dp, horizontal = 4.dp)
-                    .horizontalScroll(scrollState),
-                horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    .horizontalScroll(scrollState), // Kept for now, might be redundant
+                horizontalArrangement = Arrangement.End, // Align button to the end
+                verticalAlignment = Alignment.CenterVertically
             ) {
-                QueryType.values().forEach { type ->
-                    val isSelected = queryType == type
-                    FilterChip(
-                        selected = isSelected,
-                        onClick = { viewModel.setQueryType(type) },
-                        enabled = true,
-                        label = { 
-                            Text(
-                                text = type.displayName,
-                                style = MaterialTheme.typography.labelMedium,
-                                maxLines = 1,
-                                modifier = Modifier.padding(horizontal = 4.dp)
-                            ) 
-                        },
-                        modifier = Modifier.padding(horizontal = 2.dp),
-                        colors = FilterChipDefaults.filterChipColors(
-                            selectedContainerColor = MaterialTheme.colorScheme.primaryContainer,
-                            selectedLabelColor = MaterialTheme.colorScheme.onPrimaryContainer,
-                            disabledContainerColor = MaterialTheme.colorScheme.surfaceVariant,
-                            disabledLabelColor = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.38f)
-                        ),
-                        border = FilterChipDefaults.filterChipBorder(
-                            borderColor = if (isSelected) {
-                                MaterialTheme.colorScheme.primary
-                            } else {
-                                MaterialTheme.colorScheme.outlineVariant
-                            },
-                            selected = isSelected,
-                            enabled = true
-                        )
+                IconButton(onClick = { viewModel.toggleSortDirection() }) {
+                    Icon(
+                        imageVector = if (sortDirection == SortDirection.DESCENDING) Icons.Default.ArrowDownward else Icons.Default.ArrowUpward,
+                        contentDescription = "Sort by date"
                     )
                 }
             }

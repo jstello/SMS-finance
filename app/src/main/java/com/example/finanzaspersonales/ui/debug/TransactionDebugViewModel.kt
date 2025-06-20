@@ -12,6 +12,11 @@ import kotlinx.coroutines.launch
 import java.util.*
 import javax.inject.Inject
 
+enum class SortDirection {
+    ASCENDING,
+    DESCENDING
+}
+
 @HiltViewModel
 class TransactionDebugViewModel @Inject constructor(
     private val transactionRepository: TransactionRepository
@@ -26,6 +31,9 @@ class TransactionDebugViewModel @Inject constructor(
     private val _isLoading = MutableStateFlow(false)
     val isLoading: StateFlow<Boolean> = _isLoading.asStateFlow()
 
+    private val _sortDirection = MutableStateFlow(SortDirection.DESCENDING)
+    val sortDirection: StateFlow<SortDirection> = _sortDirection.asStateFlow()
+
     init {
         loadTransactions()
     }
@@ -35,35 +43,42 @@ class TransactionDebugViewModel @Inject constructor(
         loadTransactions()
     }
 
+    fun toggleSortDirection() {
+        _sortDirection.value = if (_sortDirection.value == SortDirection.DESCENDING) SortDirection.ASCENDING else SortDirection.DESCENDING
+        loadTransactions()
+    }
+
     private fun loadTransactions() {
         _isLoading.value = true
         viewModelScope.launch {
             try {
                 val allTransactions = transactionRepository.getTransactions(forceRefresh = false)
+                val sortedTransactions = when (_sortDirection.value) {
+                    SortDirection.ASCENDING -> allTransactions.sortedBy { it.date }
+                    SortDirection.DESCENDING -> allTransactions.sortedByDescending { it.date }
+                }
+
                 _transactions.value = when (_queryType.value) {
-                    QueryType.ALL -> allTransactions.sortedByDescending { it.date }.take(50)
+                    QueryType.ALL -> sortedTransactions.take(50)
                     QueryType.THIS_MONTH -> {
                         val calendar = Calendar.getInstance()
                         val currentMonth = calendar.get(Calendar.MONTH)
                         val currentYear = calendar.get(Calendar.YEAR)
-                        
-                        allTransactions.filter { transaction ->
+
+                        sortedTransactions.filter { transaction ->
                             val cal = Calendar.getInstance().apply { time = transaction.date }
-                            cal.get(Calendar.MONTH) == currentMonth && 
-                            cal.get(Calendar.YEAR) == currentYear
-                        }.sortedByDescending { it.date }
+                            cal.get(Calendar.MONTH) == currentMonth &&
+                                    cal.get(Calendar.YEAR) == currentYear
+                        }
                     }
-                    QueryType.INCOME -> allTransactions
+                    QueryType.INCOME -> sortedTransactions
                         .filter { it.isIncome }
-                        .sortedByDescending { it.date }
                         .take(50)
-                    QueryType.EXPENSES -> allTransactions
+                    QueryType.EXPENSES -> sortedTransactions
                         .filter { !it.isIncome }
-                        .sortedByDescending { it.date }
                         .take(50)
-                    QueryType.UNCATEGORIZED -> allTransactions
+                    QueryType.UNCATEGORIZED -> sortedTransactions
                         .filter { it.categoryId.isNullOrEmpty() }
-                        .sortedByDescending { it.date }
                         .take(50)
                 }
             } catch (e: Exception) {
