@@ -19,3 +19,5 @@ finanzaspersonales-6c62be72-firebase-adminsdk-fbsvc-49a6c72b7d.json
 /node_modules
 **/node_modules/
 *.properties
+keystore.properties
+.env

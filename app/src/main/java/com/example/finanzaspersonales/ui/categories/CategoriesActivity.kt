@@ -98,20 +98,43 @@ class CategoriesActivity : ComponentActivity() {
             throwable.printStackTrace()
         }
 
+        // Check if we're navigating to a specific transaction detail
+        val transactionId = intent.getStringExtra("transaction_id")
+        val showTransactionDetail = intent.getBooleanExtra("show_transaction_detail", false)
+
         // Set content with Compose
         setContent {
             FinanzasPersonalesTheme {
-                // Replace CategoriesNavHost with CategoriesApp, pass the injected viewModel
-                // You'll need to manage the navState within CategoriesApp or lift it
-                Surface(modifier = Modifier.fillMaxSize()) { // Keep Surface or add as needed
+                Surface(modifier = Modifier.fillMaxSize()) {
                     // Simple state for now, could be managed by NavController later
-                    var navState by remember { mutableStateOf<CategoriesNavState>(CategoriesNavState.Categories) }
+                    var navState by remember { 
+                        mutableStateOf<CategoriesNavState>(CategoriesNavState.Categories) 
+                    }
+                    
+                    // Handle direct navigation to transaction detail if requested
+                    LaunchedEffect(transactionId, showTransactionDetail) {
+                        if (transactionId != null && showTransactionDetail) {
+                            // Load the transaction and navigate to detail screen
+                            viewModel.loadTransactionById(transactionId) { transaction ->
+                                if (transaction != null) {
+                                    navState = CategoriesNavState.TransactionDetail(transaction)
+                                }
+                            }
+                        }
+                    }
                     
                     CategoriesApp(
                         viewModel = viewModel, // Pass the Hilt-injected ViewModel
                         navState = navState,
                         onNavStateChange = { navState = it },
-                        onBack = { finish() } // Or handle back navigation appropriately
+                        onBack = { 
+                            // If we came from transaction list, go back to it
+                            if (showTransactionDetail) {
+                                finish()
+                            } else {
+                                finish()
+                            }
+                        }
                     )
                 }
             }

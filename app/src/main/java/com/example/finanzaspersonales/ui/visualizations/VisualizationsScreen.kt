@@ -89,11 +89,13 @@ fun CumulativeSpendingChart(
                 axisLeft.valueFormatter = MillionsValueFormatter()
                 setTouchEnabled(true)
                 setPinchZoom(true)
-                setDrawMarkers(false)
-                isHighlightPerTapEnabled = false
+                setDrawMarkers(true)
+                isHighlightPerTapEnabled = true
             }
         },
         update = { chart ->
+            chart.marker = ChartMarkerView(chart.context, currentMonthData, previousMonthData)
+
             // Axis and Legend styling
             chart.xAxis.textColor = textColor
             chart.axisLeft.textColor = textColor
@@ -114,6 +116,7 @@ fun CumulativeSpendingChart(
                 lineWidth = 2f
                 setDrawValues(false)
                 setDrawCircles(false)
+                highLightColor = primaryColor
             }
 
             val previousMonthDataSet = LineDataSet(previousMonthEntries, "Previous Month").apply {
@@ -122,6 +125,7 @@ fun CumulativeSpendingChart(
                 lineWidth = 2f
                 setDrawValues(false)
                 setDrawCircles(false)
+                highLightColor = secondaryColor
             }
 
             chart.data = LineData(currentMonthDataSet, previousMonthDataSet)

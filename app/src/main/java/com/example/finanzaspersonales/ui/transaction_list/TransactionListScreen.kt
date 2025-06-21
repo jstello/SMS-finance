@@ -6,10 +6,10 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.Sort
-import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -24,42 +24,28 @@ import java.text.NumberFormat
 import java.text.SimpleDateFormat
 import java.util.*
 import com.example.finanzaspersonales.data.model.Category
+import com.example.finanzaspersonales.data.model.TransactionData
 import androidx.compose.foundation.ExperimentalFoundationApi
-import androidx.compose.foundation.combinedClickable
 import androidx.compose.material.icons.filled.Category
 
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalFoundationApi::class)
 @Composable
 fun TransactionListScreen(
     viewModel: TransactionListViewModel,
-    onBack: () -> Unit
+    onBack: () -> Unit,
+    onTransactionClick: (TransactionData) -> Unit = {}
 ) {
     val transactionItems by viewModel.transactionItems.collectAsState()
     val isLoading by viewModel.isLoading.collectAsState()
     val error by viewModel.error.collectAsState()
     val sortOrder by viewModel.sortOrder.collectAsState()
-    val categories by viewModel.categories.collectAsState()
-    val isAssigningCategory by viewModel.isAssigningCategory.collectAsState()
-    val assignmentResult by viewModel.assignmentResult.collectAsState()
 
     // State for sort dropdown
     var showSortDropdown by remember { mutableStateOf(false) }
-    
-    // State for category selection
-    var showCategoryDialog by remember { mutableStateOf(false) }
-    var selectedTransactionForCategory by remember { mutableStateOf<TransactionUiModel?>(null) }
 
-    // Handle assignment result
-    LaunchedEffect(assignmentResult) {
-        assignmentResult?.let { result ->
-            if (result.isSuccess) {
-                // Category assigned successfully
-                selectedTransactionForCategory = null
-                showCategoryDialog = false
-            }
-            // Clear the result after handling
-            viewModel.clearAssignmentResult()
-        }
+    // Load transactions when the screen is first composed
+    LaunchedEffect(Unit) {
+        viewModel.loadTransactions()
     }
 
     Scaffold(
@@ -150,47 +136,13 @@ fun TransactionListScreen(
                         items(transactionItems) { item ->
                             TransactionListItem(
                                 item = item,
-                                onLongClick = {
-                                    selectedTransactionForCategory = item
-                                    showCategoryDialog = true
-                                }
+                                onClick = { onTransactionClick(item.transaction) }
                             )
                         }
                     }
                 }
             }
-
-            // Show loading overlay when assigning category
-            if (isAssigningCategory) {
-                Box(
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .background(Color.Black.copy(alpha = 0.3f)),
-                    contentAlignment = Alignment.Center
-                ) {
-                    CircularProgressIndicator()
-                }
-            }
         }
-    }
-
-    // Category selection dialog
-    if (showCategoryDialog && selectedTransactionForCategory != null) {
-        CategorySelectorDialog(
-            categories = categories,
-            currentCategoryId = selectedTransactionForCategory!!.transaction.categoryId,
-            onDismiss = {
-                showCategoryDialog = false
-                selectedTransactionForCategory = null
-            },
-            onCategorySelected = { category ->
-                selectedTransactionForCategory?.transaction?.id?.let { transactionId ->
-                    category.id?.let { categoryId ->
-                        viewModel.assignCategoryToTransaction(transactionId, categoryId)
-                    }
-                }
-            }
-        )
     }
 }
 
@@ -201,7 +153,7 @@ fun TransactionListScreen(
 @Composable
 fun TransactionListItem(
     item: TransactionUiModel,
-    onLongClick: () -> Unit
+    onClick: () -> Unit
 ) {
     val currencyFormat = NumberFormat.getCurrencyInstance(Locale("es", "CO"))
     val dateFormat = SimpleDateFormat("dd MMM yyyy, HH:mm", Locale.getDefault())
@@ -210,10 +162,7 @@ fun TransactionListItem(
         modifier = Modifier
             .fillMaxWidth()
             .padding(16.dp)
-            .combinedClickable(
-                onClick = { },
-                onLongClick = onLongClick
-            ),
+            .clickable { onClick() },
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.SpaceBetween
     ) {
@@ -259,60 +208,4 @@ fun TransactionListItem(
             color = if (item.transaction.isIncome) Color(0xFF008000) else MaterialTheme.colorScheme.error // Darker Green
         )
     }
-}
-
-/**
- * Dialog for selecting a category
- */
-@Composable
-fun CategorySelectorDialog(
-    categories: List<Category>,
-    currentCategoryId: String?,
-    onDismiss: () -> Unit,
-    onCategorySelected: (Category) -> Unit
-) {
-    AlertDialog(
-        onDismissRequest = onDismiss,
-        title = { Text("Select Category") },
-        text = {
-            LazyColumn(
-                modifier = Modifier.fillMaxWidth()
-            ) {
-                items(categories) { category ->
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .clickable { onCategorySelected(category) }
-                            .padding(vertical = 12.dp, horizontal = 8.dp),
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        // Category color indicator
-                        Box(
-                            modifier = Modifier
-                                .size(24.dp)
-                                .clip(CircleShape)
-                                .background(Color(category.color))
-                        )
-                        
-                        Spacer(modifier = Modifier.width(16.dp))
-                        
-                        // Category name
-                        Text(
-                            text = category.name,
-                            style = MaterialTheme.typography.bodyLarge,
-                            color = if (currentCategoryId == category.id) 
-                                MaterialTheme.colorScheme.primary
-                            else 
-                                MaterialTheme.colorScheme.onSurface
-                        )
-                    }
-                }
-            }
-        },
-        confirmButton = {
-            TextButton(onClick = onDismiss) {
-                Text("Cancel")
-            }
-        }
-    )
 }

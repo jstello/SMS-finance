@@ -846,4 +846,29 @@ class CategoriesViewModel @Inject constructor(
     fun clearSaveProviderMappingResult() {
         _saveProviderMappingResult.value = null
     }
+
+    /**
+     * Load a transaction by its ID and execute callback with result
+     */
+    fun loadTransactionById(transactionId: String, callback: (TransactionData?) -> Unit) {
+        viewModelScope.launch {
+            try {
+                // First try to find in cached transactions
+                val cachedTransaction = _allTransactions.value.find { it.id == transactionId }
+                if (cachedTransaction != null) {
+                    callback(cachedTransaction)
+                    return@launch
+                }
+                
+                // If not found in cache, reload all transactions and try again
+                val allTransactions = transactionRepository.getTransactions(forceRefresh = false)
+                _allTransactions.value = allTransactions
+                val transaction = allTransactions.find { it.id == transactionId }
+                callback(transaction)
+            } catch (e: Exception) {
+                Log.e("CategoriesViewModel", "Error loading transaction by ID: $transactionId", e)
+                callback(null)
+            }
+        }
+    }
 }

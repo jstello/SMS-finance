@@ -1,5 +1,6 @@
 package com.example.finanzaspersonales.ui.transaction_list
 
+import android.content.Intent
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
@@ -20,6 +21,8 @@ import com.example.finanzaspersonales.ui.theme.FinanzasPersonalesTheme
 import com.example.finanzaspersonales.data.repository.ProviderStat // Import ProviderStat
 import com.example.finanzaspersonales.ui.transaction_list.TransactionListScreen // <-- ADDED IMPORT
 import com.example.finanzaspersonales.data.repository.CategoryRepository
+import com.example.finanzaspersonales.data.model.TransactionData
+import com.example.finanzaspersonales.ui.categories.CategoriesActivity
 import dagger.hilt.android.AndroidEntryPoint
 
 @AndroidEntryPoint
@@ -31,22 +34,27 @@ class TransactionListActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
-        // Remove manual repository and ViewModel instantiation
-        // ... removed manual instantiation block ...
-
         setContent {
             FinanzasPersonalesTheme {
                 TransactionListScreen(
                     viewModel = viewModel,
-                    onBack = { finish() }
+                    onBack = { finish() },
+                    onTransactionClick = { transaction ->
+                        navigateToTransactionDetail(transaction)
+                    }
                 )
             }
         }
     }
-}
 
-// Remove TransactionListViewModelFactory
-// class TransactionListViewModelFactory( ... ) : ViewModelProvider.Factory { ... }
+    private fun navigateToTransactionDetail(transaction: TransactionData) {
+        val intent = Intent(this, CategoriesActivity::class.java).apply {
+            putExtra("transaction_id", transaction.id)
+            putExtra("show_transaction_detail", true)
+        }
+        startActivity(intent)
+    }
+}
 
 // Preview function remains the same if needed for TransactionListScreen itself
 @Preview(showBackground = true)
