@@ -2,6 +2,7 @@ package com.example.finanzaspersonales.ui.settings
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.example.finanzaspersonales.data.local.SharedPrefsManager
 import com.example.finanzaspersonales.data.repository.TransactionRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.*
@@ -10,7 +11,8 @@ import javax.inject.Inject
 
 @HiltViewModel
 class SettingsViewModel @Inject constructor(
-    private val transactionRepository: TransactionRepository
+    private val transactionRepository: TransactionRepository,
+    private val sharedPrefsManager: SharedPrefsManager
     // TODO: Potentially inject CategoriesViewModel or a shared refresh trigger later
 ) : ViewModel() {
 
@@ -25,6 +27,15 @@ class SettingsViewModel @Inject constructor(
     // For Snackbar messages or other UI feedback
     private val _userMessage = MutableStateFlow<String?>(null)
     val userMessage: StateFlow<String?> = _userMessage.asStateFlow()
+    
+    // Forecasted income amount
+    private val _forecastedIncomeAmount = MutableStateFlow(0.0f)
+    val forecastedIncomeAmount: StateFlow<Float> = _forecastedIncomeAmount.asStateFlow()
+    
+    init {
+        // Load current forecasted income amount
+        _forecastedIncomeAmount.value = sharedPrefsManager.getMonthlyForecastedIncome()
+    }
 
     fun onConfirmReset() {
         _showConfirmationDialog.value = false
@@ -44,6 +55,21 @@ class SettingsViewModel @Inject constructor(
 
     fun clearUserMessage() {
         _userMessage.value = null
+    }
+    
+    /**
+     * Update the forecasted income amount
+     */
+    fun updateForecastedIncome(amount: Float) {
+        viewModelScope.launch {
+            try {
+                sharedPrefsManager.saveMonthlyForecastedIncome(amount)
+                _forecastedIncomeAmount.value = amount
+                _userMessage.value = "Forecasted income updated successfully"
+            } catch (e: Exception) {
+                _userMessage.value = "Failed to update forecasted income: ${e.message}"
+            }
+        }
     }
 
     private fun performFullUserResetAndResync() {

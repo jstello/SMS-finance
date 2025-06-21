@@ -35,9 +35,21 @@ class DashboardViewModel @Inject constructor(
     private val _monthlyIncome = MutableStateFlow(0.0f)
     val monthlyIncome: StateFlow<Float> = _monthlyIncome.asStateFlow()
     
-    // Monthly balance (income - expenses)
+    // Monthly balance (expected income - expenses)
     private val _monthlyBalance = MutableStateFlow(0.0f)
     val monthlyBalance: StateFlow<Float> = _monthlyBalance.asStateFlow()
+    
+    // Actual income received so far this month
+    private val _actualIncome = MutableStateFlow(0.0f)
+    val actualIncome: StateFlow<Float> = _actualIncome.asStateFlow()
+    
+    // Expected total income for the month (actual + forecasted)
+    private val _expectedIncome = MutableStateFlow(0.0f)
+    val expectedIncome: StateFlow<Float> = _expectedIncome.asStateFlow()
+    
+    // Forecasted income amount from settings
+    private val _forecastedIncome = MutableStateFlow(0.0f)
+    val forecastedIncome: StateFlow<Float> = _forecastedIncome.asStateFlow()
     
     // Recent transactions
     private val _recentTransactions = MutableStateFlow<List<TransactionData>>(emptyList())
@@ -161,9 +173,21 @@ class DashboardViewModel @Inject constructor(
                     }
                 }
                 
+                // Load forecasted income from settings
+                val forecastedIncomeAmount = sharedPrefsManager.getMonthlyForecastedIncome()
+                _forecastedIncome.value = forecastedIncomeAmount
+                
+                // Set actual income received so far
+                _actualIncome.value = incomeSum
+                
+                // Calculate expected total income (actual + remaining forecasted)
+                val expectedTotalIncome = calculateExpectedIncome(incomeSum, forecastedIncomeAmount)
+                _expectedIncome.value = expectedTotalIncome
+                
+                // Set monthly income to expected total for display
+                _monthlyIncome.value = expectedTotalIncome
                 _monthlyExpenses.value = expenseSum
-                _monthlyIncome.value = incomeSum
-                _monthlyBalance.value = incomeSum - expenseSum
+                _monthlyBalance.value = expectedTotalIncome - expenseSum
                 
                 // Get recent transactions (last 5)
                 _recentTransactions.value = allTransactions
@@ -184,6 +208,8 @@ class DashboardViewModel @Inject constructor(
                 _monthlyExpenses.value = 0.0f
                 _monthlyIncome.value = 0.0f
                 _monthlyBalance.value = 0.0f
+                _actualIncome.value = 0.0f
+                _expectedIncome.value = 0.0f
                 _recentTransactions.value = emptyList()
                 _categoryBreakdown.value = emptyList()
             } finally {
@@ -215,5 +241,27 @@ class DashboardViewModel @Inject constructor(
                 Log.e("DATABASE_LOG", "Error fetching database counts for logging", e)
             }
         }
+    }
+    
+    /**
+     * Calculate expected income for the month (actual received + remaining forecasted)
+     */
+    private fun calculateExpectedIncome(actualIncome: Float, forecastedIncomeAmount: Float): Float {
+        // Always include the full forecasted amount in expected income
+        // This gives a realistic view of what the end-of-month position should be
+        return actualIncome + forecastedIncomeAmount
+    }
+    
+    /**
+     * Update the forecasted income amount (called from settings)
+     */
+    fun updateForecastedIncome(amount: Float) {
+        sharedPrefsManager.saveMonthlyForecastedIncome(amount)
+        _forecastedIncome.value = amount
+        // Recalculate expected income and balance with new amount
+        val expectedTotalIncome = calculateExpectedIncome(_actualIncome.value, amount)
+        _expectedIncome.value = expectedTotalIncome
+        _monthlyIncome.value = expectedTotalIncome
+        _monthlyBalance.value = expectedTotalIncome - _monthlyExpenses.value
     }
 } 

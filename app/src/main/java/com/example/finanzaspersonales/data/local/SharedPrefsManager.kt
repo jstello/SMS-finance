@@ -30,6 +30,9 @@ class SharedPrefsManager(private val context: Context) {
     // Preferences for provider-category mappings
     private val providerCategoryPrefs = context.getSharedPreferences(PROVIDER_CATEGORY_PREFS, Context.MODE_PRIVATE)
     
+    // Preferences for app settings
+    private val settingsPrefs = context.getSharedPreferences(SETTINGS_PREFS, Context.MODE_PRIVATE)
+    
     /**
      * Save accounts
      */
@@ -173,18 +176,44 @@ class SharedPrefsManager(private val context: Context) {
         }
     }
     
+    /**
+     * Save the forecasted monthly income amount
+     */
+    fun saveMonthlyForecastedIncome(amount: Float) {
+        Log.d("SharedPrefsManager", "Saving monthly forecasted income: $amount")
+        try {
+            settingsPrefs.edit().putFloat(KEY_MONTHLY_FORECASTED_INCOME, amount).apply()
+            Log.d("SharedPrefsManager", "Successfully saved monthly forecasted income.")
+        } catch (e: Exception) {
+            Log.e("SharedPrefsManager", "Error saving monthly forecasted income to SharedPreferences", e)
+        }
+    }
+    
+    /**
+     * Load the forecasted monthly income amount
+     * Default is 15,254,625 pesos as specified
+     */
+    fun getMonthlyForecastedIncome(): Float {
+        return settingsPrefs.getFloat(KEY_MONTHLY_FORECASTED_INCOME, DEFAULT_MONTHLY_FORECASTED_INCOME)
+    }
+    
     companion object {
         private const val ACCOUNT_PREFS = "account_prefs"
         private const val CATEGORY_PREFS = "category_prefs"
         private const val TRANSACTION_PREFS = "transaction_prefs"
         private const val SYNC_PREFS = "sync_prefs"
         private const val PROVIDER_CATEGORY_PREFS = "provider_category_prefs" // New prefs file name
+        private const val SETTINGS_PREFS = "settings_prefs"
         
         private const val KEY_ACCOUNTS = "accounts"
         private const val KEY_CATEGORIES = "categories"
         private const val KEY_TRANSACTION_CATEGORIES = "transaction_categories"
         private const val KEY_INITIAL_SYNC_STATUS_PREFIX = "initial_sync_status"
         private const val KEY_PROVIDER_CATEGORY_MAPPINGS = "provider_category_mappings" // New key
+        private const val KEY_MONTHLY_FORECASTED_INCOME = "monthly_forecasted_income"
+        
+        // Default monthly forecasted income (15,254,625 pesos as specified)
+        private const val DEFAULT_MONTHLY_FORECASTED_INCOME = 15254625.0f
         
         // Default categories with stable UUIDs
         val DEFAULT_CATEGORIES = listOf(

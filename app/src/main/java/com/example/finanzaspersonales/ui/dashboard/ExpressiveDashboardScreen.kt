@@ -72,9 +72,12 @@ fun ExpressiveDashboardScreen(
 ) {
     val context = LocalContext.current
     val isLoading by viewModel.isLoading.collectAsState()
-    val monthlyIncome by viewModel.monthlyIncome.collectAsState()
+    val monthlyIncome by viewModel.monthlyIncome.collectAsState() // Expected total income
     val monthlyExpenses by viewModel.monthlyExpenses.collectAsState()
-    val monthlyBalance by viewModel.monthlyBalance.collectAsState()
+    val monthlyBalance by viewModel.monthlyBalance.collectAsState() // Expected balance
+    val actualIncome by viewModel.actualIncome.collectAsState() // Income received so far
+    val expectedIncome by viewModel.expectedIncome.collectAsState() // Total expected income
+    val forecastedIncome by viewModel.forecastedIncome.collectAsState() // Forecasted amount
     val recentTransactions by viewModel.recentTransactions.collectAsState()
     val categoryBreakdown by viewModel.categoryBreakdown.collectAsState()
     var showMenu by remember { mutableStateOf(false) }
@@ -204,7 +207,7 @@ fun ExpressiveDashboardScreen(
                                 Column(
                                     verticalArrangement = Arrangement.spacedBy(16.dp)
                                 ) {
-                                    // Balance
+                                    // Expected Balance (with forecasted income)
                                     Text(
                                         text = formatToMillions(monthlyBalance),
                                         style = MaterialTheme.typography.displayMedium,
@@ -212,7 +215,7 @@ fun ExpressiveDashboardScreen(
                                         color = if (monthlyBalance >= 0) SuccessGreen else ExpenseRed
                                     )
                                     Text(
-                                        text = "Current Balance",
+                                        text = "Expected End-of-Month Balance",
                                         style = MaterialTheme.typography.bodyLarge,
                                         color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f)
                                     )
@@ -230,10 +233,18 @@ fun ExpressiveDashboardScreen(
                                                 color = SuccessGreen
                                             )
                                             Text(
-                                                text = "Income",
+                                                text = "Expected Income",
                                                 style = MaterialTheme.typography.bodyMedium,
                                                 color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f)
                                             )
+                                            // Show breakdown of actual vs forecasted
+                                            if (actualIncome > 0 && forecastedIncome > 0) {
+                                                Text(
+                                                    text = "${formatToMillions(actualIncome)} received",
+                                                    style = MaterialTheme.typography.bodySmall,
+                                                    color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f)
+                                                )
+                                            }
                                         }
                                         Column {
                                             Text(
