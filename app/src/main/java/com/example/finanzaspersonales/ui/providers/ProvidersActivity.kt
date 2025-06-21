@@ -30,6 +30,8 @@ class ProvidersActivity : ComponentActivity() {
     // Define a constant for the Intent extra key
     companion object {
         const val EXTRA_PROVIDER_FILTER = "com.example.finanzaspersonales.PROVIDER_FILTER"
+        const val EXTRA_FROM_DATE = "com.example.finanzaspersonales.FROM_DATE"
+        const val EXTRA_TO_DATE = "com.example.finanzaspersonales.TO_DATE"
         const val EXTRA_SELECTED_DATE = "selected_date"
     }
 
@@ -48,9 +50,12 @@ class ProvidersActivity : ComponentActivity() {
                 ProvidersScreen(
                     viewModel = viewModel,
                     onBackClick = { finish() },
-                    onProviderClick = { providerName ->
-                        val intent = Intent(this, TransactionListActivity::class.java)
-                        intent.putExtra(EXTRA_PROVIDER_FILTER, providerName)
+                    onProviderClick = { providerName, from, to ->
+                        val intent = Intent(this, TransactionListActivity::class.java).apply {
+                            putExtra(EXTRA_PROVIDER_FILTER, providerName)
+                            putExtra(EXTRA_FROM_DATE, from)
+                            putExtra(EXTRA_TO_DATE, to)
+                        }
                         startActivity(intent)
                     }
                 )

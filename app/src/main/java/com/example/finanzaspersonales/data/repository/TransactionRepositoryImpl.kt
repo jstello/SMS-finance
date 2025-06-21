@@ -43,11 +43,34 @@ class TransactionRepositoryImpl @Inject constructor(
         }
     }
 
-    override suspend fun getTransactions(forceRefresh: Boolean): List<TransactionData> {
+    override suspend fun getTransactions(
+        forceRefresh: Boolean,
+        providerName: String?,
+        from: Long?,
+        to: Long?
+    ): List<TransactionData> {
         if (forceRefresh) {
-            refreshSmsData(0)
+            refreshSmsData(0) // Consider if this needs date range
         }
-        return transactionDao.getAllTransactions().first().map { it.toDomain() }
+
+        // Base query
+        var transactions = transactionDao.getAllTransactions().first().map { it.toDomain() }
+
+        // Apply provider filter
+        if (providerName != null) {
+            val trimmedFilter = providerName.trim()
+            transactions = transactions.filter {
+                it.provider?.trim().equals(trimmedFilter, ignoreCase = true) ||
+                it.contactName?.trim().equals(trimmedFilter, ignoreCase = true)
+            }
+        }
+
+        // Apply date range filter
+        if (from != null && to != null) {
+            transactions = transactions.filter { it.date.time in from..to }
+        }
+
+        return transactions
     }
 
     override suspend fun filterTransactions(

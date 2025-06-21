@@ -27,7 +27,7 @@ coroutines = "1.7.3"
 lifecycle = "2.7.0" # Used for viewmodel/livedata ktx
 constraintlayoutCompose = "1.0.1"
 room = "2.6.1" # Added for Room persistence
-mockito = "5.11.0" # Added Mockito Version
+mockito = "5.4.0" # Added Mockito Version
 
 [libraries]
 androidx-core-ktx = { group = "androidx.core", name = "core-ktx", version.ref = "coreKtx" }
@@ -81,6 +81,7 @@ androidx-compose-material-icons-core = { group = "androidx.compose.material", na
 # --- Added Mockito library definitions ---
 mockito-core = { group = "org.mockito", name = "mockito-core", version.ref = "mockito" }
 mockito-kotlin = { group = "org.mockito.kotlin", name = "mockito-kotlin", version.ref = "mockito" }
+kotlinx-coroutines-test = { group = "org.jetbrains.kotlinx", name = "kotlinx-coroutines-test", version.ref = "coroutines" }
 
 [plugins]
 android-application = { id = "com.android.application", version.ref = "agp" }

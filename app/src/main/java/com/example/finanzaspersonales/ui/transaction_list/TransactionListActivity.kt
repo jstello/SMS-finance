@@ -36,7 +36,10 @@ class TransactionListActivity : ComponentActivity() {
 
         setContent {
             FinanzasPersonalesTheme {
-                TransactionListScreen(viewModel = viewModel) // Pass Hilt injected ViewModel
+                TransactionListScreen(
+                    viewModel = viewModel,
+                    onBack = { finish() }
+                )
             }
         }
     }

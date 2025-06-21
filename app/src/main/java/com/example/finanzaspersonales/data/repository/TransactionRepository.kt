@@ -24,9 +24,14 @@ interface TransactionRepository {
     fun getTransactionsBetweenDates(startDate: Date, endDate: Date): Flow<List<TransactionData>>
     
     /**
-     * Get all transactions
+     * Get all transactions, with optional filters.
      */
-    suspend fun getTransactions(forceRefresh: Boolean = false): List<TransactionData>
+    suspend fun getTransactions(
+        forceRefresh: Boolean = false,
+        providerName: String? = null,
+        from: Long? = null,
+        to: Long? = null
+    ): List<TransactionData>
     
     /**
      * Filter transactions by year and month

@@ -32,7 +32,7 @@ enum class ProviderDateFilter { YTD, MONTH }
 fun ProvidersScreen(
     viewModel: ProvidersViewModel = viewModel(), // Use default viewModel() factory if needed, ensure Factory is provided in Activity
     onBackClick: () -> Unit,
-    onProviderClick: (String) -> Unit // Add callback for provider click
+    onProviderClick: (providerName: String, from: Long, to: Long) -> Unit // Add callback for provider click
 ) {
     var selectedFilter by remember { mutableStateOf(ProviderDateFilter.YTD) }
     val stats by viewModel.stats.collectAsState()
@@ -53,14 +53,19 @@ fun ProvidersScreen(
         }
     }
 
-    // Load initial data based on the default filter (YTD)
-    LaunchedEffect(selectedFilter) {
+    // Calculate and remember date range
+    val dateRange = remember(selectedFilter) {
         val to = System.currentTimeMillis()
         val from = when (selectedFilter) {
             ProviderDateFilter.YTD -> viewModel.getStartOfYearTimestamp()
             ProviderDateFilter.MONTH -> viewModel.getStartOfMonthTimestamp()
         }
-        viewModel.loadStats(from, to)
+        from to to
+    }
+
+    // Load initial data based on the default filter (YTD)
+    LaunchedEffect(dateRange) {
+        viewModel.loadStats(dateRange.first, dateRange.second)
     }
 
     Scaffold(
@@ -153,7 +158,7 @@ fun ProvidersScreen(
                             ProviderRow(
                                 stat = stat,
                                 maxTotal = maxTotal,
-                                onClick = { onProviderClick(stat.provider) } // Pass provider name up
+                                onClick = { onProviderClick(stat.provider, dateRange.first, dateRange.second) } // Pass provider name up
                             )
                         }
                     }

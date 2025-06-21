@@ -1,110 +1,207 @@
 package com.example.finanzaspersonales.ui.transaction_list
 
+import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.ArrowBack
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.automirrored.filled.Sort
+import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material3.*
-import androidx.compose.runtime.Composable
-import androidx.compose.runtime.collectAsState
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
+import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.example.finanzaspersonales.ui.transaction_list.TransactionUiModel
 import java.text.NumberFormat
 import java.text.SimpleDateFormat
-import java.util.Locale
-import androidx.activity.ComponentActivity
-import androidx.compose.ui.platform.LocalContext
-import com.example.finanzaspersonales.ui.providers.ProvidersActivity
-import androidx.compose.foundation.background
-import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.draw.clip
+import java.util.*
+import com.example.finanzaspersonales.data.model.Category
+import androidx.compose.foundation.ExperimentalFoundationApi
+import androidx.compose.foundation.combinedClickable
+import androidx.compose.material.icons.filled.Category
 
-@OptIn(ExperimentalMaterial3Api::class)
+@OptIn(ExperimentalMaterial3Api::class, ExperimentalFoundationApi::class)
 @Composable
-fun TransactionListScreen(viewModel: TransactionListViewModel) {
-    // Observe UI models with category names
-    val transactions by viewModel.transactionItems.collectAsState()
+fun TransactionListScreen(
+    viewModel: TransactionListViewModel,
+    onBack: () -> Unit
+) {
+    val transactionItems by viewModel.transactionItems.collectAsState()
     val isLoading by viewModel.isLoading.collectAsState()
     val error by viewModel.error.collectAsState()
+    val sortOrder by viewModel.sortOrder.collectAsState()
+    val categories by viewModel.categories.collectAsState()
+    val isAssigningCategory by viewModel.isAssigningCategory.collectAsState()
+    val assignmentResult by viewModel.assignmentResult.collectAsState()
 
-    // Access the filter directly from the ViewModel
-    val providerFilter = viewModel.providerFilter
+    // State for sort dropdown
+    var showSortDropdown by remember { mutableStateOf(false) }
+    
+    // State for category selection
+    var showCategoryDialog by remember { mutableStateOf(false) }
+    var selectedTransactionForCategory by remember { mutableStateOf<TransactionUiModel?>(null) }
+
+    // Handle assignment result
+    LaunchedEffect(assignmentResult) {
+        assignmentResult?.let { result ->
+            if (result.isSuccess) {
+                // Category assigned successfully
+                selectedTransactionForCategory = null
+                showCategoryDialog = false
+            }
+            // Clear the result after handling
+            viewModel.clearAssignmentResult()
+        }
+    }
 
     Scaffold(
         topBar = {
             TopAppBar(
-                title = {
-                    Text(if (providerFilter != null) "Transactions for $providerFilter" else "All Transactions")
-                },
+                title = { Text("Transactions") },
                 navigationIcon = {
-                    val context = LocalContext.current
-                    IconButton(onClick = { (context as? ComponentActivity)?.finish() }) {
+                    IconButton(onClick = onBack) {
                         Icon(
-                            imageVector = Icons.Filled.ArrowBack,
+                            imageVector = Icons.AutoMirrored.Filled.ArrowBack,
                             contentDescription = "Back"
                         )
                     }
                 },
-                 colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = MaterialTheme.colorScheme.primaryContainer,
-                    titleContentColor = MaterialTheme.colorScheme.onPrimaryContainer,
-                    navigationIconContentColor = MaterialTheme.colorScheme.onPrimaryContainer
-                )
+                actions = {
+                    // Sort button with dropdown
+                    Box {
+                        IconButton(onClick = { showSortDropdown = true }) {
+                            Icon(
+                                imageVector = Icons.AutoMirrored.Filled.Sort,
+                                contentDescription = "Sort"
+                            )
+                        }
+                        DropdownMenu(
+                            expanded = showSortDropdown,
+                            onDismissRequest = { showSortDropdown = false }
+                        ) {
+                            DropdownMenuItem(
+                                text = { Text("Date (Newest First)") },
+                                onClick = {
+                                    viewModel.updateSortOrder(SortOrder.DATE_DESC)
+                                    showSortDropdown = false
+                                }
+                            )
+                            DropdownMenuItem(
+                                text = { Text("Date (Oldest First)") },
+                                onClick = {
+                                    viewModel.updateSortOrder(SortOrder.DATE_ASC)
+                                    showSortDropdown = false
+                                }
+                            )
+                            DropdownMenuItem(
+                                text = { Text("Amount (Highest First)") },
+                                onClick = {
+                                    viewModel.updateSortOrder(SortOrder.AMOUNT_DESC)
+                                    showSortDropdown = false
+                                }
+                            )
+                            DropdownMenuItem(
+                                text = { Text("Amount (Lowest First)") },
+                                onClick = {
+                                    viewModel.updateSortOrder(SortOrder.AMOUNT_ASC)
+                                    showSortDropdown = false
+                                }
+                            )
+                        }
+                    }
+                }
             )
         }
-    ) { paddingValues ->
-        Column(modifier = Modifier
-            .padding(paddingValues)
-            .padding(16.dp)) {
+    ) { padding ->
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(padding)
+        ) {
             when {
                 isLoading -> {
-                    Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                        CircularProgressIndicator()
-                    }
+                    CircularProgressIndicator(
+                        modifier = Modifier.align(Alignment.Center)
+                    )
                 }
                 error != null -> {
-                    Box(modifier = Modifier.fillMaxSize().padding(16.dp), contentAlignment = Alignment.Center) {
-                        Text("Error: $error", color = MaterialTheme.colorScheme.error)
-                    }
+                    Text(
+                        text = "Error: $error",
+                        modifier = Modifier.align(Alignment.Center),
+                        color = MaterialTheme.colorScheme.error
+                    )
                 }
-                transactions.isEmpty() -> {
-                    Box(modifier = Modifier.fillMaxSize().padding(16.dp), contentAlignment = Alignment.Center) {
-                        Text(
-                            if (providerFilter == null) "No transactions found."
-                            else "No transactions found for '$providerFilter'."
-                        )
-                    }
+                transactionItems.isEmpty() -> {
+                    Text(
+                        text = "No transactions found",
+                        modifier = Modifier.align(Alignment.Center)
+                    )
                 }
                 else -> {
-                    LazyColumn(
-                        modifier = Modifier.fillMaxSize(),
-                        verticalArrangement = Arrangement.spacedBy(12.dp)
-                    ) {
-                        items(transactions, key = { it.transaction.id!! }) { item ->
-                            TransactionListItem(item = item)
-                            HorizontalDivider()
+                    LazyColumn {
+                        items(transactionItems) { item ->
+                            TransactionListItem(
+                                item = item,
+                                onLongClick = {
+                                    selectedTransactionForCategory = item
+                                    showCategoryDialog = true
+                                }
+                            )
                         }
                     }
                 }
             }
+
+            // Show loading overlay when assigning category
+            if (isAssigningCategory) {
+                Box(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .background(Color.Black.copy(alpha = 0.3f)),
+                    contentAlignment = Alignment.Center
+                ) {
+                    CircularProgressIndicator()
+                }
+            }
         }
+    }
+
+    // Category selection dialog
+    if (showCategoryDialog && selectedTransactionForCategory != null) {
+        CategorySelectorDialog(
+            categories = categories,
+            currentCategoryId = selectedTransactionForCategory!!.transaction.categoryId,
+            onDismiss = {
+                showCategoryDialog = false
+                selectedTransactionForCategory = null
+            },
+            onCategorySelected = { category ->
+                selectedTransactionForCategory?.transaction?.id?.let { transactionId ->
+                    category.id?.let { categoryId ->
+                        viewModel.assignCategoryToTransaction(transactionId, categoryId)
+                    }
+                }
+            }
+        )
     }
 }
 
+/**
+ * Individual transaction list item
+ */
+@OptIn(ExperimentalFoundationApi::class)
 @Composable
 fun TransactionListItem(
-    item: TransactionUiModel
+    item: TransactionUiModel,
+    onLongClick: () -> Unit
 ) {
     val currencyFormat = NumberFormat.getCurrencyInstance(Locale("es", "CO"))
     val dateFormat = SimpleDateFormat("dd MMM yyyy, HH:mm", Locale.getDefault())
@@ -112,7 +209,11 @@ fun TransactionListItem(
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(16.dp),
+            .padding(16.dp)
+            .combinedClickable(
+                onClick = { },
+                onLongClick = onLongClick
+            ),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.SpaceBetween
     ) {
@@ -147,7 +248,7 @@ fun TransactionListItem(
                     fontSize = 12.sp,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     maxLines = 1,
-                     overflow = TextOverflow.Ellipsis
+                    overflow = TextOverflow.Ellipsis
                 )
             }
         }
@@ -158,4 +259,60 @@ fun TransactionListItem(
             color = if (item.transaction.isIncome) Color(0xFF008000) else MaterialTheme.colorScheme.error // Darker Green
         )
     }
-} 
+}
+
+/**
+ * Dialog for selecting a category
+ */
+@Composable
+fun CategorySelectorDialog(
+    categories: List<Category>,
+    currentCategoryId: String?,
+    onDismiss: () -> Unit,
+    onCategorySelected: (Category) -> Unit
+) {
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("Select Category") },
+        text = {
+            LazyColumn(
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                items(categories) { category ->
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clickable { onCategorySelected(category) }
+                            .padding(vertical = 12.dp, horizontal = 8.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        // Category color indicator
+                        Box(
+                            modifier = Modifier
+                                .size(24.dp)
+                                .clip(CircleShape)
+                                .background(Color(category.color))
+                        )
+                        
+                        Spacer(modifier = Modifier.width(16.dp))
+                        
+                        // Category name
+                        Text(
+                            text = category.name,
+                            style = MaterialTheme.typography.bodyLarge,
+                            color = if (currentCategoryId == category.id) 
+                                MaterialTheme.colorScheme.primary
+                            else 
+                                MaterialTheme.colorScheme.onSurface
+                        )
+                    }
+                }
+            }
+        },
+        confirmButton = {
+            TextButton(onClick = onDismiss) {
+                Text("Cancel")
+            }
+        }
+    )
+}
